@@ -1,0 +1,66 @@
+{
+  "results": [
+    {
+      "name": "Criar hábito pela interface",
+      "passed": true
+    },
+    {
+      "name": "Conclusão persiste após recarregar e gera pontos uma vez",
+      "passed": true
+    },
+    {
+      "name": "Despesa em reais é salva como centavos",
+      "passed": true
+    },
+    {
+      "name": "Compra parcelada tem três parcelas e total exato",
+      "passed": true
+    },
+    {
+      "name": "Registro de sono calcula oito horas cruzando meia-noite",
+      "passed": true
+    },
+    {
+      "name": "Criar nota com conteúdo",
+      "passed": true
+    },
+    {
+      "name": "Edição obsoleta é rejeitada com conflito",
+      "passed": true
+    },
+    {
+      "name": "19 áreas navegam sem erros de renderização",
+      "passed": true
+    },
+    {
+      "name": "Agenda mensal exibe seis semanas completas",
+      "passed": true
+    },
+    {
+      "name": "Estudos e tarefas da casa aparecem no dia e na agenda",
+      "passed": true
+    },
+    {
+      "name": "Celular sem transbordamento e menu recolhido",
+      "passed": true
+    },
+    {
+      "name": "API rejeita visitantes sem sessão",
+      "passed": true
+    },
+    {
+      "name": "Segundo Pomodoro inicia outro identificador",
+      "passed": true
+    },
+    {
+      "name": "Reenvio após resposta perdida não duplica registro",
+      "passed": true
+    },
+    {
+      "name": "Console sem exceções de aplicação",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "verifiedAt": "2026-10-16T21:32:45.026Z"
+}

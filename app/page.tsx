@@ -1,0 +1,3 @@
+import {getChatGPTUser,chatGPTSignInPath} from './chatgpt-auth';import NorteApp from '@/components/norte/NorteApp';
+export const dynamic='force-dynamic';
+export default async function Home(){const user=await getChatGPTUser();if(!user)return <main className="login-screen"><div className="login-brand">N<span>↗</span></div><p className="eyebrow">NORTE · ROTINA COM DIREÇÃO</p><h1>Seu dia.<br/>No seu ritmo.</h1><p>Menos coisas na cabeça. Mais espaço para o que importa.</p><a className="button primary" href={chatGPTSignInPath('/')} target="_top">Entrar com ChatGPT <span>↗</span></a><small>Um espaço só seu para organizar a vida.</small></main>;return <NorteApp/>;}
