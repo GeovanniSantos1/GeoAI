@@ -1,6 +1,7 @@
 import {generateText,isStepCount,type ModelMessage} from 'ai';import {planFromText,todayInZone} from '@/lib/core';import type {Proposal} from '@/lib/types';import {proposalsText} from '@/lib/agent';import {config,agentModel,agentInstructions,agentTools,AI_UNAVAILABLE,GUIDED_REPLY,GUIDED_EMPTY} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';
 // Webhook público do bot. Só aceita chamadas com o segredo registrado no setWebhook e só responde a chats vinculados a uma conta.
 type Api=ReturnType<typeof telegramApi>;
+export const maxDuration=60;
 const HELP='Me conte o que você quer organizar ou pergunte sobre sua agenda, seus gastos e seus registros. Eu sugiro as ações e você confirma pelos botões.\n\nComandos: /ajuda e /desconectar.';
 const NOT_LINKED='Este chat ainda não está ligado a uma conta do GeoAI. No app, abra Configurações, procure GeoAI no Telegram e toque em Conectar Telegram.';
 const ok=()=>Response.json({ok:true});

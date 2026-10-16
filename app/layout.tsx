@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';import './globals.css';
+import type {Metadata} from 'next';import {ClerkProvider} from '@clerk/nextjs';import {ptBR} from '@clerk/localizations';import './globals.css';
 export const metadata:Metadata={title:'GeoAI — Seu dia com direção',description:'Organize sua rotina, cuide de você e avance no que importa.',manifest:'/manifest.webmanifest',icons:{icon:'/icon.svg',apple:'/icon.svg'}};
 const themeScript="try{if(localStorage.getItem('geoai-theme')==='dark')document.documentElement.dataset.theme='dark'}catch(e){}";
-export default function Layout({children}:{children:React.ReactNode}){return <html lang="pt-BR" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeScript}}/></head><body>{children}</body></html>;}
+export default function Layout({children}:{children:React.ReactNode}){return <html lang="pt-BR" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeScript}}/></head><body><ClerkProvider localization={ptBR} signInUrl="/sign-in" signUpUrl="/sign-up" afterSignOutUrl="/">{children}</ClerkProvider></body></html>;}

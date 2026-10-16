@@ -1,6 +1,6 @@
-import {env} from 'cloudflare:workers';import {createOpenAI} from '@ai-sdk/openai';import {tool} from 'ai';import {z} from 'zod';import {COLLECTIONS,type Workspace,type Proposal} from './types';import {agendaRange,financeReport,searchRecords,checkProposals,assistantBrief,PROPOSABLE} from './agent';
+import {createOpenAI} from '@ai-sdk/openai';import {tool} from 'ai';import {z} from 'zod';import {COLLECTIONS,type Workspace,type Proposal} from './types';import {agendaRange,financeReport,searchRecords,checkProposals,assistantBrief,PROPOSABLE} from './agent';
 // Modelo, instruções e ferramentas do assistente, compartilhados pelo chat do app e pelo bot do Telegram.
-export const config=()=>env as unknown as Record<string,string|undefined>;
+export const config=()=>process.env as Record<string,string|undefined>;
 export const AI_UNAVAILABLE='O assistente está indisponível agora. Tente novamente em instantes.';
 export const GUIDED_REPLY='Separei seu pedido em ações. Revise os detalhes antes de adicionar.';
 export const GUIDED_EMPTY='Não encontrei ações nesse texto. Tente frases como “Ler amanhã às 20:00; gastei 35,90 no almoço”.';
