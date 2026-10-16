@@ -21,7 +21,7 @@ const DATES=new Set(['date','deadline','startDate','dueDate','repeatUntil']);
 const TIMES=new Set(['time','endTime','bedtime','waketime','startTime']);
 VALID_KEYS.add('appliedPages');NUMBERS.add('appliedPages');
 export function emptyWorkspace(name=''): Workspace {
- const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'Norte',xp:0,points:0,avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c'},unlockedMoments:[]},completions:{},rewarded:[]};
+ const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c'},unlockedMoments:[]},completions:{},rewarded:[]};
  for(const key of COLLECTIONS)result[key]=[];return result;
 }
 export function validDate(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(value+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;}
