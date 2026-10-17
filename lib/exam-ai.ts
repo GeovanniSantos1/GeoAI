@@ -12,13 +12,13 @@ Você recebe os marcadores já conferidos pelo usuário e classificados pelo app
 - summary: 2 a 4 frases com a visão geral, considerando o protocolo e o dia do ciclo quando houver (no fim do intervalo os níveis costumam estar mais baixos; logo após a aplicação, mais altos) e a evolução em relação aos exames anteriores.
 - points: um item por marcador fora da faixa ou alerta, dizendo o que costuma significar e o que perguntar ao médico.
 - tips: até 5 hábitos ligados aos resultados (alimentação, sol e vitamina D, sono, treino, álcool, peso, estresse).
-Nunca sugira mudar dose, nem começar, parar ou comprar testosterona ou outros medicamentos (inibidores de aromatase, hCG etc.). Não dê diagnóstico: use "pode indicar" e "vale conversar com seu médico".`;
+Nunca sugira mudar dose, nem começar, parar ou comprar testosterona ou outros medicamentos (inibidores de aromatase, hCG etc.). Também não indique suplementos nem doses de suplementos; nesses casos, oriente conversar com o médico. Não dê diagnóstico: use "pode indicar" e "vale conversar com seu médico".`;
 const extraction=z.object({collectedAt:z.string().nullable(),lab:z.string().nullable(),markers:z.array(z.object({key:z.enum(MARKER_KEYS),label:z.string(),value:z.number(),qualifier:z.enum(['<','>']).nullable(),unit:z.string().nullable(),refMin:z.number().nullable(),refMax:z.number().nullable()})).max(80)});
 const review=z.object({overall:z.enum(['ok','attention','doctor']),summary:z.string(),points:z.array(z.object({marker:z.string(),text:z.string()})).max(12),tips:z.array(z.string()).max(5)});
 function model(){const m=agentModel();if(!m)throw new Error('IA não configurada');return m;}
 export async function extractExam(file:{data:Uint8Array;type:string;name:string}):Promise<ExtractedExam>{
- const {output}=await generateText({model:model(),instructions:EXTRACT,output:Output.object({schema:extraction}),messages:[{role:'user',content:[{type:'text',text:'Extraia os resultados deste laudo.'},{type:'file',mediaType:file.type,data:file.data,filename:file.name}]}],maxOutputTokens:8000,abortSignal:AbortSignal.timeout(45000)});
+ const {output}=await generateText({model:model(),instructions:EXTRACT,output:Output.object({schema:extraction}),messages:[{role:'user',content:[{type:'text',text:'Extraia os resultados deste laudo.'},{type:'file',mediaType:file.type,data:file.data,filename:file.name}]}],maxOutputTokens:8000,providerOptions:{openai:{store:false}},abortSignal:AbortSignal.timeout(45000)});
  return {date:output.collectedAt,lab:output.lab,markers:output.markers};}
 export async function reviewWithAi(input:{text:string}):Promise<ModelReview>{
- const {output}=await generateText({model:model(),instructions:REVIEW,output:Output.object({schema:review}),prompt:input.text,maxOutputTokens:4000,abortSignal:AbortSignal.timeout(45000)});
+ const {output}=await generateText({model:model(),instructions:REVIEW,output:Output.object({schema:review}),prompt:input.text,maxOutputTokens:4000,providerOptions:{openai:{store:false}},abortSignal:AbortSignal.timeout(45000)});
  return {...output,model:config().AI_MODEL||'ia'};}

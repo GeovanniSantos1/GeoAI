@@ -13,6 +13,9 @@ export const UNREADABLE='Não consegui ler este exame. Confira e digite os valor
 export const REVIEW_UNAVAILABLE='O parecer da IA está indisponível agora. A classificação dos valores já está salva; tente Revisar de novo em instantes.';
 const now=(d:ExamDeps)=>d.now?d.now():new Date();
 const result=(r:{state:Workspace;version:number},id:string,warning?:string)=>({...r,exam:r.state.labExams.find(e=>e.id===id) as Item,...(warning?{warning}:{})});
+// A IA pode passar do limite guardado; corta em vez de perder o parecer inteiro.
+const cut=(v:unknown,n:number)=>typeof v==='string'?v.slice(0,n):v;
+function clipReview(r:ModelReview){return {...r,summary:cut(r.summary,1500),points:Array.isArray(r.points)?r.points.slice(0,12).map(p=>p&&typeof p==='object'?{...p,marker:cut(p.marker,80),text:cut(p.text,600)}:p):r.points,tips:Array.isArray(r.tips)?r.tips.slice(0,8).map(x=>cut(x,300)):r.tips};}
 const safeName=(name:string,ext:string)=>name.split('').filter(c=>c>=' '&&c!=='/'&&c!=='\\').join('').trim().slice(0,200)||'exame.'+ext;
 function cleanExtracted(x:ExtractedExam,today:string){
  const markers=(Array.isArray(x?.markers)?x.markers:[]).flatMap(m=>{try{return cleanMarkers([m]);}catch{return [] as Marker[];}}).slice(0,80);
@@ -42,11 +45,11 @@ export async function reviewExam(d:ExamDeps,id:string,input:{date?:unknown;lab?:
  if(typeof input.date!=='string'||!validDate(input.date)||input.date>today)throw new ExamError('Informe a data da coleta (hoje ou antes).');
  const markers=cleanMarkers(input.markers);if(!markers.length)throw new ExamError('Informe pelo menos um marcador.');
  const lab=typeof input.lab==='string'&&input.lab.trim()?input.lab.trim().slice(0,120):undefined;
- const exam:Item={...current,date:input.date,title:examTitle(input.date),markers,status:'reviewed'};delete exam.review;delete exam.lab;if(lab)exam.lab=lab;
+ const unchanged=current.date===input.date&&JSON.stringify(current.markers)===JSON.stringify(markers);const exam:Item={...current,date:input.date,title:examTitle(input.date),markers,status:'reviewed'};if(!(unchanged&&current.review))delete exam.review;delete exam.lab;if(lab)exam.lab=lab;
  const ctx=reviewContext({id,date:input.date,markers},state);let warning:string|undefined;
  if(!d.review)warning=REVIEW_UNAVAILABLE;
  else if(!await d.quota('exam_review',today))warning='Você atingiu o limite de pareceres de hoje. A classificação dos valores já está salva.';
- else{try{const r=await d.review({text:ctx.text});exam.review=cleanReview({...r,overall:mergeOverall(ctx.codeOverall,r.overall),reviewedAt:now(d).toISOString()});}catch(e){console.error('exam:review',e instanceof Error?e.message:'erro');warning=REVIEW_UNAVAILABLE;}}
+ else{try{const r=clipReview(await d.review({text:ctx.text}));exam.review=cleanReview({...r,overall:mergeOverall(ctx.codeOverall,r.overall),reviewedAt:now(d).toISOString()});}catch(e){console.error('exam:review',e instanceof Error?e.message:'erro');warning=REVIEW_UNAVAILABLE;}}
  return result(await d.mutate({type:'upsert',collection:'labExams',item:exam}),id,warning);
 }
 export async function deleteExam(d:ExamDeps,id:string){const {exam}=await findExam(d,id);
