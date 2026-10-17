@@ -35,7 +35,7 @@ export function criticalFlags(exam:{date:string;markers:Marker[]},history:Item[]
  if(hct&&hct.unit?.trim()==='%'&&hct.value>=54)flags.push('Hematócrito em '+fmt(hct.value)+'%: a partir de 54% pede avaliação médica logo.');
  const psa=find(exam.markers,'psa_total');
  if(psa&&classifyMarker(psa)==='high')flags.push('PSA acima da faixa de referência do laudo.');
- else if(psa&&isNgMl(psa.unit)){const since=addDays(exam.date,-365);const previous=history.filter(h=>h.status==='reviewed'&&h.date>=since&&h.date<exam.date).map(h=>find(h.markers,'psa_total')).filter((x):x is Marker=>!!x&&isNgMl(x.unit));if(previous.length){const rise=psa.value-Math.min(...previous.map(x=>x.value));if(rise>1.4)flags.push('PSA subiu '+fmt(rise)+' ng/mL em menos de 12 meses.');}}
+ else if(psa&&isNgMl(psa.unit)){const since=addDays(exam.date,-365);const previous=history.filter(h=>h.status==='reviewed'&&h.date>=since&&h.date<exam.date).map(h=>find(h.markers,'psa_total')).filter((x):x is Marker=>!!x&&isNgMl(x.unit));if(previous.length){const rise=Math.round((psa.value-Math.min(...previous.map(x=>x.value)))*100)/100;if(rise>1.4)flags.push('PSA subiu '+fmt(rise)+' ng/mL em menos de 12 meses.');}}
  return flags;
 }
 export const codeOverall=(markers:Marker[],flags:string[]):Overall=>flags.length?'doctor':markers.some(m=>['low','high'].includes(classifyMarker(m)))?'attention':'ok';

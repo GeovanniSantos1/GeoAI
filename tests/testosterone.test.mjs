@@ -48,6 +48,7 @@ test('alertas críticos de hematócrito e PSA',()=>{
  assert.equal(criticalFlags({date:'2026-10-02',markers:[m('psa_total',4.5,{unit:'ng/mL',refMax:4})]},[]).length,1);
  const old=[{id:'a',title:'A',status:'reviewed',date:'2026-01-10',markers:[m('psa_total',0.8,{unit:'ng/mL'})]},{id:'b',title:'B',status:'reviewed',date:'2025-06-01',markers:[m('psa_total',0.1,{unit:'ng/mL'})]},{id:'c',title:'C',status:'draft',date:'2026-05-01',markers:[m('psa_total',0.2,{unit:'ng/mL'})]}];
  assert.match(criticalFlags({date:'2026-10-02',markers:[m('psa_total',2.3,{unit:'ng/mL',refMax:4})]},old)[0],/subiu 1,5/);
+ assert.deepEqual(criticalFlags({date:'2026-10-02',markers:[m('psa_total',2.2,{unit:'ng/mL',refMax:4})]},old),[]);
  assert.deepEqual(criticalFlags({date:'2026-10-02',markers:[m('psa_total',2.1,{unit:'ng/mL',refMax:4})]},old),[]);});
 test('situação geral: o código define o piso e a IA não rebaixa',()=>{
  assert.equal(codeOverall([m('shbg',30,{refMin:10,refMax:57})],[]),'ok');
