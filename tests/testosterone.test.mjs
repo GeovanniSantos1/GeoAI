@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyWorkspace, validateItem, validateWorkspace, applyCommand, upgradeWorkspace } from '../lib/core.ts';
-
+import { emptyWorkspace, validateItem, validateWorkspace, applyCommand, upgradeWorkspace, scheduledItems, isComplete } from '../lib/core.ts';
 const protocol={id:'p1',title:'Durateston',dose:250,unit:'mg',intervalDays:14,startDate:'2026-09-01',status:'active',remind:true};
 
 test('valida exames com marcadores, parecer e arquivo',()=>{const e=validateItem('labExams',{title:'Exame de 02/10/2026',date:'2026-10-02',markers:[{key:'testosterona_total',label:'Testosterona total',value:312,unit:'ng/dL',refMin:249,refMax:836},{key:'xyz',label:'Ferritina',value:80}],file:{path:'exames/user_1/e1-ab.pdf',name:'laudo.pdf',type:'application/pdf',size:1200},review:{overall:'ok',summary:'Tudo certo.',points:[],tips:['Durma bem.'],reviewedAt:'2026-10-02T10:00:00Z',model:'gpt-6-luna'}});assert.equal(e.status,'draft');assert.equal(e.markers[1].key,'outro');assert.equal(e.file.path,'exames/user_1/e1-ab.pdf');assert.equal(e.review.tips[0],'Durma bem.');});
@@ -92,3 +91,10 @@ test('contexto do parecer traz classificação, alertas, ciclo e histórico',()=
  const ctx=reviewContext({id:'new',date:'2026-10-02',markers:[m('testosterona_total',612,{unit:'ng/dL',refMin:249,refMax:836}),m('hematocrito',55,{unit:'%',refMin:40,refMax:50})]},s);
  assert.equal(ctx.codeOverall,'doctor');assert.match(ctx.text,/testosterona_total.*Normal/);assert.match(ctx.text,/12 dia\(s\) após a última aplicação/);assert.match(ctx.text,/Exame anterior \(2026-04-01\): testosterona_total 280 ng\/dL/);assert.match(ctx.text,/Hematócrito em 55%/);
  assert.equal(examTitle('2026-10-02'),'Exame de 02/10/2026');});
+test('agenda mostra a aplicação prevista e marca como feita quando registrada',()=>{let s=emptyWorkspace('Geo');s.trtProtocols=[{...protocol}];
+ assert.deepEqual(scheduledItems(s,'2026-09-01').map(x=>[x.title,x._collection,x.type]),[['Aplicação: Durateston','trtProtocols','event']]);
+ assert.equal(scheduledItems(s,'2026-09-15').length,0);
+ s.trtDoses=[{id:'d1',title:'Aplicação',protocolId:'p1',date:'2026-09-01'}];
+ assert.equal(isComplete(s,scheduledItems(s,'2026-09-01')[0],'2026-09-01'),true);
+ assert.equal(scheduledItems(s,'2026-09-15').length,1);assert.equal(isComplete(s,scheduledItems(s,'2026-09-15')[0],'2026-09-15'),false);
+ s.trtProtocols[0].status='paused';assert.equal(scheduledItems(s,'2026-09-15').length,0);});
