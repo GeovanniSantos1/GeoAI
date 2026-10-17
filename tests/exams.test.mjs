@@ -42,3 +42,6 @@ test('arquivo só abre para o dono e some ao excluir o exame',async()=>{const fi
  const forged=structuredClone(box.state);forged.labExams[0].file.path='exames/user_9/roubado.pdf';await files.save('exames/user_9/roubado.pdf',PDF,'application/pdf');
  await assert.rejects(readExamFile(harness({files,state:forged}).deps,exam.id),{status:404});
  await deleteExam(deps,exam.id);assert.equal(box.state.labExams.length,0);assert.equal(await files.read(exam.file.path),null);});
+test('excluir exame com caminho forjado não apaga arquivo de outra conta',async()=>{const files=memoryFileStore();const {deps,box}=harness({files});const {exam}=await createExamFromFile(deps,{bytes:PDF,name:'laudo.pdf'});
+ await files.save('exames/user_9/alvo.pdf',PDF,'application/pdf');const forged=structuredClone(box.state);forged.labExams[0].file.path='exames/user_9/alvo.pdf';const h=harness({files,state:forged});
+ await deleteExam(h.deps,exam.id);assert.equal(h.box.state.labExams.length,0);assert.ok(await files.read('exames/user_9/alvo.pdf'));});

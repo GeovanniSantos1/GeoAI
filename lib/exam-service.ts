@@ -50,7 +50,7 @@ export async function reviewExam(d:ExamDeps,id:string,input:{date?:unknown;lab?:
  return result(await d.mutate({type:'upsert',collection:'labExams',item:exam}),id,warning);
 }
 export async function deleteExam(d:ExamDeps,id:string){const {exam}=await findExam(d,id);
- if(exam.file){if(!d.files)throw new ExamError('Exclusão de arquivos indisponível no momento. Tente mais tarde.',503);await d.files.remove([exam.file.path]);}
+ if(exam.file){if(!d.files)throw new ExamError('Exclusão de arquivos indisponível no momento. Tente mais tarde.',503);if(typeof exam.file.path==='string'&&exam.file.path.startsWith(examPrefix(d.userId)))await d.files.remove([exam.file.path]);}
  return await d.mutate({type:'delete',collection:'labExams',id});}
 export async function readExamFile(d:ExamDeps,id:string):Promise<StoredFile&{name:string}>{const {exam}=await findExam(d,id);const file=exam.file;
  if(!file||!d.files||typeof file.path!=='string'||!file.path.startsWith(examPrefix(d.userId)))throw new ExamError('Arquivo não encontrado.',404);
