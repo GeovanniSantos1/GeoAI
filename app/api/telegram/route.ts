@@ -1,4 +1,4 @@
-import {generateText,isStepCount,type ModelMessage} from 'ai';import {planFromText,todayInZone} from '@/lib/core';import type {Proposal} from '@/lib/types';import {proposalsText} from '@/lib/agent';import {config,agentModel,agentInstructions,agentTools,AI_UNAVAILABLE,GUIDED_REPLY,GUIDED_EMPTY} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';
+import {generateText,isStepCount,type ModelMessage} from 'ai';import {planFromText,todayInZone} from '@/lib/core';import type {Proposal} from '@/lib/types';import {proposalsText} from '@/lib/agent';import {config,agentModel,agentInstructions,agentTools,AI_UNAVAILABLE,GUIDED_REPLY,GUIDED_EMPTY} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {parseTrtCallback,trtCallbackAction} from '@/lib/trt-reminders';
 // Webhook público do bot. Só aceita chamadas com o segredo registrado no setWebhook e só responde a chats vinculados a uma conta.
 type Api=ReturnType<typeof telegramApi>;
 export const maxDuration=60;
@@ -35,8 +35,12 @@ async function onMessage(api:Api,e:Extract<TelegramEvent,{kind:'message'}>){cons
 async function onCallback(api:Api,e:Extract<TelegramEvent,{kind:'callback'}>){const answer=(text:string)=>api('answerCallbackQuery',{callback_query_id:e.callbackId,text}).catch(()=>{});
  const link=await getLinkByChat(e.chatId);if(!link)return answer('Este chat não está conectado ao GeoAI.');
  if(!await claimUpdate(e.chatId,e.updateId))return answer('');
- const [action,id]=e.data.split(':'),group=id?link.pending[id]:undefined;
  const clearButtons=()=>api('editMessageReplyMarkup',{chat_id:e.chatId,message_id:e.messageId,reply_markup:{inline_keyboard:[]}}).catch(()=>{});
+ const trt=parseTrtCallback(e.data);
+ if(trt){const {state}=await loadWorkspace(link.userId,'');const r=trtCallbackAction(state,todayInZone(state.profile.timezone),trt);
+  if(r.command){try{await mutateWorkspace(link.userId,'',r.command);}catch(err){console.error('telegram trt',err);return answer('Não foi possível salvar agora. Tente de novo.');}}
+  await clearButtons();await answer(trt.action==='done'?'Registrado!':'Adiado.');return sendText(api,e.chatId,r.reply);}
+ const [action,id]=e.data.split(':'),group=id?link.pending[id]:undefined;
  if(!group||!['add','drop'].includes(action)){await clearButtons();return answer('Essas sugestões não estão mais disponíveis.');}
  if(action==='add'){try{await mutateWorkspace(link.userId,'',{type:'confirmPlan',items:group.items});}catch(err){console.error('telegram confirm',err);return answer('Não foi possível salvar agora. Tente de novo.');}}
  await clearButtons();

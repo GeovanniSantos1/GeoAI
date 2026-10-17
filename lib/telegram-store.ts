@@ -14,3 +14,4 @@ export async function unlinkUser(userId:string){await getDb().delete(telegramLin
 // O Telegram reenvia a atualização quando não recebe resposta a tempo; só a primeira entrega é processada.
 export async function claimUpdate(chatId:string,updateId:number){return (await getDb().update(telegramLinks).set({lastUpdateId:updateId}).where(and(eq(telegramLinks.chatId,chatId),lt(telegramLinks.lastUpdateId,updateId))).returning({chatId:telegramLinks.chatId})).length>0;}
 export async function saveConversation(chatId:string,history:HistoryEntry[],pending:Pending){await getDb().update(telegramLinks).set({history:JSON.stringify(history),pending:JSON.stringify(pending)}).where(eq(telegramLinks.chatId,chatId));}
+export async function listLinks(){return await getDb().select({chatId:telegramLinks.chatId,userId:telegramLinks.userId}).from(telegramLinks);}
