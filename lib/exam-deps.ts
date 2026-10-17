@@ -1,0 +1,5 @@
+import {loadWorkspace,mutateWorkspace,jsonError} from './workspace-server';import {examFiles} from './exam-files';import {consumeQuota} from './quota';import {extractExam,reviewWithAi} from './exam-ai';import {agentModel} from './agent-runtime';import {ExamError,type ExamDeps} from './exam-service';
+// Liga os casos de uso dos exames ao banco, ao Blob e à IA configurada.
+export function examDeps(userId:string):ExamDeps{const ai=!!agentModel();return {userId,load:()=>loadWorkspace(userId,''),mutate:command=>mutateWorkspace(userId,'',command),files:examFiles(),quota:(kind,day)=>consumeQuota(userId,kind,day),extract:ai?extractExam:null,review:ai?reviewWithAi:null};}
+export const examResponse=(body:unknown)=>Response.json(body,{headers:{'Cache-Control':'no-store'}});
+export function examError(error:unknown){if(error instanceof ExamError)return jsonError(error.message,error.status);const message=error instanceof Error?error.message:'Não foi possível concluir agora.';if(/outra aba/.test(message))return jsonError(message,409);console.error('exams',message);return jsonError(message,400);}
