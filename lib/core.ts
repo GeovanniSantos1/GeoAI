@@ -1,5 +1,6 @@
 import { COLLECTIONS } from './types.ts';
 import type { Workspace, Item, Collection, Command, Proposal } from './types.ts';
+import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -20,6 +21,10 @@ const NUMBERS=new Set(['amount','target','current','duration','day','quantity','
 const DATES=new Set(['date','deadline','startDate','dueDate','repeatUntil']);
 const TIMES=new Set(['time','endTime','bedtime','waketime','startTime']);
 VALID_KEYS.add('appliedPages');NUMBERS.add('appliedPages');
+for(const key of ['lab','markers','file','review','createdOn','dose','intervalDays','doctor','remind','remindedOn','snoozedUntil','protocolId','site'])VALID_KEYS.add(key);NUMBERS.add('dose');NUMBERS.add('intervalDays');for(const key of ['createdOn','remindedOn','snoozedUntil'])DATES.add(key);
+// Coleções criadas depois do lançamento: espaços e backups antigos ganham a lista vazia.
+const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses'];
+export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,unknown>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];}return raw;}
 export function emptyWorkspace(name=''): Workspace {
  const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c'},unlockedMoments:[]},completions:{},rewarded:[]};
  for(const key of COLLECTIONS)result[key]=[];return result;
@@ -43,13 +48,16 @@ export function validateItem(collection:string,raw:any):Item{
   if(NUMBERS.has(key)){if(typeof value!=='number'||!Number.isFinite(value)||value<0||value>1e12)throw new Error('Valor inválido: '+key);if(['amount','costPerDay'].includes(key)&&!Number.isSafeInteger(value))throw new Error('Valores devem usar centavos inteiros');item[key]=value;}
   else if(DATES.has(key)){if(typeof value!=='string'||!validDate(value))throw new Error('Data inválida');item[key]=value;}
   else if(TIMES.has(key)){if(typeof value!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw new Error('Horário inválido');item[key]=value;}
-  else if(key==='checked'){if(typeof value!=='boolean')throw new Error('Campo de conclusão inválido');item[key]=value;}
+  else if(key==='checked'||key==='remind'){if(typeof value!=='boolean')throw new Error('Campo de conclusão inválido');item[key]=value;}
+  else if(key==='markers')item[key]=cleanMarkers(value);
+  else if(key==='review')item[key]=cleanReview(value);
+  else if(key==='file')item[key]=cleanFile(value);
   else if(typeof value==='string'){if(value.length>10000)throw new Error('Texto muito longo');item[key]=value;}
   else if(Array.isArray(value)&&['weekdays','paidMonths','tags'].includes(key)&&value.length<=100&&value.every(x=>typeof x==='string'||typeof x==='number'))item[key]=value;
   else throw new Error('Tipo inválido para '+key);
  }
  if(item.repeat&&!['none','daily','weekdays','weekly','monthly'].includes(item.repeat))throw new Error('Repetição inválida');
- if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
+ if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
  if(['transactions','bills'].includes(collection)&&(!Number.isSafeInteger(item.amount)||item.amount<=0))throw new Error('Informe um valor maior que zero');
  if(collection==='bills'&&(!Number.isInteger(item.day)||item.day<1||item.day>31))throw new Error('Informe um dia entre 1 e 31');
  if(['books','readingLogs'].includes(collection)&&(!Number.isInteger(item.pages)||item.pages<1))throw new Error('Informe a quantidade de páginas');
@@ -60,10 +68,14 @@ export function validateItem(collection:string,raw:any):Item{
  if(collection==='journal'&&(!Number.isInteger(item.mood)||item.mood<1||item.mood>5))throw new Error('Humor inválido');
  if(collection==='sleep'&&(!Number.isInteger(item.quality)||item.quality<1||item.quality>5))throw new Error('Informe a qualidade da noite');
  if(collection==='sleep'){if(!item.date||!item.bedtime||!item.waketime)throw new Error('Preencha a noite e os horários');item.duration=sleepDuration(item.bedtime,item.waketime);}
+ if(collection==='labExams'){item.status??='draft';if(!['draft','reviewed'].includes(item.status))throw new Error('Situação do exame inválida');item.markers??=[];}
+ if(collection==='trtProtocols'){if(!item.startDate)throw new Error('Informe o início do protocolo');if(!(item.dose>0))throw new Error('Informe a dose');if(!Number.isInteger(item.intervalDays)||item.intervalDays<1||item.intervalDays>90)throw new Error('Informe o intervalo entre 1 e 90 dias');item.unit??='mg';if(!['mg','mL','g'].includes(item.unit))throw new Error('Unidade inválida');item.status??='active';if(!['active','paused'].includes(item.status))throw new Error('Situação do protocolo inválida');}
+ if(collection==='trtDoses'){if(typeof item.protocolId!=='string'||!/^[\w-]{1,100}$/.test(item.protocolId))throw new Error('Escolha o protocolo');if(item.dose!==undefined&&!(item.dose>0))throw new Error('Dose inválida');}
  if(item.repeatUntil&&item.date&&item.repeatUntil<item.date)throw new Error('Término anterior ao início');
  return item;
 }
 export function validateWorkspace(raw:any):Workspace{
+ raw=upgradeWorkspace(raw&&typeof raw==='object'?{...raw}:raw);
  if(!raw||typeof raw!=='object'||!raw.profile||COLLECTIONS.some(k=>!Array.isArray(raw[k])))throw new Error('Backup não reconhecido');
  const s=emptyWorkspace();s.profile=cleanProfile(raw.profile,s.profile);
  // Restore earned progress only from validated backup; this is personal progress, not a purchased balance.
@@ -94,6 +106,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   if(index>=0&&command.item?._rev!==undefined&&command.item._rev!==(s[col][index]._rev||0))throw new Error('Este registro foi atualizado em outra aba. Feche o formulário e abra novamente.');
   item._rev=(index>=0?s[col][index]._rev||0:0)+1;
   if(['journal','sleep'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
+  if(col==='trtDoses'&&s.trtDoses.some(x=>x.protocolId===item.protocolId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma aplicação deste protocolo nesta data. Edite o registro existente.');
   if(col==='readingLogs'){const previous=index>=0?s[col][index]:undefined;if(previous){const oldBook=s.books.find(x=>x.id===previous.bookId);if(oldBook){oldBook.pagesRead=Math.max(0,(oldBook.pagesRead||0)-(previous.appliedPages??previous.pages));if(oldBook.status==='done'&&oldBook.pagesRead<oldBook.pages)oldBook.status='active';}}const book=s.books.find(x=>x.id===item.bookId);if(!book)throw new Error('Selecione um livro da sua biblioteca');item.appliedPages=Math.min(item.pages,Math.max(0,book.pages-(book.pagesRead||0)));book.pagesRead=(book.pagesRead||0)+item.appliedPages;if(book.pagesRead>=book.pages)book.status='done';}
   if(index<0&&s[col].length>=2000)throw new Error('Limite da coleção atingido');if(index<0)s[col].push(item);else s[col][index]=item;
   if(col==='journal')reward(s,'journal:'+item.date,15);
@@ -107,6 +120,10 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   s[col]=s[col].filter(x=>x.id!==command.id);
   if(col==='objectives')s.tasks.forEach(t=>{if(t.objectiveId===command.id)delete t.objectiveId;});
   if(col==='rooms')s.chores.forEach(t=>{if(t.roomId===command.id)delete t.roomId;});
+ }else if(command.type==='patch'){
+  const col=command.collection as Collection;if(!(COLLECTIONS as readonly string[]).includes(col))throw new Error('Coleção inválida');const current=get(col,command.id);
+  if(!command.item||typeof command.item!=='object')throw new Error('Alteração inválida');
+  const item=validateItem(col,{...current,...command.item,id:current.id});item._rev=(current._rev||0)+1;s[col]=s[col].map(x=>x.id===current.id?item:x);
  }else if(command.type==='toggleTask'){
   const item=get('tasks',command.id);const date=command.date||today;if(date>today||!occursOn(item,date))throw new Error('Ocorrência indisponível');const key=item.id+':'+date;s.completions[key]=command.done===undefined?!s.completions[key]:!!command.done;
   if(s.completions[key])reward(s,'task:'+key,10);
@@ -140,6 +157,11 @@ export function planFromText(text:string,today:string):Proposal[]{
  });
 }
 export function financeSummary(s:Workspace,month:string){const monthRows=s.transactions.filter(x=>x.date?.startsWith(month));const income=monthRows.filter(x=>x.direction==='income').reduce((a,x)=>a+x.amount,0);const expense=monthRows.filter(x=>x.direction==='expense').reduce((a,x)=>a+x.amount,0);const all=s.transactions.filter(x=>x.date<=month+'-31');const balance=s.profile.openingBalance+all.reduce((a,x)=>a+(x.direction==='income'?x.amount:-x.amount),0);return{income,expense,balance,remaining:s.profile.budget-expense};}
-export function scheduledItems(s:Workspace,date:string):Item[]{return [...s.tasks.map(x=>({...x,_collection:'tasks'})),...s.chores.map(x=>({...x,_collection:'chores',type:'task',section:'casa'})),...s.activities.map(x=>({...x,_collection:'activities',type:'task',section:'estudos'}))].filter(x=>occursOn(x,date));}
-export function isComplete(s:Workspace,item:Item,date:string){const source=item._collection||'tasks';return !!s.completions[(source==='tasks'?'':source+'-')+item.id+':'+date]||(source==='activities'&&item.status==='done')||(source==='chores'&&item.checked&&item.date===date);}
+// Próxima aplicação de um protocolo: última aplicação (antes de `before`, quando informado) + intervalo; sem aplicações, a data de início.
+export function nextApplicationDate(protocol:Item,doses:Item[],before?:string):string{const last=doses.filter(d=>d.protocolId===protocol.id&&validDate(d.date)&&(!before||d.date<before)).map(d=>d.date as string).sort().pop();return last?addDays(last,protocol.intervalDays||0):protocol.startDate;}
+export function scheduledItems(s:Workspace,date:string):Item[]{
+ // Aplicações de testosterona entram como compromissos calculados: não são salvas em tasks.
+ const applications=s.trtProtocols.filter(p=>p.status==='active'&&nextApplicationDate(p,s.trtDoses,date)===date).map(p=>({id:p.id,title:'Aplicação: '+p.title,type:'event',section:'testosterona',_collection:'trtProtocols'}));
+ return [...[...s.tasks.map(x=>({...x,_collection:'tasks'})),...s.chores.map(x=>({...x,_collection:'chores',type:'task',section:'casa'})),...s.activities.map(x=>({...x,_collection:'activities',type:'task',section:'estudos'}))].filter(x=>occursOn(x,date)),...applications];}
+export function isComplete(s:Workspace,item:Item,date:string){const source=item._collection||'tasks';return !!s.completions[(source==='tasks'?'':source+'-')+item.id+':'+date]||(source==='activities'&&item.status==='done')||(source==='chores'&&item.checked&&item.date===date)||(source==='trtProtocols'&&s.trtDoses.some(d=>d.protocolId===item.id&&d.date===date));}
 

@@ -1,4 +1,4 @@
-import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck} from 'lucide-react';
+import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck,FlaskConical} from 'lucide-react';
 import type {Collection,Workspace} from '@/lib/types';
 export const NAV=[
 {id:'inicio',path:'/',label:'Meu dia',icon:House,group:'SEU DIA'},
@@ -11,6 +11,7 @@ export const NAV=[
 {id:'cuidados',path:'/beleza',label:'Cuidados pessoais',icon:Sparkles,group:'CUIDE DE VOCÊ'},
 {id:'journal',path:'/journal',label:'Bem-estar',icon:Heart,group:'CUIDE DE VOCÊ'},
 {id:'sono',path:'/sono',label:'Sono',icon:Moon,group:'CUIDE DE VOCÊ'},
+{id:'testosterona',path:'/testosterona',label:'Testosterona',icon:FlaskConical,group:'CUIDE DE VOCÊ'},
 {id:'vicios',path:'/vicios',label:'Novos caminhos',icon:ShieldCheck,group:'CUIDE DE VOCÊ'},
 {id:'financas',path:'/financas',label:'Finanças',icon:Wallet,group:'SUA VIDA EM ORDEM'},
 {id:'estudos',path:'/estudos',label:'Estudos & leituras',icon:BookOpen,group:'SUA VIDA EM ORDEM'},
@@ -53,8 +54,11 @@ vices:[{...title,label:'O que você quer deixar para trás?'},{key:'startDate',l
 relapses:[title,date,{key:'viceId',label:'Qual caminho?',type:'select',source:'vices',required:true},{key:'trigger',label:'O que desencadeou?',type:'textarea'},notes],
 notes:[title,cat(['Ideias','Tarefas','Compras','Notas']),{key:'content',label:'Tire da cabeça',type:'textarea',required:true}],
 reviews:[title,date,{key:'category',label:'Direção da próxima semana',type:'select',options:[['space','Mais espaço livre'],['progress','Avançar no objetivo'],['keep','Manter o ritmo'],['reorganize','Reorganizar horários']]},{key:'content',label:'Reflexão da semana',type:'textarea'}],
-focusSessions:[title,date,{key:'duration',label:'Minutos de foco',type:'number',min:1,default:25},notes]
+focusSessions:[title,date,{key:'duration',label:'Minutos de foco',type:'number',min:1,default:25},notes],
+labExams:[],
+trtProtocols:[{...title,label:'Medicamento',hint:'Ex.: Durateston, Deposteron, Nebido, testosterona gel'},{key:'dose',label:'Dose',type:'number',step:'0.1',min:0,required:true},{key:'unit',label:'Unidade',type:'select',options:[['mg','mg'],['mL','mL'],['g','g']],default:'mg'},{key:'intervalDays',label:'Intervalo entre aplicações (dias)',type:'number',min:1,max:90,required:true,default:14},{key:'startDate',label:'Início',type:'date',required:true},{key:'doctor',label:'Médico responsável'},{key:'status',label:'Situação',type:'select',options:[['active','Ativo'],['paused','Pausado']],default:'active'},{key:'remind',label:'Lembrar no Telegram',type:'checkbox',default:true},notes],
+trtDoses:[{...title,label:'Registro'},date,{key:'protocolId',label:'Protocolo',type:'select',source:'trtProtocols',required:true},{key:'dose',label:'Dose',type:'number',step:'0.1',min:0},{key:'site',label:'Local',type:'select',options:[['','Não informado'],['Glúteo','Glúteo'],['Coxa','Coxa'],['Deltoide','Deltoide'],['Abdômen','Abdômen'],['Outro','Outro']]},{...notes,label:'Como você se sentiu?'}]
 };
-export const COLLECTION_LABELS:Record<Collection,string>={tasks:'Nova ação',objectives:'Novo objetivo',transactions:'Novo lançamento',bills:'Nova conta',cards:'Novo cartão',journal:'Registrar meu dia',workouts:'Novo treino',sessions:'Registrar treino',measurements:'Peso e medidas',courses:'Novo estudo',activities:'Planejar atividade',books:'Adicionar livro',readingLogs:'Registrar leitura',rooms:'Novo cômodo',chores:'Nova tarefa de casa',shopping:'Adicionar à lista',clients:'Novo cliente',workGoals:'Nova meta de trabalho',sleep:'Registrar minha noite',vices:'Começar um novo caminho',relapses:'Registrar recomeço',notes:'Nova anotação',reviews:'Minha revisão',focusSessions:'Registrar foco'};
+export const COLLECTION_LABELS:Record<Collection,string>={tasks:'Nova ação',objectives:'Novo objetivo',transactions:'Novo lançamento',bills:'Nova conta',cards:'Novo cartão',journal:'Registrar meu dia',workouts:'Novo treino',sessions:'Registrar treino',measurements:'Peso e medidas',courses:'Novo estudo',activities:'Planejar atividade',books:'Adicionar livro',readingLogs:'Registrar leitura',rooms:'Novo cômodo',chores:'Nova tarefa de casa',shopping:'Adicionar à lista',clients:'Novo cliente',workGoals:'Nova meta de trabalho',sleep:'Registrar minha noite',vices:'Começar um novo caminho',relapses:'Registrar recomeço',notes:'Nova anotação',reviews:'Minha revisão',focusSessions:'Registrar foco',labExams:'Novo exame',trtProtocols:'Novo protocolo',trtDoses:'Registrar aplicação'};
 export const relationOptions=(field:Field,state:Workspace)=>field.source?[['','Sem vínculo'],...state[field.source].map(x=>[x.id,x.title])]:field.options||[];
 

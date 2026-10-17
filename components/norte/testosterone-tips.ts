@@ -1,0 +1,8 @@
+// Conteúdo fixo da aba Dicas: hábitos gerais, revisados. Não substitui orientação médica.
+export const TIPS=[
+ {title:'Alimentação',icon:'utensils',items:['Ovos inteiros e peixes gordurosos (sardinha, salmão) trazem gorduras boas e vitamina D.','Ostras, carnes vermelhas magras, feijões e sementes de abóbora são fontes de zinco.','Uma ou duas castanhas-do-pará por dia cobrem o selênio.','Azeite, abacate e oleaginosas no lugar de frituras.','Vegetais crucíferos (brócolis, couve-flor, repolho) com frequência.','Menos ultraprocessados, açúcar e álcool.']},
+ {title:'Sol e vitamina D',icon:'sun',items:['15 a 30 minutos de sol com braços e pernas expostos, de preferência antes das 10h ou depois das 16h.','Pele mais escura precisa de mais tempo de sol para produzir a mesma vitamina D.','Peça a dosagem de vitamina D ao seu médico antes de pensar em suplemento.']},
+ {title:'Sono',icon:'moon',items:['Durma de 7 a 9 horas: a testosterona sobe durante o sono.','Horários regulares para dormir e acordar, inclusive no fim de semana.','Quarto escuro e telas longe na última hora antes de deitar.']},
+ {title:'Treino',icon:'dumbbell',items:['Musculação 3 a 4 vezes por semana, com exercícios compostos (agachamento, levantamento terra, supino, remada).','Descanso entre os treinos: excesso sem recuperação atrapalha os hormônios.','Caminhadas e atividade leve nos outros dias.']},
+ {title:'Peso e estresse',icon:'heart',items:['Reduzir a gordura abdominal costuma melhorar os níveis de testosterona.','Estresse constante eleva o cortisol; reserve pausas no dia.','Evite cigarro e limite o álcool.']},
+] as const;
