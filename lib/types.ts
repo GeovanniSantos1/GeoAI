@@ -1,4 +1,4 @@
-export const COLLECTIONS = ['tasks','objectives','transactions','bills','cards','journal','workouts','sessions','measurements','courses','activities','books','readingLogs','rooms','chores','shopping','clients','workGoals','sleep','vices','relapses','notes','reviews','focusSessions'] as const;
+export const COLLECTIONS = ['tasks','objectives','transactions','bills','cards','journal','workouts','sessions','measurements','courses','activities','books','readingLogs','rooms','chores','shopping','clients','workGoals','sleep','vices','relapses','notes','reviews','focusSessions','labExams','trtProtocols','trtDoses'] as const;
 export type Collection = typeof COLLECTIONS[number];
 export type Item = { id: string; title: string; [key: string]: any };
 export type Profile = { name:string;timezone:string;theme:string;budget:number;openingBalance:number;sleepGoal:number;bedtime:string;waketime:string;dailyTarget:number;assistantName:string;xp:number;points:number;avatar:{skin:string;hair:string;beard:boolean;shirt:string};unlockedMoments:string[] };
