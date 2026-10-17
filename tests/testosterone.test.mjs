@@ -29,3 +29,65 @@ test('espaços antigos sem as coleções novas carregam e restauram',()=>{const 
  const up=upgradeWorkspace(structuredClone(old));assert.deepEqual([up.labExams,up.trtProtocols,up.trtDoses],[[],[],[]]);
  assert.deepEqual(validateWorkspace(structuredClone(old)).trtDoses,[]);
  const broken=emptyWorkspace('Geo');delete broken.tasks;assert.throws(()=>validateWorkspace(broken),/Backup não reconhecido/);});
+
+import { classifyMarker, criticalFlags, codeOverall, mergeOverall, finalOverall, parseDecimal, protocolStatus, punctuality, cycleDay, dueReminder, guardStateCommand, detectFileType, reviewContext, examTitle, doseId } from '../lib/testosterone.ts';
+const m=(key,value,extra={})=>({key,label:key,value,...extra});
+
+test('classifica pelo número e pela faixa do laudo',()=>{
+ assert.equal(classifyMarker(m('testosterona_total',240,{refMin:249,refMax:836})),'low');
+ assert.equal(classifyMarker(m('testosterona_total',900,{refMin:249,refMax:836})),'high');
+ assert.equal(classifyMarker(m('testosterona_total',500,{refMin:249,refMax:836})),'normal');
+ assert.equal(classifyMarker(m('outro',5)),'none');
+ assert.equal(classifyMarker(m('psa_total',0.01,{qualifier:'<',refMax:4})),'normal');
+ assert.equal(classifyMarker(m('vitamina_d',20,{qualifier:'<',refMin:20})),'low');
+ assert.equal(classifyMarker(m('prolactina',30,{qualifier:'>',refMax:30})),'high');
+ assert.equal(classifyMarker(m('vitamina_d',35,{refMin:30})),'normal');});
+test('alertas críticos de hematócrito e PSA',()=>{
+ assert.deepEqual(criticalFlags({date:'2026-10-02',markers:[m('hematocrito',53.9,{unit:'%'})]},[]),[]);
+ assert.equal(criticalFlags({date:'2026-10-02',markers:[m('hematocrito',54,{unit:'%'})]},[]).length,1);
+ assert.equal(criticalFlags({date:'2026-10-02',markers:[m('psa_total',4.5,{unit:'ng/mL',refMax:4})]},[]).length,1);
+ const old=[{id:'a',title:'A',status:'reviewed',date:'2026-01-10',markers:[m('psa_total',0.8,{unit:'ng/mL'})]},{id:'b',title:'B',status:'reviewed',date:'2025-06-01',markers:[m('psa_total',0.1,{unit:'ng/mL'})]},{id:'c',title:'C',status:'draft',date:'2026-05-01',markers:[m('psa_total',0.2,{unit:'ng/mL'})]}];
+ assert.match(criticalFlags({date:'2026-10-02',markers:[m('psa_total',2.3,{unit:'ng/mL',refMax:4})]},old)[0],/subiu 1,5/);
+ assert.deepEqual(criticalFlags({date:'2026-10-02',markers:[m('psa_total',2.1,{unit:'ng/mL',refMax:4})]},old),[]);});
+test('situação geral: o código define o piso e a IA não rebaixa',()=>{
+ assert.equal(codeOverall([m('shbg',30,{refMin:10,refMax:57})],[]),'ok');
+ assert.equal(codeOverall([m('estradiol',50,{refMin:11,refMax:44})],[]),'attention');
+ assert.equal(codeOverall([],['x']),'doctor');
+ assert.equal(mergeOverall('doctor','ok'),'doctor');assert.equal(mergeOverall('ok','attention'),'attention');
+ const exam={id:'e',title:'E',date:'2026-10-02',status:'reviewed',markers:[m('hematocrito',55,{unit:'%',refMin:40,refMax:50})],review:{overall:'ok'}};
+ assert.equal(finalOverall(exam,[exam]),'doctor');});
+test('lê números no formato brasileiro e com ponto',()=>{assert.equal(parseDecimal('0,85'),0.85);assert.equal(parseDecimal('1.234,5'),1234.5);assert.equal(parseDecimal('0.85'),0.85);assert.equal(parseDecimal(' 312 '),312);assert.ok(Number.isNaN(parseDecimal('alto')));assert.ok(Number.isNaN(parseDecimal('')));});
+test('próxima aplicação, atraso, pontualidade e dia do ciclo',()=>{
+ const doses=[{id:'d1',title:'A',protocolId:'p1',date:'2026-09-01'},{id:'d2',title:'A',protocolId:'p1',date:'2026-09-15'},{id:'d3',title:'A',protocolId:'p1',date:'2026-10-01'},{id:'x',title:'A',protocolId:'outro',date:'2026-10-10'}];
+ assert.deepEqual(protocolStatus(protocol,[],'2026-08-25'),{next:'2026-09-01',daysLeft:7,overdue:0});
+ assert.deepEqual(protocolStatus(protocol,doses,'2026-10-18'),{next:'2026-10-15',daysLeft:0,overdue:3});
+ assert.equal(punctuality(protocol,doses,'2026-10-16'),50);
+ assert.equal(punctuality(protocol,doses.slice(0,1),'2026-10-16'),null);
+ assert.equal(cycleDay(protocol,doses,'2026-10-13'),12);assert.equal(cycleDay(protocol,[],'2026-10-13'),null);
+ assert.equal(doseId('p1','2026-10-16'),'dose-p1-2026-10-16');});
+test('lembrete: do dia previsto até 3 dias depois, uma vez por dia, com adiamento',()=>{
+ const doses=[{id:'d1',title:'A',protocolId:'p1',date:'2026-10-02'}];
+ assert.equal(dueReminder(protocol,doses,'2026-10-15'),false);
+ assert.equal(dueReminder(protocol,doses,'2026-10-16'),true);
+ assert.equal(dueReminder(protocol,doses,'2026-10-19'),true);
+ assert.equal(dueReminder(protocol,doses,'2026-10-20'),false);
+ assert.equal(dueReminder({...protocol,remindedOn:'2026-10-16'},doses,'2026-10-16'),false);
+ assert.equal(dueReminder({...protocol,snoozedUntil:'2026-10-17'},doses,'2026-10-16'),false);
+ assert.equal(dueReminder({...protocol,snoozedUntil:'2026-10-17'},doses,'2026-10-17'),true);
+ assert.equal(dueReminder({...protocol,status:'paused'},doses,'2026-10-16'),false);
+ assert.equal(dueReminder({...protocol,remind:false},doses,'2026-10-16'),false);});
+test('/api/state não altera exames e o backup perde arquivos de outra conta',()=>{
+ assert.throws(()=>guardStateCommand({type:'upsert',collection:'labExams',item:{}},'user_1'),/menu Testosterona/);
+ assert.throws(()=>guardStateCommand({type:'delete',collection:'labExams',id:'e'},'user_1'),/menu Testosterona/);
+ assert.throws(()=>guardStateCommand({type:'patch',collection:'labExams',id:'e',item:{}},'user_1'),/menu Testosterona/);
+ assert.throws(()=>guardStateCommand({type:'confirmPlan',items:[{collection:'labExams',item:{}}]},'user_1'),/menu Testosterona/);
+ const cmd={type:'upsert',collection:'tasks',item:{title:'x'}};assert.equal(guardStateCommand(cmd,'user_1'),cmd);
+ const state={labExams:[{id:'a',title:'A',file:{path:'exames/user_1/a.pdf'}},{id:'b',title:'B',file:{path:'exames/user_2/b.pdf'}},{id:'c',title:'C'}]};
+ const out=guardStateCommand({type:'import',state},'user_1');assert.equal(out.state.labExams[0].file.path,'exames/user_1/a.pdf');assert.equal(out.state.labExams[1].file,undefined);assert.equal(out.state.labExams[2].id,'c');});
+test('reconhece o tipo do arquivo pelo conteúdo',()=>{const b=s=>new Uint8Array([...s].map(c=>c.charCodeAt(0)));
+ assert.equal(detectFileType(b('%PDF-1.4')),'application/pdf');assert.equal(detectFileType(new Uint8Array([0xff,0xd8,0xff,0xe0])),'image/jpeg');assert.equal(detectFileType(new Uint8Array([0x89,0x50,0x4e,0x47,0x0d])),'image/png');assert.equal(detectFileType(b('RIFF0000WEBPVP8 ')),'image/webp');assert.equal(detectFileType(b('MZ\x90\x00')),null);});
+test('contexto do parecer traz classificação, alertas, ciclo e histórico',()=>{
+ const s={labExams:[{id:'old',title:'Antigo',date:'2026-04-01',status:'reviewed',markers:[m('testosterona_total',280,{unit:'ng/dL'})]}],trtProtocols:[protocol],trtDoses:[{id:'d',title:'A',protocolId:'p1',date:'2026-09-20'}]};
+ const ctx=reviewContext({id:'new',date:'2026-10-02',markers:[m('testosterona_total',612,{unit:'ng/dL',refMin:249,refMax:836}),m('hematocrito',55,{unit:'%',refMin:40,refMax:50})]},s);
+ assert.equal(ctx.codeOverall,'doctor');assert.match(ctx.text,/testosterona_total.*Normal/);assert.match(ctx.text,/12 dia\(s\) após a última aplicação/);assert.match(ctx.text,/Exame anterior \(2026-04-01\): testosterona_total 280 ng\/dL/);assert.match(ctx.text,/Hematócrito em 55%/);
+ assert.equal(examTitle('2026-10-02'),'Exame de 02/10/2026');});

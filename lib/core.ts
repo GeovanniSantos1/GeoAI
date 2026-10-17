@@ -156,6 +156,8 @@ export function planFromText(text:string,today:string):Proposal[]{
  });
 }
 export function financeSummary(s:Workspace,month:string){const monthRows=s.transactions.filter(x=>x.date?.startsWith(month));const income=monthRows.filter(x=>x.direction==='income').reduce((a,x)=>a+x.amount,0);const expense=monthRows.filter(x=>x.direction==='expense').reduce((a,x)=>a+x.amount,0);const all=s.transactions.filter(x=>x.date<=month+'-31');const balance=s.profile.openingBalance+all.reduce((a,x)=>a+(x.direction==='income'?x.amount:-x.amount),0);return{income,expense,balance,remaining:s.profile.budget-expense};}
+// Próxima aplicação de um protocolo: última aplicação (antes de `before`, quando informado) + intervalo; sem aplicações, a data de início.
+export function nextApplicationDate(protocol:Item,doses:Item[],before?:string):string{const last=doses.filter(d=>d.protocolId===protocol.id&&validDate(d.date)&&(!before||d.date<before)).map(d=>d.date as string).sort().pop();return last?addDays(last,protocol.intervalDays||0):protocol.startDate;}
 export function scheduledItems(s:Workspace,date:string):Item[]{return [...s.tasks.map(x=>({...x,_collection:'tasks'})),...s.chores.map(x=>({...x,_collection:'chores',type:'task',section:'casa'})),...s.activities.map(x=>({...x,_collection:'activities',type:'task',section:'estudos'}))].filter(x=>occursOn(x,date));}
 export function isComplete(s:Workspace,item:Item,date:string){const source=item._collection||'tasks';return !!s.completions[(source==='tasks'?'':source+'-')+item.id+':'+date]||(source==='activities'&&item.status==='done')||(source==='chores'&&item.checked&&item.date===date);}
 
