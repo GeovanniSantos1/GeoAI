@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test": "node --experimental-strip-types --test tests/domain.test.mjs tests/calendar.test.mjs tests/agent.test.mjs tests/telegram.test.mjs tests/testosterone.test.mjs",
+    "test": "node --experimental-strip-types --test tests/domain.test.mjs tests/calendar.test.mjs tests/agent.test.mjs tests/telegram.test.mjs tests/testosterone.test.mjs tests/exams.test.mjs",
     "typecheck": "tsc --noEmit --pretty false",
     "test:e2e": "node tests/e2e.mjs",
     "db:migrate": "drizzle-kit migrate"
@@ -24,6 +24,7 @@
     "@clerk/nextjs": "^7.9.17",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",
+    "@vercel/blob": "^2.8.2",
     "ai": "^7.0.143",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
