@@ -27,7 +27,7 @@ export function classifyMarker(m:Marker):MarkerStatus{
 export const rangeText=(m:Marker)=>m.refMin!==undefined&&m.refMax!==undefined?fmt(m.refMin)+' a '+fmt(m.refMax):m.refMin!==undefined?'acima de '+fmt(m.refMin):m.refMax!==undefined?'até '+fmt(m.refMax):'sem faixa';
 export const valueText=(m:Marker)=>(m.qualifier||'')+fmt(m.value)+(m.unit?' '+m.unit:'');
 // Aceita o formato brasileiro (1.234,5) e o decimal com ponto (0.85).
-export function parseDecimal(raw:string){const t=raw.trim().replace(/\s/g,'');if(!/^-?[\d.,]+$/.test(t))return NaN;return Number(t.includes(',')?t.replace(/\./g,'').replace(',','.'):t);}
+export function parseDecimal(raw:string){const t=raw.trim().replace(/\s/g,'');if(!/^-?[\d.,]+$/.test(t))return NaN;return Number(t.includes(',')||/^-?\d{1,3}(\.\d{3})+$/.test(t)?t.replace(/\./g,'').replace(',','.'):t);}
 
 export function criticalFlags(exam:{date:string;markers:Marker[]},history:Item[]):string[]{
  const flags:string[]=[];
@@ -52,6 +52,7 @@ export function dueReminder(protocol:Item,doses:Item[],today:string){if(protocol
 // /api/state não altera exames: arquivo e parecer só mudam pelas rotas de exames, que cuidam do armazenamento.
 export function guardStateCommand(command:Command,userId:string):Command{
  if(!command||typeof command!=='object')return command;
+ if(command.type==='patch')throw new Error('Ação não permitida.');
  const touchesExams=(['upsert','delete','patch'].includes(command.type)&&command.collection==='labExams')||(command.type==='confirmPlan'&&Array.isArray(command.items)&&command.items.some(p=>p?.collection==='labExams'));
  if(touchesExams)throw new Error('Use o menu Testosterona para alterar exames.');
  if(command.type==='import'&&command.state&&Array.isArray(command.state.labExams)){const prefix=examPrefix(userId);return {...command,state:{...command.state,labExams:command.state.labExams.map((e:Item)=>{if(!e?.file||(typeof e.file.path==='string'&&e.file.path.startsWith(prefix)))return e;const rest={...e};delete rest.file;return rest;})}};}

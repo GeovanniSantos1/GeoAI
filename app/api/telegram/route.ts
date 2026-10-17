@@ -39,7 +39,7 @@ async function onCallback(api:Api,e:Extract<TelegramEvent,{kind:'callback'}>){co
  const trt=parseTrtCallback(e.data);
  if(trt){const {state}=await loadWorkspace(link.userId,'');const r=trtCallbackAction(state,todayInZone(state.profile.timezone),trt);
   if(r.command){try{await mutateWorkspace(link.userId,'',r.command);}catch(err){console.error('telegram trt',err);return answer('Não foi possível salvar agora. Tente de novo.');}}
-  await clearButtons();await answer(trt.action==='done'?'Registrado!':'Adiado.');return sendText(api,e.chatId,r.reply);}
+  await clearButtons();await answer(r.command?(trt.action==='done'?'Registrado!':'Adiado.'):'Ok');return sendText(api,e.chatId,r.reply);}
  const [action,id]=e.data.split(':'),group=id?link.pending[id]:undefined;
  if(!group||!['add','drop'].includes(action)){await clearButtons();return answer('Essas sugestões não estão mais disponíveis.');}
  if(action==='add'){try{await mutateWorkspace(link.userId,'',{type:'confirmPlan',items:group.items});}catch(err){console.error('telegram confirm',err);return answer('Não foi possível salvar agora. Tente de novo.');}}

@@ -106,6 +106,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   if(index>=0&&command.item?._rev!==undefined&&command.item._rev!==(s[col][index]._rev||0))throw new Error('Este registro foi atualizado em outra aba. Feche o formulário e abra novamente.');
   item._rev=(index>=0?s[col][index]._rev||0:0)+1;
   if(['journal','sleep'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
+  if(col==='trtDoses'&&s.trtDoses.some(x=>x.protocolId===item.protocolId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma aplicação deste protocolo nesta data. Edite o registro existente.');
   if(col==='readingLogs'){const previous=index>=0?s[col][index]:undefined;if(previous){const oldBook=s.books.find(x=>x.id===previous.bookId);if(oldBook){oldBook.pagesRead=Math.max(0,(oldBook.pagesRead||0)-(previous.appliedPages??previous.pages));if(oldBook.status==='done'&&oldBook.pagesRead<oldBook.pages)oldBook.status='active';}}const book=s.books.find(x=>x.id===item.bookId);if(!book)throw new Error('Selecione um livro da sua biblioteca');item.appliedPages=Math.min(item.pages,Math.max(0,book.pages-(book.pagesRead||0)));book.pagesRead=(book.pagesRead||0)+item.appliedPages;if(book.pagesRead>=book.pages)book.status='done';}
   if(index<0&&s[col].length>=2000)throw new Error('Limite da coleção atingido');if(index<0)s[col].push(item);else s[col][index]=item;
   if(col==='journal')reward(s,'journal:'+item.date,15);

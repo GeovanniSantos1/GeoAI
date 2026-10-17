@@ -1,13 +1,14 @@
 'use client';
 import {useState} from 'react';import {Plus,Syringe,FlaskConical,CalendarDays,ShieldCheck,Utensils,Sun,Moon,Dumbbell,Heart,Sparkles,Pencil,Trash2} from 'lucide-react';
 import {useApp,type AppContext} from './context';import {PageHeading,Tabs,Stat,Empty,MiniChart} from './primitives';import {Records} from './records';import {ExamsPanel,OVERALL_PILL} from './exams';import {TIPS} from './testosterone-tips';
-import {finalOverall,protocolStatus,punctuality,valueText,rangeText,OVERALL_LABEL} from '@/lib/testosterone';import type {Marker} from '@/lib/exam-schema';import type {Item} from '@/lib/types';
+import {doseId,finalOverall,protocolStatus,punctuality,valueText,rangeText,OVERALL_LABEL} from '@/lib/testosterone';import type {Marker} from '@/lib/exam-schema';import type {Item} from '@/lib/types';
 const ICONS={utensils:Utensils,sun:Sun,moon:Moon,dumbbell:Dumbbell,heart:Heart};
 const dayLabel=(d:string)=>d.split('-').reverse().join('/');
 const totalOf=(e:Item)=>(e.markers as Marker[]|undefined)?.find(m=>m.key==='testosterona_total');
 const plural=(n:number)=>n+(n===1?' dia':' dias');
 const newProtocol=(a:AppContext)=>a.edit('trtProtocols',undefined,{status:'active',remind:true,unit:'mg',intervalDays:14});
-const registerDose=(a:AppContext,p:Item)=>a.edit('trtDoses',undefined,{title:'Aplicação: '+p.title,protocolId:p.id,dose:p.dose,date:a.today});
+// Uma aplicação por protocolo por dia: se a de hoje já existe, abre para editar em vez de duplicar.
+const registerDose=(a:AppContext,p:Item)=>{const existing=a.state.trtDoses.find(d=>d.protocolId===p.id&&d.date===a.today);if(existing)a.edit('trtDoses',existing);else a.edit('trtDoses',undefined,{id:doseId(p.id,a.today),title:'Aplicação: '+p.title,protocolId:p.id,dose:p.dose,date:a.today});};
 
 export function TestosteroneView(){const a=useApp();const [tab,setTab]=useState('resumo');
  return <><PageHeading eyebrow="SAÚDE HORMONAL" title="Testosterona" description="Exames, protocolo e hábitos em um só lugar."/>
@@ -38,7 +39,7 @@ function ProtocolPanel(){const a=useApp();const doses=a.state.trtDoses.slice().s
   </article>;})}</div>
   :<section className="panel"><Empty icon={Syringe} title="Nenhum protocolo registrado" description="Cadastre o protocolo prescrito para acompanhar aplicações e receber lembretes." action="Novo protocolo" onAction={()=>newProtocol(a)}/></section>}
   <div className="section-action"><h2>Aplicações</h2></div>
-  <Records collection="trtDoses" items={doses} compact emptyTitle="Nenhuma aplicação registrada" emptyText="Registre cada aplicação para acompanhar a pontualidade."/>
+  <Records collection="trtDoses" items={doses} compact renderExtra={d=>{const unit=a.state.trtProtocols.find(p=>p.id===d.protocolId)?.unit;const text=[d.dose?d.dose+(unit?' '+unit:''):'',d.site||''].filter(Boolean).join(' · ');return text?<p className="record-content">{text}</p>:null;}} emptyTitle="Nenhuma aplicação registrada" emptyText="Registre cada aplicação para acompanhar a pontualidade."/>
  </>;}
 
 function TipsPanel(){const a=useApp();const last=a.state.labExams.filter(e=>e.status==='reviewed'&&e.review?.tips?.length).sort((x,y)=>y.date.localeCompare(x.date))[0];const onProtocol=a.state.trtProtocols.some(p=>p.status==='active');

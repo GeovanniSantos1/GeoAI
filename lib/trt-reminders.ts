@@ -13,7 +13,9 @@ export async function sendDueReminders(d:ReminderDeps){let checked=0,sent=0,fail
 export function trtCallbackAction(s:Workspace,today:string,cb:{action:'done'|'snooze';protocolId:string}):{command?:Command;reply:string}{
  const p=s.trtProtocols.find(x=>x.id===cb.protocolId);if(!p)return {reply:'Este protocolo não existe mais no seu GeoAI.'};
  if(cb.action==='snooze')return {command:{type:'patch',collection:'trtProtocols',id:p.id,item:{snoozedUntil:addDays(today,1)}},reply:'Combinado, lembro amanhã.'};
+ const fmtDate=(d:string)=>d.split('-').reverse().join('/');
+ if(s.trtDoses.some(x=>x.protocolId===p.id&&x.date===today))return {reply:'A aplicação de hoje já estava registrada. Próxima: '+fmtDate(protocolStatus(p,s.trtDoses,today).next)+'.'};
  const id=doseId(p.id,today),dose={id,title:'Aplicação: '+p.title,date:today,protocolId:p.id,...(p.dose?{dose:p.dose}:{})};
  const next=protocolStatus(p,[...s.trtDoses.filter(x=>x.id!==id),dose],today).next;
- return {command:{type:'upsert',collection:'trtDoses',item:dose},reply:'Aplicação registrada. Próxima: '+next.split('-').reverse().join('/')+'.'};
+ return {command:{type:'upsert',collection:'trtDoses',item:dose},reply:'Aplicação registrada. Próxima: '+fmtDate(next)+'.'};
 }

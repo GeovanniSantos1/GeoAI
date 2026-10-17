@@ -47,6 +47,8 @@ function proposalDefaults(collection:unknown,fields:Record<string,unknown>,today
  if(collection==='trtDoses'){const protocols=s?.trtProtocols||[],active=protocols.filter(p=>p.status==='active');
   const p=fields.protocolId?protocols.find(x=>x.id===fields.protocolId):active.length===1?active[0]:undefined;
   if(!p)throw new Error('cadastre ou escolha o protocolo no menu Testosterona');
+  const day=typeof fields.date==='string'?fields.date:today;
+  if((s?.trtDoses||[]).some(d=>d.protocolId===p.id&&d.date===day))throw new Error('a aplicação desse dia já está registrada');
   return {date:today,title:'Aplicação: '+p.title,protocolId:p.id,...(p.dose?{dose:p.dose}:{})};}
  return {};
 }

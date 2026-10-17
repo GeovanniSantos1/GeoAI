@@ -56,7 +56,7 @@ test('situação geral: o código define o piso e a IA não rebaixa',()=>{
  assert.equal(mergeOverall('doctor','ok'),'doctor');assert.equal(mergeOverall('ok','attention'),'attention');
  const exam={id:'e',title:'E',date:'2026-10-02',status:'reviewed',markers:[m('hematocrito',55,{unit:'%',refMin:40,refMax:50})],review:{overall:'ok'}};
  assert.equal(finalOverall(exam,[exam]),'doctor');});
-test('lê números no formato brasileiro e com ponto',()=>{assert.equal(parseDecimal('0,85'),0.85);assert.equal(parseDecimal('1.234,5'),1234.5);assert.equal(parseDecimal('0.85'),0.85);assert.equal(parseDecimal(' 312 '),312);assert.ok(Number.isNaN(parseDecimal('alto')));assert.ok(Number.isNaN(parseDecimal('')));});
+test('lê números no formato brasileiro e com ponto',()=>{assert.equal(parseDecimal('0,85'),0.85);assert.equal(parseDecimal('1.234,5'),1234.5);assert.equal(parseDecimal('0.85'),0.85);assert.equal(parseDecimal(' 312 '),312);assert.equal(parseDecimal('1.050'),1050);assert.equal(parseDecimal('250.000'),250000);assert.equal(parseDecimal('1.05'),1.05);assert.ok(Number.isNaN(parseDecimal('alto')));assert.ok(Number.isNaN(parseDecimal('')));});
 test('próxima aplicação, atraso, pontualidade e dia do ciclo',()=>{
  const doses=[{id:'d1',title:'A',protocolId:'p1',date:'2026-09-01'},{id:'d2',title:'A',protocolId:'p1',date:'2026-09-15'},{id:'d3',title:'A',protocolId:'p1',date:'2026-10-01'},{id:'x',title:'A',protocolId:'outro',date:'2026-10-10'}];
  assert.deepEqual(protocolStatus(protocol,[],'2026-08-25'),{next:'2026-09-01',daysLeft:7,overdue:0});
@@ -79,7 +79,7 @@ test('lembrete: do dia previsto até 3 dias depois, uma vez por dia, com adiamen
 test('/api/state não altera exames e o backup perde arquivos de outra conta',()=>{
  assert.throws(()=>guardStateCommand({type:'upsert',collection:'labExams',item:{}},'user_1'),/menu Testosterona/);
  assert.throws(()=>guardStateCommand({type:'delete',collection:'labExams',id:'e'},'user_1'),/menu Testosterona/);
- assert.throws(()=>guardStateCommand({type:'patch',collection:'labExams',id:'e',item:{}},'user_1'),/menu Testosterona/);
+ assert.throws(()=>guardStateCommand({type:'patch',collection:'labExams',id:'e',item:{}},'user_1'),/Ação não permitida/);assert.throws(()=>guardStateCommand({type:'patch',collection:'trtProtocols',id:'p1',item:{}},'user_1'),/Ação não permitida/);
  assert.throws(()=>guardStateCommand({type:'confirmPlan',items:[{collection:'labExams',item:{}}]},'user_1'),/menu Testosterona/);
  const cmd={type:'upsert',collection:'tasks',item:{title:'x'}};assert.equal(guardStateCommand(cmd,'user_1'),cmd);
  const state={labExams:[{id:'a',title:'A',file:{path:'exames/user_1/a.pdf'}},{id:'b',title:'B',file:{path:'exames/user_2/b.pdf'}},{id:'c',title:'C'}]};
@@ -98,3 +98,7 @@ test('agenda mostra a aplicação prevista e marca como feita quando registrada'
  assert.equal(isComplete(s,scheduledItems(s,'2026-09-01')[0],'2026-09-01'),true);
  assert.equal(scheduledItems(s,'2026-09-15').length,1);assert.equal(isComplete(s,scheduledItems(s,'2026-09-15')[0],'2026-09-15'),false);
  s.trtProtocols[0].status='paused';assert.equal(scheduledItems(s,'2026-09-15').length,0);});
+test('uma aplicação por protocolo por dia no núcleo',()=>{let s=emptyWorkspace('Geo');s=applyCommand(s,{type:'upsert',collection:'trtProtocols',item:protocol},'2026-10-16');const dose={id:'a',title:'Aplicação',date:'2026-10-16',protocolId:'p1'};s=applyCommand(s,{type:'upsert',collection:'trtDoses',item:dose},'2026-10-16');
+ assert.throws(()=>applyCommand(s,{type:'upsert',collection:'trtDoses',item:{...dose,id:'b'}},'2026-10-16'),/Já existe uma aplicação deste protocolo nesta data/);
+ s=applyCommand(s,{type:'upsert',collection:'trtDoses',item:{...dose,notes:'editado'}},'2026-10-16');assert.equal(s.trtDoses.length,1);assert.equal(s.trtDoses[0].notes,'editado');
+ s=applyCommand(s,{type:'upsert',collection:'trtDoses',item:{...dose,id:'c',date:'2026-10-17'}},'2026-10-17');assert.equal(s.trtDoses.length,2);});
