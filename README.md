@@ -45,6 +45,15 @@ npm run build
 
 Os scripts de navegador (`npm run test:e2e` e `tests/smoke-ui.mjs`) foram escritos para o login automático da hospedagem anterior e precisam ser adaptados ao Clerk antes de voltar a rodar. Critérios originais em `docs/qa-results.json`, `docs/progress.md` e `docs/spec.md`.
 
+## Menu Testosterona
+
+- Exames: o usuário envia o laudo (PDF ou imagem), a IA lê os valores e o usuário confere e corrige antes de salvar. A classificação de cada valor (abaixo, dentro ou acima) usa a faixa de referência do próprio laudo e é feita pelo código, não pela IA. O parecer da IA resume os resultados e não dá orientação de dose.
+- Protocolo: cadastro do protocolo com as aplicações previstas na Agenda e lembrete diário no Telegram, com os botões Apliquei e Adiar (exige o `TELEGRAM_BOT_TOKEN` e o chat conectado). Também há dicas no menu.
+- Arquivos: ficam em um Vercel Blob privado, com prefixo `exames/<userId>/`, e são apagados junto com o exame e em Configurações > Apagar meus dados. Em **Storage**, conecte o Blob ao projeto (cria `BLOB_STORE_ID`/`BLOB_READ_WRITE_TOKEN`).
+- Cotas por usuário: 20 envios e 40 pareceres por dia.
+- Lembrete diário: a tarefa agendada do `vercel.json` (`0 11 * * *`) chama `/api/cron/trt-reminders`. Cadastre o segredo `CRON_SECRET` na Vercel; sem o cabeçalho `Authorization: Bearer <CRON_SECRET>` a rota responde 401.
+- Desenvolvimento local: use `EXAM_FILES=memory` no `.env.local` para guardar os arquivos na memória do servidor, sem Blob. Eles se perdem ao reiniciar.
+
 ## Integrações e limites
 
 - IA generativa: opcional; exige os segredos de servidor `AI_API_KEY` e `AI_MODEL` (e `AI_BASE_URL` para um endpoint compatível com a OpenAI). Com eles, o assistente vira um agente de conversa que consulta agenda, finanças e registros do usuário e sugere tarefas, lançamentos e notas; nada é salvo sem a confirmação do usuário. Sem eles, funciona no modo guiado. Nunca exponha a chave no cliente.
