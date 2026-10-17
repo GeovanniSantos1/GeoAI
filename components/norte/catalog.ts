@@ -1,4 +1,4 @@
-import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck} from 'lucide-react';
+import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck,FlaskConical} from 'lucide-react';
 import type {Collection,Workspace} from '@/lib/types';
 export const NAV=[
 {id:'inicio',path:'/',label:'Meu dia',icon:House,group:'SEU DIA'},
@@ -11,6 +11,7 @@ export const NAV=[
 {id:'cuidados',path:'/beleza',label:'Cuidados pessoais',icon:Sparkles,group:'CUIDE DE VOCÊ'},
 {id:'journal',path:'/journal',label:'Bem-estar',icon:Heart,group:'CUIDE DE VOCÊ'},
 {id:'sono',path:'/sono',label:'Sono',icon:Moon,group:'CUIDE DE VOCÊ'},
+{id:'testosterona',path:'/testosterona',label:'Testosterona',icon:FlaskConical,group:'CUIDE DE VOCÊ'},
 {id:'vicios',path:'/vicios',label:'Novos caminhos',icon:ShieldCheck,group:'CUIDE DE VOCÊ'},
 {id:'financas',path:'/financas',label:'Finanças',icon:Wallet,group:'SUA VIDA EM ORDEM'},
 {id:'estudos',path:'/estudos',label:'Estudos & leituras',icon:BookOpen,group:'SUA VIDA EM ORDEM'},
