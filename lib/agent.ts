@@ -2,6 +2,7 @@ import type { UIMessage } from 'ai';
 import { COLLECTIONS } from './types.ts';
 import type { Workspace, Item, Proposal, Collection } from './types.ts';
 import { validDate, addDays, scheduledItems, isComplete, financeSummary, formatMoney, validateItem } from './core.ts';
+import { genderBrief } from './gender.ts';
 import { protocolStatus, punctuality, finalOverall, classifyMarker, rangeText, valueText, STATUS_LABEL, OVERALL_LABEL } from './testosterone.ts';
 import type { Marker } from './exam-schema.ts';
 
@@ -68,14 +69,14 @@ export function checkProposals(raw:unknown,today:string,s?:Workspace){
 export function assistantBrief(s:Workspace,today:string){
  const p=s.profile,weekday=new Date(today+'T12:00:00Z').toLocaleDateString('pt-BR',{weekday:'long',timeZone:'UTC'});
  const counts=['tasks','objectives','transactions','notes','sleep','books'].map(c=>c+': '+(s[c as keyof Workspace] as Item[]).length).join(', ');
- return ['Usuário: '+p.name,'Hoje: '+today+' ('+weekday+')','Fuso horário: '+p.timezone,'Ações por dia que cabem na rotina: '+p.dailyTarget,'Orçamento mensal: '+(p.budget?formatMoney(p.budget):'não definido'),'Meta de sono: '+p.sleepGoal/60+'h','Registros salvos: '+counts].join('\n');
+ return ['Usuário: '+p.name,genderBrief(p.gender),'Hoje:'+today+' ('+weekday+')','Fuso horário: '+p.timezone,'Ações por dia que cabem na rotina: '+p.dailyTarget,'Orçamento mensal: '+(p.budget?formatMoney(p.budget):'não definido'),'Meta de sono: '+p.sleepGoal/60+'h','Registros salvos: '+counts].join('\n');
 }
 
 export function describeProposal(p:Proposal){return [p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
 
 export function proposalsText(items:unknown){
  const lines=(Array.isArray(items)?items:[]).slice(0,15).map(entry=>{const p=(entry||{}) as {collection?:string;item?:Record<string,unknown>},i=p.item||{};return '- ['+(LABELS[p.collection||'']||'Registro')+'] '+String(i.title||'').slice(0,200)+(typeof i.amount==='number'?' · '+formatMoney(i.amount)+(i.direction==='income'?' (receita)':' (despesa)'):'')+(i.date?' · '+String(i.date):'')+(i.time?' '+String(i.time):'');});
- return 'Sugestões mostradas ao usuário, aguardando a confirmação dele:\n'+lines.join('\n');
+ return 'Sugestões mostradas, aguardando confirmação:\n'+lines.join('\n');
 }
 
 export function cleanHistory(raw:unknown):AgentMessage[]{

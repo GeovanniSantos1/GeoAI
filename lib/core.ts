@@ -1,6 +1,7 @@
 import { COLLECTIONS } from './types.ts';
 import type { Workspace, Item, Collection, Command, Proposal } from './types.ts';
 import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
+import { HAIR_STYLES } from './gender.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -24,9 +25,12 @@ VALID_KEYS.add('appliedPages');NUMBERS.add('appliedPages');
 for(const key of ['lab','markers','file','review','createdOn','dose','intervalDays','doctor','remind','remindedOn','snoozedUntil','protocolId','site'])VALID_KEYS.add(key);NUMBERS.add('dose');NUMBERS.add('intervalDays');for(const key of ['createdOn','remindedOn','snoozedUntil'])DATES.add(key);
 // Coleções criadas depois do lançamento: espaços e backups antigos ganham a lista vazia.
 const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses'];
-export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,unknown>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];}return raw;}
+// Perfis de antes da versão feminina eram todos tratados no masculino; o avatar ganha penteado e brincos padrão.
+// Copia o perfil em vez de alterá-lo, porque validateWorkspace só copia o primeiro nível do backup.
+export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];
+ if(s.profile&&typeof s.profile==='object'){const p={...s.profile};if(p.gender===undefined)p.gender='male';if(p.avatar&&typeof p.avatar==='object')p.avatar={style:'longo',earrings:true,...p.avatar};s.profile=p;}}return raw;}
 export function emptyWorkspace(name=''): Workspace {
- const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c'},unlockedMoments:[]},completions:{},rewarded:[]};
+ const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,gender:'',avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c',style:'longo',earrings:true},unlockedMoments:[]},completions:{},rewarded:[]};
  for(const key of COLLECTIONS)result[key]=[];return result;
 }
 export function validDate(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(value+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;}
@@ -94,7 +98,8 @@ function cleanProfile(raw:any,previous:Workspace['profile']){
  if(['light','dark','system'].includes(raw.theme))p.theme=raw.theme;
  for(const key of ['budget','openingBalance','sleepGoal','dailyTarget'] as const)if(raw[key]!==undefined){if(!Number.isSafeInteger(raw[key])||raw[key]<0||raw[key]>1e12)throw new Error('Configuração inválida');p[key]=raw[key];}
  for(const key of ['bedtime','waketime'] as const)if(raw[key]){sleepDuration(raw[key],raw[key]);p[key]=raw[key];}
- if(raw.avatar){const a=raw.avatar;for(const key of ['skin','hair','shirt'] as const)if(typeof a[key]==='string'&&/^#[0-9a-f]{6}$/i.test(a[key]))p.avatar[key]=a[key];if(typeof a.beard==='boolean')p.avatar.beard=a.beard;}
+ if(raw.avatar){const a=raw.avatar;for(const key of ['skin','hair','shirt'] as const)if(typeof a[key]==='string'&&/^#[0-9a-f]{6}$/i.test(a[key]))p.avatar[key]=a[key];if(typeof a.beard==='boolean')p.avatar.beard=a.beard;if(HAIR_STYLES.some(([id])=>id===a.style))p.avatar.style=a.style;if(typeof a.earrings==='boolean')p.avatar.earrings=a.earrings;}
+ if(raw.gender==='male'||raw.gender==='female')p.gender=raw.gender;
  return p;
 }
 function reward(s:Workspace,key:string,points:number){if(s.rewarded.includes(key))return;s.rewarded.push(key);s.profile.xp+=points;s.profile.points+=points;}

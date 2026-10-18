@@ -1,5 +1,6 @@
 import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck,FlaskConical} from 'lucide-react';
 import type {Collection,Workspace} from '@/lib/types';
+import {categoryOptions} from '@/lib/gender';
 export const NAV=[
 {id:'inicio',path:'/',label:'Meu dia',icon:House,group:'SEU DIA'},
 {id:'agenda',path:'/agenda-v2',label:'Agenda',icon:CalendarDays,group:'SEU DIA'},
@@ -60,5 +61,5 @@ trtProtocols:[{...title,label:'Medicamento',hint:'Ex.: Durateston, Deposteron, N
 trtDoses:[{...title,label:'Registro'},date,{key:'protocolId',label:'Protocolo',type:'select',source:'trtProtocols',required:true},{key:'dose',label:'Dose',type:'number',step:'0.1',min:0},{key:'site',label:'Local',type:'select',options:[['','Não informado'],['Glúteo','Glúteo'],['Coxa','Coxa'],['Deltoide','Deltoide'],['Abdômen','Abdômen'],['Outro','Outro']]},{...notes,label:'Como você se sentiu?'}]
 };
 export const COLLECTION_LABELS:Record<Collection,string>={tasks:'Nova ação',objectives:'Novo objetivo',transactions:'Novo lançamento',bills:'Nova conta',cards:'Novo cartão',journal:'Registrar meu dia',workouts:'Novo treino',sessions:'Registrar treino',measurements:'Peso e medidas',courses:'Novo estudo',activities:'Planejar atividade',books:'Adicionar livro',readingLogs:'Registrar leitura',rooms:'Novo cômodo',chores:'Nova tarefa de casa',shopping:'Adicionar à lista',clients:'Novo cliente',workGoals:'Nova meta de trabalho',sleep:'Registrar minha noite',vices:'Começar um novo caminho',relapses:'Registrar recomeço',notes:'Nova anotação',reviews:'Minha revisão',focusSessions:'Registrar foco',labExams:'Novo exame',trtProtocols:'Novo protocolo',trtDoses:'Registrar aplicação'};
-export const relationOptions=(field:Field,state:Workspace)=>field.source?[['','Sem vínculo'],...state[field.source].map(x=>[x.id,x.title])]:field.options||[];
+export const relationOptions=(field:Field,state:Workspace)=>field.source?[['','Sem vínculo'],...state[field.source].map(x=>[x.id,x.title])]:field.key==='category'?categoryOptions(field.options||[],state.profile.gender):field.options||[];
 

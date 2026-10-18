@@ -8,7 +8,7 @@ Aplicativo em português para organização pessoal do público masculino, recon
 - Finanças com receitas, despesas, orçamento, contas mensais, cartões e parcelas com valores exatos em centavos.
 - Diário, sono, treinos, medidas, rotinas de alimentação e cuidados, acompanhamento de vícios e recaídas.
 - Cursos, estudos e livros com progresso de leitura; casa, compras, trabalho, clientes e metas.
-- Notas, revisão semanal, Pomodoro, recompensas e avatar masculino personalizável.
+- Notas, revisão semanal, Pomodoro, recompensas e avatar personalizável, masculino ou feminino.
 - Perfil e fuso horário, temas claro/escuro, backup JSON validado e calendário ICS para importar/exportar eventos.
 - Assistente de IA em conversa: consulta agenda, finanças e registros e sugere ações, sempre confirmadas pelo usuário; sem chave de IA, modo guiado que transforma texto em propostas de ações.
 
@@ -53,6 +53,12 @@ Os scripts de navegador (`npm run test:e2e` e `tests/smoke-ui.mjs`) foram escrit
 - Cotas por usuário: 20 envios e 40 pareceres por dia.
 - Lembrete diário: a tarefa agendada do `vercel.json` (`0 11 * * *`) chama `/api/cron/trt-reminders`. Cadastre o segredo `CRON_SECRET` na Vercel; sem o cabeçalho `Authorization: Bearer <CRON_SECRET>` a rota responde 401.
 - Desenvolvimento local: use `EXAM_FILES=memory` no `.env.local` para guardar os arquivos na memória do servidor, sem Blob. Eles se perdem ao reiniciar.
+
+## Versão feminina
+
+- O perfil guarda como a pessoa quer ser tratada (`gender`: `male`, `female` ou vazio). Contas novas respondem no primeiro acesso; contas criadas antes desta versão seguem no masculino. Dá para trocar em Configurações e em Sua jornada.
+- No feminino: avatar com penteado (longo, cacheado ou coque) e brincos opcionais, textos no feminino, categorias Cabelo, Unhas e Maquiagem em Cuidados pessoais, e o assistente (app e Telegram) fala no feminino.
+- O menu Testosterona fica oculto para mulheres. Os dados continuam salvos e voltam a aparecer se o perfil for trocado para masculino.
 
 ## Integrações e limites
 
