@@ -36,10 +36,10 @@ export function SoundProvider({children,onNotice}:{children:ReactNode;onNotice:(
  const ensureContext=useCallback(()=>{if(!ctxRef.current){const C=audioContextClass();if(!C)return null;const c=new C(),g=c.createGain();g.gain.value=0;g.connect(c.destination);ctxRef.current=c;outRef.current=g;}return ctxRef.current;},[]);
  const clearRamp=useCallback(()=>{if(rampRef.current===null)return;clearTimeout(rampRef.current);rampRef.current=null;const c=ctxRef.current,g=outRef.current;if(c&&g)g.gain.cancelScheduledValues(c.currentTime);},[]);
  const stopWaves=useCallback(()=>{clearRamp();killWaves();},[clearRamp,killWaves]);
- const startWaves=useCallback((m:Moment)=>{const s=cur.current;requestPlaybackSession();let c:AudioContext|null=null;
-  try{c=ensureContext();if(c){clearRamp();buildWaves(m);}}catch{killWaves();c=null;}
+ const startWaves=useCallback((m:Moment,resumeMusic=true)=>{const s=cur.current;requestPlaybackSession();let c:AudioContext|null=null;
+  try{c=ensureContext();if(c){clearRamp();buildWaves(m);}}catch{killWaves();c=null;patch({wavesSupported:false});}
   if(!c){warn(NO_WAVES);return false;}
-  c.resume().catch(()=>{});wavesGain(s.wavesVolume);if(s.paused&&s.musicOn&&audioRef.current)startAudio(audioRef.current);
+  c.resume().catch(()=>{});wavesGain(s.wavesVolume);if(resumeMusic&&s.paused&&s.musicOn&&audioRef.current)startAudio(audioRef.current);
   patch({moment:m,wavesOn:true,paused:false,visible:true});return true;},[ensureContext,clearRamp,buildWaves,killWaves,warn,wavesGain,startAudio,patch]);
  const play=useCallback((m:Moment,id?:string|null)=>{const s=cur.current,list=tracksFor(m),t=list.find(x=>x.id===id)||list[0];if(!t)return;
   const a=getAudio();a.src=trackUrl(t);a.volume=s.musicVolume*fadeRef.current;requestPlaybackSession();startAudio(a);
@@ -48,9 +48,9 @@ export function SoundProvider({children,onNotice}:{children:ReactNode;onNotice:(
  const playTrack=useCallback((m:Moment,trackId?:string)=>{failsRef.current=0;play(m,trackId);},[play]);
  const next=useCallback(()=>{const s=cur.current;failsRef.current=0;play(s.moment,nextTrack(s.moment,s.trackId)?.id);},[play]);
  const toggleWaves=useCallback((m:Moment)=>{const s=cur.current;ownedRef.current=false;if(s.wavesOn&&s.moment===m){stopWaves();patch({wavesOn:false});}else startWaves(m);},[stopWaves,patch,startWaves]);
- const togglePlay=useCallback(()=>{const s=cur.current,a=audioRef.current,c=ctxRef.current;if(!s.musicOn&&!s.wavesOn){playTrack(s.moment);return;}
-  if(s.paused){requestPlaybackSession();if(s.musicOn&&a)startAudio(a);if(s.wavesOn)c?.resume().catch(()=>{});patch({paused:false});}
-  else{a?.pause();c?.suspend().catch(()=>{});patch({paused:true});}},[playTrack,startAudio,patch]);
+ const resumeAll=useCallback(()=>{const s=cur.current,a=audioRef.current;requestPlaybackSession();if(s.musicOn&&a)startAudio(a);if(s.wavesOn)ctxRef.current?.resume().catch(()=>{});patch({paused:false});},[startAudio,patch]);
+ const pauseAll=useCallback(()=>{audioRef.current?.pause();ctxRef.current?.suspend().catch(()=>{});patch({paused:true});},[patch]);
+ const togglePlay=useCallback(()=>{const s=cur.current;if(!s.musicOn&&!s.wavesOn)playTrack(s.moment);else if(s.paused)resumeAll();else pauseAll();},[playTrack,resumeAll,pauseAll]);
  const stop=useCallback(()=>{killMusic();stopWaves();ownedRef.current=false;fadeRef.current=1;patch({musicOn:false,wavesOn:false,paused:false,visible:false,timerEndsAt:null});},[killMusic,stopWaves,patch]);
  const setNoise=useCallback((m:Moment,noise:Noise)=>{const s=cur.current;setState(x=>({...x,noise:{...x.noise,[m]:noise}}));if(s.wavesOn&&s.moment===m)buildNoise(noise);},[buildNoise]);
  const setVolume=useCallback((kind:'music'|'waves',value:number)=>{const v=Math.min(1,Math.max(0,value||0));if(kind==='music'){patch({musicVolume:v});musicGain(v);}else{patch({wavesVolume:v});wavesGain(v);}},[patch,musicGain,wavesGain]);
@@ -58,12 +58,16 @@ export function SoundProvider({children,onNotice}:{children:ReactNode;onNotice:(
  const setFocusAutoplay=useCallback((on:boolean)=>patch({focusAutoplay:on}),[patch]);
  // Pomodoro: só mexe nas ondas que ele mesmo ligou; ao terminar, baixa em 30 s e desliga.
  const focusSession=useCallback((kind:'start'|'pause'|'end')=>{const s=cur.current;if(!s.focusAutoplay)return;
-  if(kind==='start'){const fading=rampRef.current!==null;clearRamp();if(!s.wavesOn||s.moment!=='foco'){if(startWaves('foco'))ownedRef.current=true;}else if(fading){wavesGain(s.wavesVolume);ownedRef.current=true;}return;}
+  // 'start' sempre deixa as ondas de Foco audíveis; com o player pausado, a música pausada fica em silêncio (musicOn:false, mantendo a faixa).
+  if(kind==='start'){if(!s.wavesSupported)return;const fading=rampRef.current!==null;clearRamp();if(s.paused&&s.musicOn)patch({musicOn:false});
+   if(!s.wavesOn||s.moment!=='foco'){if(startWaves('foco',false))ownedRef.current=true;}
+   else{if(fading){wavesGain(s.wavesVolume);ownedRef.current=true;}if(s.paused){requestPlaybackSession();ctxRef.current?.resume().catch(()=>{});patch({paused:false});}}
+   return;}
   if(!ownedRef.current)return;ownedRef.current=false;
   if(kind==='pause'){stopWaves();patch({wavesOn:false});return;}
   clearRamp();const c=ctxRef.current,g=outRef.current;if(!c||!g)return;const t=c.currentTime;g.gain.cancelScheduledValues(t);g.gain.setValueAtTime(g.gain.value,t);g.gain.linearRampToValueAtTime(0,t+30);
   rampRef.current=window.setTimeout(()=>{rampRef.current=null;stopWaves();patch({wavesOn:false});},30000);},[clearRamp,startWaves,wavesGain,stopWaves,patch]);
- const dispose=useCallback(()=>{killMusic();clearRamp();killWaves();ctxRef.current?.close().catch(()=>{});ctxRef.current=null;outRef.current=null;},[killMusic,clearRamp,killWaves]);
+ const dispose=useCallback(()=>{killMusic();clearRamp();killWaves();ctxRef.current?.close().catch(()=>{});ctxRef.current=null;outRef.current=null;if('mediaSession' in navigator){navigator.mediaSession.metadata=null;navigator.mediaSession.playbackState='none';}},[killMusic,clearRamp,killWaves]);
  // Eventos do <audio>: no fim segue para a próxima; em erro pula, até todas as faixas do momento falharem seguidas.
  useEffect(()=>{eventsRef.current={
   ended(){const s=cur.current;play(s.moment,nextTrack(s.moment,s.trackId)?.id);},
@@ -76,9 +80,10 @@ export function SoundProvider({children,onNotice}:{children:ReactNode;onNotice:(
  useEffect(()=>{if(!timerEndsAt)return;const id=window.setInterval(()=>{const f=fadeGain(timerEndsAt-Date.now());if(f!==fadeRef.current){fadeRef.current=f;const s=cur.current;musicGain(s.musicVolume);wavesGain(s.wavesVolume);}if(f===0)stop();},250);return()=>clearInterval(id);},[timerEndsAt,musicGain,wavesGain,stop]);
  // Controles do sistema (tela de bloqueio e teclas de mídia).
  useEffect(()=>{if(!('mediaSession' in navigator))return;const ms=navigator.mediaSession;
-  const actions:[MediaSessionAction,MediaSessionActionHandler][]=[['play',()=>{const s=cur.current;if(s.paused||(!s.musicOn&&!s.wavesOn))togglePlay();}],['pause',()=>{const s=cur.current;if(!s.paused&&(s.musicOn||s.wavesOn))togglePlay();}],['nexttrack',()=>next()]];
+  // play sempre retoma e pause sempre pausa, mesmo se `paused` ficou fora de sincronia depois de uma interrupção do sistema.
+  const actions:[MediaSessionAction,MediaSessionActionHandler][]=[['play',()=>{const s=cur.current;if(!s.musicOn&&!s.wavesOn)togglePlay();else resumeAll();}],['pause',()=>pauseAll()],['nexttrack',()=>next()]];
   for(const [a,h] of actions)try{ms.setActionHandler(a,h);}catch{}
-  return()=>{for(const [a] of actions)try{ms.setActionHandler(a,null);}catch{}};},[togglePlay,next]);
+  return()=>{for(const [a] of actions)try{ms.setActionHandler(a,null);}catch{}};},[togglePlay,resumeAll,pauseAll,next]);
  useEffect(()=>{if(!('mediaSession' in navigator))return;const t=musicOn?TRACKS.find(x=>x.id===trackId):undefined,on=musicOn||wavesOn;
   navigator.mediaSession.metadata=on?new MediaMetadata({title:t?t.title:waveLabel(moment),artist:t?t.author:'GeoAI',album:'GeoAI · '+MOMENTS[moment].label}):null;
   navigator.mediaSession.playbackState=on?(paused?'paused':'playing'):'none';},[trackId,musicOn,wavesOn,moment,paused]);
