@@ -1,9 +1,10 @@
 import type { UIMessage } from 'ai';
 import { COLLECTIONS } from './types.ts';
 import type { Workspace, Item, Proposal, Collection } from './types.ts';
-import { validDate, addDays, scheduledItems, isComplete, financeSummary, formatMoney, validateItem } from './core.ts';
+import { validDate, addDays, isComplete, financeSummary, formatMoney, validateItem } from './core.ts';
 import { protocolStatus, punctuality, finalOverall, classifyMarker, rangeText, valueText, STATUS_LABEL, OVERALL_LABEL } from './testosterone.ts';
 import type { Marker } from './exam-schema.ts';
+import { agendaItems, agendaOrder, type ExternalEvent } from './external-calendar.ts';
 
 // Consultas e validações usadas pelas ferramentas do assistente. Puras: recebem o espaço já carregado do usuário.
 export type AgentMessage = UIMessage<unknown,{proposals:{items:Proposal[]}}>;
@@ -13,13 +14,14 @@ const FIELDS = ['title','date','time','endTime','repeat','type','category','stat
 const clip = (value:string,max=300) => value.length>max?value.slice(0,max)+'…':value;
 const norm = (value:unknown) => String(value??'').toLocaleLowerCase('pt-BR');
 
-export function agendaRange(s:Workspace,start:string,end:string){
+export function agendaRange(s:Workspace,start:string,end:string,external:ExternalEvent[]=[]){
  if(!validDate(start)||!validDate(end)||end<start)throw new Error('Período inválido');
- const days:{date:string;items:{title:string;time?:string;type:string;done:boolean}[]}[]=[];
+ const days:{date:string;items:{title:string;time?:string;endTime?:string;type:string;done?:boolean;readOnly?:boolean}[]}[]=[];
  for(let d=start;d<=end;d=addDays(d,1)){
   if(days.length>=31)throw new Error('Consulte no máximo 31 dias por vez');
-  const items=scheduledItems(s,d).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
-  days.push({date:d,items:items.map(x=>({title:x.title,...(x.time?{time:x.time}:{}),type:x.type||'task',done:!!isComplete(s,x,d)}))});
+  // Compromissos do Outlook e do Google vêm marcados como só leitura e sem conclusão.
+  const items=agendaItems(s,external,d).sort(agendaOrder);
+  days.push({date:d,items:items.map(x=>x._collection==='external'?{title:x.title,...(x.time?{time:x.time}:{}),...(x.endTime?{endTime:x.endTime}:{}),type:x.provider==='microsoft'?'outlook':'google',readOnly:true}:{title:x.title,...(x.time?{time:x.time}:{}),type:x.type||'task',done:!!isComplete(s,x,d)})});
  }
  return days;
 }

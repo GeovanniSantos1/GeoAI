@@ -9,7 +9,7 @@ Aplicativo em português para organização pessoal do público masculino, recon
 - Diário, sono, treinos, medidas, rotinas de alimentação e cuidados, acompanhamento de vícios e recaídas.
 - Cursos, estudos e livros com progresso de leitura; casa, compras, trabalho, clientes e metas.
 - Notas, revisão semanal, Pomodoro, recompensas e avatar masculino personalizável.
-- Perfil e fuso horário, temas claro/escuro, backup JSON validado e calendário ICS para importar/exportar eventos.
+- Perfil e fuso horário, temas claro/escuro, backup JSON validado, calendário ICS para importar/exportar eventos e agenda sincronizada (só leitura) com Outlook/Teams e Google Agenda.
 - Assistente de IA em conversa: consulta agenda, finanças e registros e sugere ações, sempre confirmadas pelo usuário; sem chave de IA, modo guiado que transforma texto em propostas de ações.
 
 Feito em Next.js e hospedado na Vercel. Os dados ficam em Postgres (Neon) por usuário, com login pelo Clerk. A API protege as operações com sessão, origem e controle de versão, para não sobrescrever edições feitas em outra aba.
@@ -57,7 +57,7 @@ Os scripts de navegador (`npm run test:e2e` e `tests/smoke-ui.mjs`) foram escrit
 ## Integrações e limites
 
 - IA generativa: opcional; exige os segredos de servidor `AI_API_KEY` e `AI_MODEL` (e `AI_BASE_URL` para um endpoint compatível com a OpenAI). Com eles, o assistente vira um agente de conversa que consulta agenda, finanças e registros do usuário e sugere tarefas, lançamentos e notas; nada é salvo sem a confirmação do usuário. Sem eles, funciona no modo guiado. Nunca exponha a chave no cliente.
-- Calendário: importação/exportação ICS; não inclui sincronização OAuth contínua com Google Calendar.
+- Calendário: importação/exportação ICS e sincronização só leitura com Outlook/Teams (Microsoft 365 ou conta pessoal) e Google Agenda, conectados em Configurações. O OAuth e os tokens ficam com o Clerk, que precisa de credenciais próprias do Google e da Microsoft (passo a passo em `docs/agenda-integracao.md`). Lê só a agenda principal, de 30 dias atrás a 90 à frente; atualiza ao abrir o app, pelo botão "Atualizar agora" e uma vez por dia pelo cron `/api/cron/calendar-sync` (usa o mesmo `CRON_SECRET` do lembrete da Testosterona).
 - Lembretes: notificações do navegador com permissão e a tela de configurações aberta. Não há serviço de push em segundo plano.
 - Telegram: com o segredo `TELEGRAM_BOT_TOKEN`, cada usuário conecta o próprio chat em Configurações > GeoAI no Telegram (link de uso único, válido por 15 minutos). Ao gerar o link, o app registra o webhook `/api/telegram` com um segredo derivado do token; o bot só responde em chats privados vinculados e as sugestões são confirmadas por botões. Gere o link pelo domínio de produção: as URLs de preview da Vercel ficam protegidas por login e o Telegram não consegue chamá-las. Comandos no bot: /ajuda e /desconectar.
 - WhatsApp: exibe o estado desconectado; nenhum provedor ou número foi vinculado.

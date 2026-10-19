@@ -5,10 +5,11 @@ import {DefaultChatTransport} from 'ai';
 import {ArrowUpRight,ArrowRight,Plus,Menu,Search,X,Check,LoaderCircle,ChevronDown,Compass,PanelLeftClose, Bell, Sparkles,Mic,Send,TriangleAlert,RefreshCw,LogOut,Moon,Sun} from 'lucide-react';
 import type {Workspace,StateResponse,Collection,Item,Command,Proposal} from '@/lib/types';
 import {todayInZone,formatMoney,addDays} from '@/lib/core';
+import {isStale,FRESH_MS,type ExternalEvent,type FeedView,type Provider} from '@/lib/external-calendar';
 import {describeProposal,type AgentMessage} from '@/lib/agent';
 import {NAV} from './catalog';
 import {TestosteroneView} from './testosterone';
-import {Context} from './context';
+import {Context,type CalendarResult} from './context';
 import {Modal,Editor} from './primitives';
 import Avatar from './Avatar';
 import {HomeView,AgendaView,GoalsView,TrackerView,FocusView} from './planning';
@@ -26,11 +27,19 @@ export default function NorteApp(){
  const navigate=useCallback((next:string)=>{window.history.pushState({},'',next);setPath(next);setMobile(false);window.scrollTo({top:0,behavior:'instant'});},[]);
  const mutate=useCallback(async(command:Command)=>{setBusy(true);try{const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});const j:any=await r.json();if(!r.ok)throw new Error(j.error||'Não foi possível salvar');setData(prev=>({...j,user:j.user||prev?.user}));return true;}catch(e){toast(e instanceof Error?e.message:'Não foi possível salvar',true);return false;}finally{setBusy(false);}},[toast]);
  const edit=useCallback((collection:Collection,item?:Item,defaults?:any,installments=false)=>setEditor({collection,item,defaults,installments}),[]);
+ // Agendas externas: o GET lê só o banco; se algum espelho passou de 10 minutos, a sincronização roda em segundo plano.
+ const [calendar,setCalendar]=useState<{events:ExternalEvent[];feeds:FeedView[]}>({events:[],feeds:[]});
+ const callCalendar=useCallback(async(method:'GET'|'POST'|'DELETE',body?:object)=>{const r=await fetch('/api/calendar',{method,cache:'no-store',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const j:{error?:string;events:ExternalEvent[];feeds:FeedView[];result?:CalendarResult}=await r.json().catch(()=>({}));if(!r.ok||!j.events)throw new Error(j.error||'Não foi possível falar com a agenda externa.');setCalendar({events:j.events,feeds:j.feeds});return j;},[]);
+ useEffect(()=>{const t=setTimeout(()=>{callCalendar('GET').then(j=>isStale(j.feeds,Date.now(),FRESH_MS)?callCalendar('POST',{}):null).catch(()=>{});},0);return()=>clearTimeout(t);},[callCalendar]);
+ // Só "Conectar" manda connect: "Atualizar agora" de uma conta que já não existe não a recria.
+ const refreshCalendar=useCallback(async(provider?:Provider,connect?:boolean)=>{try{return (await callCalendar('POST',provider?{provider,...(connect?{connect:true}:{})}:{})).result??null;}catch(e){toast(e instanceof Error?e.message:'Não foi possível atualizar a agenda externa.',true);return null;}},[callCalendar,toast]);
+ const reloadCalendar=useCallback(async()=>{await callCalendar('GET').catch(()=>null);},[callCalendar]);
+ const disconnectCalendar=useCallback(async(provider:Provider)=>{try{await callCalendar('DELETE',{provider});return true;}catch(e){toast(e instanceof Error?e.message:'Não foi possível desconectar agora.',true);return false;}},[callCalendar,toast]);
  if(!data)return <main className="app-loading"><div className="brand-icon"><Compass/></div><h1>GeoAI</h1>{error?<><p role="alert">{error}</p><button className="button primary" onClick={load}><RefreshCw size={17}/>Tentar novamente</button><a href="/sign-in">Entrar novamente</a></>:<><LoaderCircle className="spin"/><p>Abrindo seu espaço…</p></>}</main>;
  const state=data.state,today=todayInZone(state.profile.timezone),selected=NAV.find(x=>x.path===path)||NAV[0],first=state.profile.name.split(' ')[0]||'você';
  const dark=resolveTheme(state.profile.theme)==='dark';
  const toggleTheme=async()=>{const next=dark?'light':'dark';applyTheme(next);if(!await mutate({type:'profile',profile:{theme:next}}))applyTheme(dark?'dark':'light');};
- const context={state,today,date:date||today,setDate,navigate,mutate,edit,sync:(r:{state:Workspace;version:number})=>setData(prev=>prev&&{...prev,state:r.state,version:r.version}),remove:(collection:Collection,item:Item)=>setConfirm({collection,item}),toast,openAssistant:()=>setAssistant(true),busy,user:data.user};
+ const context={state,today,date:date||today,setDate,navigate,mutate,edit,sync:(r:{state:Workspace;version:number})=>setData(prev=>prev&&{...prev,state:r.state,version:r.version}),remove:(collection:Collection,item:Item)=>setConfirm({collection,item}),toast,openAssistant:()=>setAssistant(true),busy,user:data.user,calendar:{...calendar,refresh:refreshCalendar,reload:reloadCalendar,disconnect:disconnectCalendar}};
  const views:Record<string,React.ReactNode>={inicio:<HomeView/>,agenda:<AgendaView/>,plano:<GoalsView/>,tracker:<TrackerView/>,foco:<FocusView/>,financas:<FinanceView/>,journal:<JournalView/>,sono:<SleepView/>,testosterona:<TestosteroneView/>,vicios:<VicesView/>,treinos:<TrainingView/>,estudos:<LearningView/>,casa:<HouseView/>,trabalho:<WorkView/>,notas:<NotesView/>,alimentacao:<RoutineView section="alimentacao"/>,cuidados:<RoutineView section="cuidados"/>,avatar:<JourneyView/>,revisao:<ReviewView/>,perfil:<SettingsView/>};
  const searchResults=query.trim()?Object.entries(state).filter(([k,v])=>Array.isArray(v)&&!['rewarded'].includes(k)).flatMap(([k,v])=>(v as Item[]).filter(x=>x.title?.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))).map(item=>({collection:k as Collection,item}))).slice(0,20):[];
  return <Context.Provider value={context}><div className={'app-shell '+(mobile?'menu-open':'')}>
