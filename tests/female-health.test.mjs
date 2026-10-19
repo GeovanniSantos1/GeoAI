@@ -10,6 +10,7 @@ import { femaleCriticalFlags } from '../lib/female-health.ts';
 import { reviewContext, finalOverall } from '../lib/testosterone.ts';
 import { MARKER_KEYS } from '../lib/exam-schema.ts';
 import { createExamFromFile, reviewExam } from '../lib/exam-service.ts';
+import { femaleHealthReport, checkProposals, describeProposal } from '../lib/agent.ts';
 const mk=(key,value,extra={})=>({key,label:key,value,...extra});
 const inj={id:'i1',title:'Depo',method:'injection',startDate:'2026-08-01',intervalDays:90,status:'active',remind:true,time:'09:00'};
 
@@ -110,3 +111,14 @@ test('leitura e parecer recebem o gênero e a fase do ciclo',async()=>{let s=emp
   review:async input=>{seen.review=input.gender;return {overall:'ok',summary:'Tudo dentro das faixas.',points:[],tips:[],model:'teste'};},now:()=>new Date('2026-10-18T12:00:00Z')};
  const r=await createExamFromFile(deps,{bytes:new TextEncoder().encode('%PDF-1.4 teste'),name:'laudo.pdf'});assert.deepEqual(seen.extract,{gender:'female',phase:'menstrual'});
  await reviewExam(deps,r.exam.id,{date:'2026-10-18',markers:r.exam.markers});assert.equal(seen.review,'female');});
+test('relatório da saúde feminina para o assistente',()=>{const s=emptyWorkspace('Ana');s.profile.gender='female';s.periods=[per('2026-09-17'),per('2026-10-15')];
+ s.symptoms=[{id:'s',title:'S',date:'2026-10-16',symptoms:['Cólica']},{id:'old',title:'S',date:'2026-09-01',symptoms:['Acne']}];s.contraceptives=[{...pill}];s.contraceptiveDoses=[{id:'take-m1-2026-10-18',title:'Tomei',methodId:'m1',date:'2026-10-18'}];s.preventives=[{id:'pv',title:'Papanicolau',intervalMonths:12,lastDate:'2025-10-01'}];
+ const r=femaleHealthReport(s,'2026-10-18');
+ assert.deepEqual([r.ciclo.proximaPrevista,r.ciclo.diaDoCiclo],['2026-11-12',4]);assert.deepEqual(r.sintomasRecentes.map(x=>x.data),['2026-10-16']);
+ assert.deepEqual([r.metodos[0].hoje,r.metodos[0].diaDaCartela],['tomado',18]);assert.equal(r.preventivos[0].situacao,'Atrasado');
+ assert.equal(femaleHealthReport(emptyWorkspace('Ana'),'2026-10-18').ciclo,'sem menstruação registrada');});
+test('assistente propõe menstruação e uso do método',()=>{const s=emptyWorkspace('Ana');s.profile.gender='female';
+ const p=checkProposals([{collection:'periods',flow:'intenso'}],'2026-10-18',s);assert.deepEqual([p.valid[0].item.title,p.valid[0].item.date],['Menstruação','2026-10-18']);assert.match(describeProposal(p.valid[0]),/Início da menstruação/);
+ assert.match(checkProposals([{collection:'contraceptiveDoses',title:'Tomei'}],'2026-10-18',s).errors[0],/menu Saúde feminina/);
+ s.contraceptives=[{...pill}];assert.equal(checkProposals([{collection:'contraceptiveDoses',title:'Tomei'}],'2026-10-18',s).valid[0].item.methodId,'m1');
+ s.contraceptiveDoses=[{id:'take-m1-2026-10-18',title:'Tomei',methodId:'m1',date:'2026-10-18'}];assert.match(checkProposals([{collection:'contraceptiveDoses',title:'Tomei'}],'2026-10-18',s).errors[0],/já existe/);});
