@@ -11,6 +11,7 @@ Aplicativo em português para organização pessoal do público masculino, recon
 - Notas, revisão semanal, Pomodoro, recompensas e avatar personalizável, masculino ou feminino.
 - Perfil e fuso horário, temas claro/escuro, backup JSON validado, calendário ICS para importar/exportar eventos e agenda sincronizada (só leitura) com Outlook/Teams e Google Agenda.
 - Assistente de IA em conversa: consulta agenda, finanças e registros e sugere ações, sempre confirmadas pelo usuário; sem chave de IA, modo guiado que transforma texto em propostas de ações.
+- Menu Músicas com músicas instrumentais livres e ondas binaurais (alfa para foco e relaxamento, teta para dormir) geradas no navegador, mixer, timer para desligar e um mini-player que continua tocando entre as telas.
 
 Feito em Next.js e hospedado na Vercel. Os dados ficam em Postgres (Neon) por usuário, com login pelo Clerk. A API protege as operações com sessão, origem e controle de versão, para não sobrescrever edições feitas em outra aba.
 
@@ -76,5 +77,6 @@ Os scripts de navegador (`npm run test:e2e` e `tests/smoke-ui.mjs`) foram escrit
 - Telegram: com o segredo `TELEGRAM_BOT_TOKEN`, cada usuário conecta o próprio chat em Configurações > GeoAI no Telegram (link de uso único, válido por 15 minutos). Ao gerar o link, o app registra o webhook `/api/telegram` com um segredo derivado do token; o bot só responde em chats privados vinculados e as sugestões são confirmadas por botões. Gere o link pelo domínio de produção: as URLs de preview da Vercel ficam protegidas por login e o Telegram não consegue chamá-las. Comandos no bot: /ajuda e /desconectar.
 - WhatsApp: exibe o estado desconectado; nenhum provedor ou número foi vinculado.
 - Sem acesso ao backend original, não são recuperados usuários, históricos, assinaturas, mídias privadas ou segredos do Direct Line.
+- Músicas: as faixas ficam no Vercel Blob público `geoai-musicas`. São gravações em domínio público ou CC0 do Wikimedia Commons e de Kevin MacLeod (CC BY 4.0), com os créditos na tela. Para trocar ou acrescentar faixas, edite `TRACKS` em `lib/sounds.ts` e rode `node --env-file=<arquivo com MUSIC_BLOB_TOKEN> --experimental-strip-types scripts/upload-music.mjs`. O token de leitura e escrita do armazenamento fica fora do repositório. As ondas e os ruídos são gerados no navegador (Web Audio) e pedem fones de ouvido. Não toca com o app fechado; no iPhone, as ondas não tocam no modo silencioso e o volume da música segue o volume do aparelho.
 
 Para trazer dados de uma versão anterior do app, use Configurações > Baixar backup na versão antiga e Restaurar backup na nova.
