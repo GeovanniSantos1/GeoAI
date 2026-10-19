@@ -81,3 +81,12 @@
 .external-detail p{display:flex;gap:9px;align-items:center;font-size:13px;color:var(--muted);padding:10px 0;border-bottom:1px solid var(--border)}
 .calendar-account{flex-wrap:wrap}
 .setting-row>.setting-actions{flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap}
+.mini-player{position:fixed;left:calc(var(--sidebar) + 20px);bottom:20px;z-index:30;max-width:440px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:8px 10px}
+.mini-player-info{flex:1;min-width:0;display:flex;align-items:center;gap:9px;background:none;border:0;color:var(--text);text-align:left;cursor:pointer;padding:0}.mini-player-info span{display:grid;min-width:0}.mini-player-info strong,.mini-player-info small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mini-player-info small{color:var(--muted)}
+.app-shell:has(.mini-player) .page-content{padding-bottom:96px}
+@media(max-width:800px){.mini-player{left:12px;right:76px;bottom:calc(69px + env(safe-area-inset-bottom));max-width:none}}
+.music-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));margin:16px 0}.music-grid>.panel,.music-credits{display:grid;gap:10px;align-content:start;min-width:0}
+.music-note{color:var(--muted);font-size:12px;margin:0}.noise-picker{display:flex;flex-wrap:wrap;gap:6px}.noise-pill{border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:999px;padding:5px 12px;cursor:pointer}.noise-pill.active{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+.track-list{display:grid;gap:6px}.track-item{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:9px 11px;cursor:pointer}.track-item span{display:grid;min-width:0}.track-item small{color:var(--muted)}.track-item.active{background:var(--green-soft);border-color:var(--green)}
+.music-mixer label{display:grid;gap:4px}.music-mixer input[type=range]{width:100%}.music-mixer .music-check{display:flex;align-items:center;gap:8px}
+.music-credits{margin-bottom:16px;font-size:12px;color:var(--muted)}.music-credits p{margin:0;overflow-wrap:anywhere}
