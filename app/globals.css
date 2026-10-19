@@ -59,3 +59,19 @@
 .gender-choice>button:hover{background:var(--green-soft);border-color:var(--green)}
 .gender-choice .person-avatar{max-width:130px}
 .gender-choice strong{font-size:14px}
+.task-check.readonly{border-style:dashed;opacity:.45}
+.multi-options{display:flex;flex-wrap:wrap;gap:8px}
+.check-chip{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer}
+.check-chip input{accent-color:var(--green)}
+.suggestion-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.cycle-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted)}
+.cycle-legend span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.cycle-legend .period::before{background:#e0a9a3}.cycle-legend .fertile::before{background:var(--green-soft);border:1px solid var(--green)}.cycle-legend .ovulation::before{background:var(--green)}
+.cycle-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cycle-day{border:1px solid var(--border);border-radius:10px;padding:6px 4px;text-align:center;display:grid;gap:2px}
+.cycle-day small{font-size:9px;color:var(--muted);text-transform:uppercase}.cycle-day strong{font-size:13px}
+.cycle-day.period{background:#f3d9d6;border-color:#e0a9a3}.cycle-day.fertile{background:var(--green-soft);border-color:var(--green)}.cycle-day.ovulation{background:var(--green);border-color:var(--green);color:var(--surface)}.cycle-day.ovulation small{color:var(--surface)}
+.cycle-day.today{outline:2px solid var(--gold);outline-offset:1px}
+:root[data-theme=dark] .cycle-day.period{background:#4a2a28;border-color:#7a4540}
+.button-group.spaced{margin-bottom:22px}
+@media(max-width:580px){.stats-grid.three.female-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
