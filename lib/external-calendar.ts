@@ -40,17 +40,25 @@ export function normalizeGoogleEvent(raw:GoogleRaw|null|undefined):ExternalEvent
  const extra={location:raw.location,joinUrl:https(raw.hangoutLink)??video,webLink:raw.htmlLink},allDay=!!raw.start?.date;
  const range=allDay?dayRange(raw.start?.date,raw.end?.date):timeRange(new Date(raw.start?.dateTime??NaN),raw.end?.dateTime?new Date(raw.end.dateTime):null);
  return range?build('google',raw.id,raw.summary,allDay,range,extra):null;}
-function local(iso:string,zone:string){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(iso));const get=(t:string)=>parts.find(p=>p.type===t)?.value;return {date:get('year')+'-'+get('month')+'-'+get('day'),time:get('hour')+':'+get('minute')};}
-// Itens de um dia no fuso do perfil. Com horário: só no dia de início; eventos de 24 horas ou mais continuam nos dias seguintes
-// (terminar à 00:00 não ocupa o dia). Dia inteiro: do início até a véspera do fim.
-export function externalOn(events:ExternalEvent[],date:string,zone:string):Item[]{const items:Item[]=[];
+// Um formatador por fuso: criar um Intl.DateTimeFormat a cada data travava a agenda do mês.
+const formats=new Map<string,Intl.DateTimeFormat>();
+function local(iso:string,zone:string){let f=formats.get(zone);if(!f){f=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});formats.set(zone,f);}
+ const parts=f.formatToParts(new Date(iso));const get=(t:string)=>parts.find(p=>p.type===t)?.value;return {date:get('year')+'-'+get('month')+'-'+get('day'),time:get('hour')+':'+get('minute')};}
+// Itens por dia no fuso do perfil, calculados uma vez por lista de eventos e fuso. Com horário: no dia de início; eventos de 24 horas
+// ou mais continuam nos dias seguintes (terminar à 00:00 não ocupa o dia). Dia inteiro: do início até a véspera do fim. No máximo 366 dias por evento.
+const MAX_SPAN_DAYS=366;const indexes=new WeakMap<ExternalEvent[],Map<string,Map<string,Item[]>>>();
+function dayIndex(events:ExternalEvent[],zone:string){let zones=indexes.get(events);if(!zones){zones=new Map();indexes.set(events,zones);}
+ const cached=zones.get(zone);if(cached)return cached;const days=new Map<string,Item[]>();
+ const add=(date:string,item:Item)=>{const list=days.get(date);if(list)list.push(item);else days.set(date,[item]);};
  for(const e of events){const base={id:e.provider+':'+e.id,title:e.title,type:'event',provider:e.provider,_collection:'external',...(e.location?{location:e.location}:{}),...(e.joinUrl?{joinUrl:e.joinUrl}:{}),...(e.webLink?{webLink:e.webLink}:{})};
-  if(e.allDay){if(e.start<=date&&date<e.end)items.push({...base,allDay:true});continue;}
+  if(e.allDay){if(validDate(e.start))for(let d=e.start,n=0;d<e.end&&n<MAX_SPAN_DAYS;d=addDays(d,1),n++)add(d,{...base,allDay:true});continue;}
   const start=local(e.start,zone),end=local(e.end,zone),long=Date.parse(e.end)-Date.parse(e.start)>=DAY;
-  if(start.date===date){items.push({...base,time:start.time,...(!long&&e.end>e.start?{endTime:end.time}:{})});continue;}
+  add(start.date,{...base,time:start.time,...(!long&&e.end>e.start?{endTime:end.time}:{})});if(!long)continue;
   const last=end.time==='00:00'?addDays(end.date,-1):end.date;
-  if(long&&start.date<date&&date<=last)items.push({...base,allDay:true,continued:true});}
- return items;}
+  for(let d=addDays(start.date,1),n=1;d<=last&&n<MAX_SPAN_DAYS;d=addDays(d,1),n++)add(d,{...base,allDay:true,continued:true});}
+ zones.set(zone,days);return days;}
+// Lista nova a cada chamada; os itens são compartilhados entre chamadas e não devem ser alterados.
+export function externalOn(events:ExternalEvent[],date:string,zone:string):Item[]{return [...(dayIndex(events,zone).get(date)??[])];}
 export const agendaItems=(s:Workspace,events:ExternalEvent[],date:string):Item[]=>[...scheduledItems(s,date),...externalOn(events,date,s.profile.timezone)];
 // Dia inteiro primeiro, depois por horário; sem horário por último.
 export const agendaOrder=(x:Item,y:Item)=>(x.allDay?'':x.time||'99').localeCompare(y.allDay?'':y.time||'99');

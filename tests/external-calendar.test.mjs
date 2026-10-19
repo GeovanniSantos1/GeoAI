@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyWorkspace} from '../lib/core.ts';
+import {emptyWorkspace,addDays} from '../lib/core.ts';
 import {normalizeGraphEvent,normalizeGoogleEvent,externalOn,agendaItems,agendaOrder,externalWhen,hasScope,isStale,timeAgo} from '../lib/external-calendar.ts';
 
 const teams={id:'AAMk1',subject:'Daily do projeto',start:{dateTime:'2026-10-20T12:00:00.0000000',timeZone:'UTC'},end:{dateTime:'2026-10-20T12:30:00.0000000',timeZone:'UTC'},isAllDay:false,isCancelled:false,location:{displayName:'Microsoft Teams Meeting'},onlineMeeting:{joinUrl:'https://teams.microsoft.com/l/meetup-join/abc'},webLink:'https://outlook.office365.com/owa/?itemid=AAMk1',responseStatus:{response:'accepted'}};
@@ -48,6 +48,14 @@ test('externalOn acompanha o horário de verão de Lisboa',()=>{
  assert.deepEqual(externalOn([ev({start:'2026-10-24T09:00:00Z',end:'2026-10-24T10:00:00Z'})],'2026-10-24','Europe/Lisbon').map(x=>[x.time,x.endTime]),[['10:00','11:00']]);
  assert.deepEqual(externalOn([ev({start:'2026-10-26T09:00:00Z',end:'2026-10-26T10:00:00Z'})],'2026-10-26','Europe/Lisbon').map(x=>[x.time,x.endTime]),[['09:00','10:00']]);
  assert.equal(externalOn([ev({start:'2026-10-24T09:00:00Z',end:'2026-10-24T10:00:00Z'})],'2026-10-24',SP)[0].time,'06:00');});
+test('externalOn calcula uma vez por lista e fuso, devolve lista nova e limita cada evento a 366 dias',()=>{
+ const events=[ev({id:'a'}),ev({id:'b',allDay:true,start:'2026-10-20',end:'2028-10-20'}),ev({id:'c',start:'2026-10-20T12:00:00Z',end:'2028-10-20T12:00:00Z'})];
+ const first=externalOn(events,'2026-10-20',SP);first.push({id:'x',title:'x'});first.sort((x,y)=>y.id.localeCompare(x.id));
+ assert.deepEqual(externalOn(events,'2026-10-20',SP).map(x=>[x.id,x.time,x.continued]),[['microsoft:a','09:00',undefined],['microsoft:b',undefined,undefined],['microsoft:c','09:00',undefined]]);
+ assert.deepEqual(externalOn(events,addDays('2026-10-20',365),SP).map(x=>[x.id,x.continued]),[['microsoft:b',undefined],['microsoft:c',true]]);
+ assert.deepEqual(externalOn(events,addDays('2026-10-20',366),SP),[]);
+ assert.equal(externalOn(events,'2026-10-20','Europe/Lisbon')[0].time,'13:00');assert.equal(externalOn(events,'2026-10-20',SP)[0].time,'09:00');
+ assert.deepEqual(externalOn([...events],'2026-10-20',SP).map(x=>x.id),['microsoft:a','microsoft:b','microsoft:c']);});
 test('agendaItems junta ações e externos; dia inteiro primeiro e sem horário por último',()=>{
  const s=emptyWorkspace('Geo');s.tasks=[{id:'t1',title:'Revisar proposta',date:'2026-10-20',time:'10:30',type:'task'},{id:'t2',title:'Ler',date:'2026-10-20',type:'task'}];
  const items=agendaItems(s,[ev({id:'m',title:'Daily',start:'2026-10-20T12:00:00Z',end:'2026-10-20T12:30:00Z'}),ev({id:'f',provider:'google',title:'Feriado',allDay:true,start:'2026-10-20',end:'2026-10-21'})],'2026-10-20').sort(agendaOrder);
