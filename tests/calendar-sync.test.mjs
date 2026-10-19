@@ -46,7 +46,11 @@ test('atualizar agora respeita um minuto, exceto quando precisa reconectar',asyn
  const a=deps({store:memoryStore([row({syncedAt:'2026-10-18T11:59:30Z'})])});assert.equal((await refreshFeed(a.deps,'u1','microsoft')).syncedAt,'2026-10-18T11:59:30Z');assert.deepEqual(a.calls,[]);
  const b=deps({store:memoryStore([row({syncedAt:'2026-10-18T11:58:00Z'})])});assert.equal((await refreshFeed(b.deps,'u1','microsoft')).syncedAt,'2026-10-18T12:00:00.000Z');
  const c=deps({store:memoryStore([row({syncedAt:'2026-10-18T11:59:50Z',status:'reconnect',account:'antigo@empresa.com'})])});const fixed=await refreshFeed(c.deps,'u1','microsoft');assert.equal(fixed.status,'ok');assert.equal(fixed.account,'voce@empresa.com');
- const nothing=memoryStore();assert.equal((await refreshFeed(deps({store:nothing}).deps,'u1','google')).status,'ok');assert.equal(nothing.map.size,1);});
+ const e=deps({store:memoryStore([row({syncedAt:'2026-10-18T11:59:30Z',status:'error',error:'Não foi possível atualizar agora.'})])});const kept=await refreshFeed(e.deps,'u1','microsoft');assert.equal(kept.status,'error');assert.equal(kept.syncedAt,'2026-10-18T11:59:30Z');assert.deepEqual(e.calls,[]);
+ const f=deps({store:memoryStore([row({syncedAt:'2026-10-18T11:58:00Z',status:'error',error:'Não foi possível atualizar agora.'})])});const retried=await refreshFeed(f.deps,'u1','microsoft');assert.equal(retried.status,'ok');assert.equal(retried.syncedAt,'2026-10-18T12:00:00.000Z');});
+test('sem a conta, atualizar não recria a conexão; só conectar cria',async()=>{const nothing=memoryStore();
+ const n=deps({store:nothing});assert.equal(await refreshFeed(n.deps,'u1','google'),null);assert.equal(nothing.map.size,0);assert.deepEqual(n.calls,[]);
+ const created=await refreshFeed(deps({store:nothing}).deps,'u1','google',true);assert.equal(created.status,'ok');assert.equal(created.account,'voce@empresa.com');assert.equal(nothing.map.size,1);});
 test('ensureFresh sincroniza só os espelhos vencidos',async()=>{const store=memoryStore([row({syncedAt:'2026-10-18T11:55:00Z'}),row({provider:'google',syncedAt:'2026-10-18T11:40:00Z'})]);const {deps:d,calls}=deps({store});
  const rows=await ensureFresh(d,'u1',10*60*1000);
  assert.deepEqual(calls.filter(c=>c.startsWith('token:')),['token:google']);assert.equal(rows.find(r=>r.provider==='google').events[0].id,'g1');assert.equal(rows.find(r=>r.provider==='microsoft').syncedAt,'2026-10-18T11:55:00Z');});

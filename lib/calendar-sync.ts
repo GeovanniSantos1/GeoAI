@@ -21,9 +21,11 @@ export async function connectFeed(d:SyncDeps,userId:string,provider:Provider,exi
  // Autorização negada na primeira conexão: não deixa uma conta "Precisa reconectar" para trás.
  if(!existing&&result.status==='reconnect')await d.store.remove(userId,provider);
  return result;}
-// "Conectar" e "Atualizar agora": conta nova ou com problema passa pela conexão; conta em dia sincroniza no máximo uma vez por minuto.
-export async function refreshFeed(d:SyncDeps,userId:string,provider:Provider):Promise<FeedRow>{const row=await d.store.get(userId,provider);
- if(!row||row.status!=='ok')return connectFeed(d,userId,provider,row);
+// "Conectar" (connect) cria a conta que falta; "Atualizar agora" sem a conta (desconectada ou apagada) não a recria e devolve null.
+// Conta que precisa reconectar passa pela conexão; as demais, inclusive com erro, sincronizam no máximo uma vez por minuto.
+export async function refreshFeed(d:SyncDeps,userId:string,provider:Provider,connect=false):Promise<FeedRow|null>{const row=await d.store.get(userId,provider);
+ if(!row)return connect?connectFeed(d,userId,provider,null):null;
+ if(row.status==='reconnect')return connectFeed(d,userId,provider,row);
  if(row.syncedAt&&clock(d).getTime()-Date.parse(row.syncedAt)<MIN_INTERVAL_MS)return row;
  return syncFeed(d,row);}
 export async function ensureFresh(d:SyncDeps,userId:string,maxAgeMs:number):Promise<FeedRow[]>{const now=clock(d).getTime();
