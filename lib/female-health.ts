@@ -41,3 +41,31 @@ export function forecastDays(periods:Item[],from:string,days:number){
  return Array.from({length:days},(_,i)=>{const date=shiftDate(from,i);return {date,kind:marks.get(date)||null};});
 }
 export function nextPeriodStart(periods:Item[]){const st=cycleStats(periods),last=st.starts[st.starts.length-1];return last?shiftDate(last,st.cycleLength):null;}
+export const takeId=(methodId:string,date:string)=>'take-'+methodId+'-'+date;
+export const PREVENTIVE_SUGGESTIONS=[['Ginecologista',12],['Papanicolau',12],['Mamografia',12],['Ultrassom transvaginal',12],['Densitometria óssea',24]] as const;
+export type PreventiveState='none'|'late'|'soon'|'ok';
+export const PREVENTIVE_LABEL:Record<PreventiveState,string>={none:'Sem registro',late:'Atrasado',soon:'Vence em breve',ok:'Em dia'};
+const taken=(m:Item,doses:Item[],date:string)=>doses.some(d=>d.methodId===m.id&&d.date===date);
+// Cartela: `startDate` é o primeiro dia da cartela atual; uso + pausa se repetem a partir dele.
+export function dailyStatus(m:Item,date:string):{active:boolean;packDay:number;pauseUntil?:string;nextPackStart?:string}{
+ if(m.status==='paused'||!valid(m.startDate))return {active:false,packDay:0};
+ if(date<m.startDate)return {active:false,packDay:0,nextPackStart:m.startDate};
+ const use=m.activeDays||21,len=use+(m.pauseDays??7),pos=dayDiff(m.startDate,date)%len;
+ return pos<use?{active:true,packDay:pos+1,nextPackStart:shiftDate(date,len-pos)}:{active:false,packDay:pos+1,pauseUntil:shiftDate(date,len-pos-1),nextPackStart:shiftDate(date,len-pos)};
+}
+// Próxima injeção: a mais recente entre o cadastro e as aplicações (antes de `before`, quando informado) + intervalo.
+export function injectionNext(m:Item,doses:Item[],before?:string){const base=[m.startDate,...doses.filter(d=>d.methodId===m.id&&(!before||d.date<before)).map(d=>d.date)].filter(valid).sort().pop();return base?shiftDate(base,m.intervalDays||30):'';}
+export function iudStatus(m:Item,today:string){const daysLeft=dayDiff(today,m.changeDate);return {daysLeft,soon:daysLeft<=30};}
+// Hora cheia do lembrete; com minutos, a hora seguinte (o cron pode rodar no começo da hora). Máximo 23h.
+export function reminderHour(time:string){const [h,min]=time.split(':').map(Number);return Math.min(h+(min>0?1:0),23);}
+export function femaleReminderDue(m:Item,doses:Item[],today:string,hour:number){
+ if(m.status!=='active'||!m.remind||typeof m.time!=='string'||!['daily','injection'].includes(m.method))return false;
+ if(m.method==='daily'&&(!dailyStatus(m,today).active||taken(m,doses,today)))return false;
+ if(m.method==='injection'){const next=injectionNext(m,doses,today);if(!next||today<next||today>shiftDate(next,3)||doses.some(d=>d.methodId===m.id&&d.date>=next&&d.date<=today))return false;}
+ if(hour<reminderHour(m.time)||m.remindedOn===today)return false;
+ if(m.snoozedUntil&&m.snoozedUntil>today)return false;
+ return !(m.snoozedUntil===today&&typeof m.snoozeHour==='number'&&hour<m.snoozeHour);
+}
+export function addMonths(date:string,months:number){const [y,m,d]=date.split('-').map(Number);const t=new Date(Date.UTC(y,m-1+months,1,12));const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();return t.toISOString().slice(0,8)+String(Math.min(d,last)).padStart(2,'0');}
+export const preventiveNext=(p:Item)=>valid(p.lastDate)?addMonths(p.lastDate,p.intervalMonths||12):null;
+export function preventiveStatus(p:Item,today:string):{state:PreventiveState;next?:string;days?:number}{const next=preventiveNext(p);if(!next)return {state:'none'};const days=dayDiff(today,next);return {state:days<0?'late':days<=30?'soon':'ok',next,days};}

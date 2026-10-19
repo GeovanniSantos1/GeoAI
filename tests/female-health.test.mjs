@@ -4,6 +4,9 @@ import { emptyWorkspace, applyCommand, validateItem, upgradeWorkspace, validateW
 import { cycleStats, cyclePrediction, cyclePhase, cycleDayOn, forecastDays, nextPeriodStart } from '../lib/female-health.ts';
 const add=(d,n)=>{const t=new Date(d+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10);};
 const per=(date,endDate)=>({id:'p-'+date,title:'Menstruação',date,...(endDate?{endDate}:{})});
+import { dailyStatus, injectionNext, iudStatus, reminderHour, femaleReminderDue, addMonths, preventiveStatus, takeId } from '../lib/female-health.ts';
+const pill={id:'m1',title:'Yasmin',method:'daily',startDate:'2026-10-01',activeDays:21,pauseDays:7,status:'active',remind:true,time:'21:00'};
+const inj={id:'i1',title:'Depo',method:'injection',startDate:'2026-08-01',intervalDays:90,status:'active',remind:true,time:'09:00'};
 
 const T='2026-10-18';
 const up=(s,collection,item)=>applyCommand(s,{type:'upsert',collection,item},T);
@@ -52,3 +55,25 @@ test('calendário marca menstruação, janela fértil e ovulação',()=>{const l
  assert.equal(days.length,35);assert.equal(days[0].date,'2026-10-18');const kind=d=>days.find(x=>x.date===d)?.kind;
  assert.deepEqual(['2026-10-18','2026-10-20','2026-10-24','2026-10-29','2026-10-30','2026-10-31','2026-11-12','2026-11-16','2026-11-17'].map(kind),['period',null,'fertile','ovulation','fertile',null,'period','period',null]);
  assert.deepEqual(forecastDays([],'2026-10-18',3).map(d=>d.kind),[null,null,null]);});
+test('cartela com pausa e contínua',()=>{assert.deepEqual(dailyStatus(pill,'2026-10-01'),{active:true,packDay:1,nextPackStart:'2026-10-29'});assert.equal(dailyStatus(pill,'2026-10-21').active,true);
+ assert.deepEqual(dailyStatus(pill,'2026-10-22'),{active:false,packDay:22,pauseUntil:'2026-10-28',nextPackStart:'2026-10-29'});assert.equal(dailyStatus(pill,'2026-10-29').packDay,1);
+ assert.deepEqual(dailyStatus(pill,'2026-09-30'),{active:false,packDay:0,nextPackStart:'2026-10-01'});assert.equal(dailyStatus({...pill,status:'paused'},'2026-10-05').active,false);
+ const cont={...pill,activeDays:28,pauseDays:0};assert.ok(['2026-10-28','2026-10-29','2026-11-30'].every(d=>dailyStatus(cont,d).active));});
+test('injeção: próxima pela última aplicação ou pelo cadastro',()=>{assert.equal(injectionNext(inj,[]),'2026-10-30');const doses=[{id:'d',title:'Injeção',methodId:'i1',date:'2026-10-28'}];
+ assert.equal(injectionNext(inj,doses),'2027-01-26');assert.equal(injectionNext(inj,doses,'2026-10-28'),'2026-10-30');assert.equal(injectionNext(inj,[{id:'x',title:'velha',methodId:'i1',date:'2026-05-01'}]),'2026-10-30');});
+test('DIU avisa nos 30 dias antes da troca',()=>{const iud={id:'u',title:'Mirena',method:'iud',startDate:'2021-11-01',changeDate:'2026-11-10'};assert.deepEqual(iudStatus(iud,'2026-10-18'),{daysLeft:23,soon:true});assert.equal(iudStatus(iud,'2026-09-01').soon,false);});
+test('hora do lembrete arredonda para a hora cheia seguinte',()=>{assert.deepEqual(['21:00','21:30','23:45','00:00'].map(reminderHour),[21,22,23,0]);});
+test('lembrete do uso diário respeita hora, registro, pausa e adiamentos',()=>{const T='2026-10-10';
+ assert.deepEqual([20,21,23].map(h=>femaleReminderDue(pill,[],T,h)),[false,true,true]);
+ assert.equal(femaleReminderDue(pill,[{id:takeId('m1',T),title:'Tomei',methodId:'m1',date:T}],T,22),false);assert.equal(femaleReminderDue({...pill,remindedOn:T},[],T,22),false);
+ assert.equal(femaleReminderDue({...pill,snoozedUntil:T,snoozeHour:23},[],T,22),false);assert.equal(femaleReminderDue({...pill,snoozedUntil:T,snoozeHour:23},[],T,23),true);
+ assert.equal(femaleReminderDue({...pill,snoozedUntil:'2026-10-11'},[],T,22),false);assert.equal(femaleReminderDue(pill,[],'2026-10-24',22),false);
+ assert.equal(femaleReminderDue({...pill,remind:false},[],T,22),false);assert.equal(femaleReminderDue({...pill,status:'paused'},[],T,22),false);});
+test('lembrete da injeção vai do dia previsto até 3 dias depois',()=>{assert.deepEqual(['2026-10-29','2026-10-30','2026-11-02','2026-11-03'].map(d=>femaleReminderDue(inj,[],d,10)),[false,true,true,false]);
+ assert.equal(femaleReminderDue(inj,[{id:'d',title:'Injeção',methodId:'i1',date:'2026-10-31'}],'2026-11-01',10),false);
+ assert.equal(femaleReminderDue({...inj,snoozedUntil:'2026-10-31'},[],'2026-10-30',10),false);assert.equal(femaleReminderDue({...inj,snoozedUntil:'2026-10-31'},[],'2026-10-31',10),true);
+ assert.equal(femaleReminderDue({...pill,method:'iud',changeDate:'2030-01-01'},[],'2026-10-10',22),false);});
+test('preventivos: próxima data com fim de mês e situação',()=>{assert.equal(addMonths('2026-01-31',1),'2026-02-28');assert.equal(addMonths('2024-01-31',1),'2024-02-29');assert.equal(addMonths('2025-11-15',12),'2026-11-15');
+ const p={id:'p',title:'Papanicolau',intervalMonths:12};assert.deepEqual(preventiveStatus(p,'2026-10-18'),{state:'none'});
+ assert.deepEqual(preventiveStatus({...p,lastDate:'2025-10-01'},'2026-10-18'),{state:'late',next:'2026-10-01',days:-17});
+ assert.equal(preventiveStatus({...p,lastDate:'2025-11-10'},'2026-10-18').state,'soon');assert.equal(preventiveStatus({...p,lastDate:'2026-03-01'},'2026-10-18').state,'ok');});
