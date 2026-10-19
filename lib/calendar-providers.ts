@@ -3,9 +3,10 @@ import {normalizeGraphEvent,normalizeGoogleEvent,type ExternalEvent,type GoogleR
 export type Fetch=(url:string,init:RequestInit)=>Promise<Response>;
 export const MAX_EVENTS=1000;const MAX_PAGES=10;
 export class ProviderError extends Error{kind:'reconnect'|'error';constructor(kind:'reconnect'|'error'){super(kind==='reconnect'?'Precisa reconectar.':'Não foi possível atualizar agora.');this.kind=kind;}}
-async function page(fetcher:Fetch,url:string,headers:Record<string,string>):Promise<Record<string,unknown>>{let r:Response;
- try{r=await fetcher(url,{headers,signal:AbortSignal.timeout(10000)});}catch{throw new ProviderError('error');}
- if(r.status===401||r.status===403)throw new ProviderError('reconnect');if(!r.ok)throw new ProviderError('error');
+// Falhas vão para o log do servidor com o endereço, o status e um trecho da resposta; nunca com o token ou os cabeçalhos.
+async function page(fetcher:Fetch,url:string,headers:Record<string,string>):Promise<Record<string,unknown>>{let r:Response;const host=new URL(url).host;
+ try{r=await fetcher(url,{headers,signal:AbortSignal.timeout(10000)});}catch(e){console.error('calendar provider',host,e instanceof Error?e.name:'network');throw new ProviderError('error');}
+ if(!r.ok){const excerpt=(await r.text().catch(()=>'')).replace(/\s+/g,' ').trim().slice(0,200);console.error('calendar provider',host,r.status,excerpt);throw new ProviderError(r.status===401||r.status===403?'reconnect':'error');}
  try{const body=await r.json();return body&&typeof body==='object'?body:{};}catch{throw new ProviderError('error');}}
 const GRAPH='https://graph.microsoft.com/';
 export async function fetchMicrosoft(fetcher:Fetch,token:string,from:Date,to:Date):Promise<ExternalEvent[]>{const out:ExternalEvent[]=[],headers={Authorization:'Bearer '+token,Prefer:'outlook.timezone="UTC"'};

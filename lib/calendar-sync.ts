@@ -8,7 +8,8 @@ export const EXTERNAL_FOR_AGENT={maxAgeMs:30*60*1000,budgetMs:5000};
 const clock=(d:SyncDeps)=>d.now?.()??new Date();
 // Uma sincronização boa troca o espelho inteiro; com erro, o espelho anterior fica e só o estado muda.
 export async function syncFeed(d:SyncDeps,row:FeedRow):Promise<FeedRow>{const now=clock(d),syncedAt=now.toISOString();let next:FeedRow;
- try{const t=await d.getToken(row.userId,row.provider);if(!t?.token||!hasScope(row.provider,t.scopes))throw new ProviderError('reconnect');
+ try{const t=await d.getToken(row.userId,row.provider);if(!t?.token)throw new ProviderError('reconnect');
+  if(!hasScope(row.provider,t.scopes)){console.error('calendar scope',row.provider,'sem a permissão da agenda');throw new ProviderError('reconnect');}
   const events=await fetchEvents(row.provider,d.fetch,t.token,new Date(now.getTime()-30*DAY),new Date(now.getTime()+90*DAY));next={...row,events,status:'ok',error:null,syncedAt};}
  catch(e){const err=e instanceof ProviderError?e:new ProviderError('error');if(!(e instanceof ProviderError))console.error('calendar sync',row.provider,e instanceof Error?e.message:'erro');next={...row,status:err.kind,error:err.message,syncedAt};}
  // Só atualiza: se o usuário desconectou durante a sincronização, a linha continua apagada.

@@ -13,6 +13,6 @@ export const feedStore:FeedStore={
  all:async()=>(await getDb().select().from(calendarFeeds)).map(toRow)};
 // O Clerk renova o token quando preciso. Conta não ligada (erro 4xx do Clerk) conta como "sem token".
 async function getToken(userId:string,provider:Provider){try{const res=await (await clerkClient()).users.getUserOauthAccessToken(userId,provider);const t=res.data[0];return t?.token?{token:t.token,scopes:t.scopes}:null;}
- catch(e){const status=(e as {status?:number}).status;if(status&&status>=400&&status<500)return null;throw e;}}
+ catch(e){const status=(e as {status?:number}).status;if(status&&status>=400&&status<500){console.error('calendar token',provider,status);return null;}throw e;}}
 async function account(userId:string,provider:Provider){const user=await (await clerkClient()).users.getUser(userId);return user.externalAccounts.find(x=>x.provider===provider||x.provider==='oauth_'+provider)?.emailAddress||'';}
 export const calendarDeps=():SyncDeps=>({store:feedStore,getToken,account,fetch:(url,init)=>fetch(url,init)});

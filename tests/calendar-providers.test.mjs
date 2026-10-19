@@ -24,10 +24,18 @@ test('Google: agenda principal, ocorrências expandidas e paginação pelo pageT
  const first=new URL(f.calls[0].url);assert.equal(first.origin+first.pathname,'https://www.googleapis.com/calendar/v3/calendars/primary/events');
  assert.equal(first.searchParams.get('singleEvents'),'true');assert.equal(first.searchParams.get('timeMin'),'2026-09-18T12:00:00.000Z');assert.equal(first.searchParams.get('timeMax'),'2027-01-16T12:00:00.000Z');
  assert.equal(first.searchParams.get('pageToken'),null);assert.equal(new URL(f.calls[1].url).searchParams.get('pageToken'),'p2');assert.equal(f.calls[0].headers.Authorization,'Bearer tok');});
-test('401 e 403 pedem para reconectar; 429, 5xx e rede são erro temporário',async()=>{
+test('401 e 403 pedem para reconectar; 429, 5xx e rede são erro temporário',async t=>{const log=t.mock.method(console,'error',()=>{});
  for(const [status,kind] of [[401,'reconnect'],[403,'reconnect'],[429,'error'],[500,'error']])await assert.rejects(fetchGoogle(fakeFetch([status]),'tok',FROM,TO),e=>e instanceof ProviderError&&e.kind===kind);
  await assert.rejects(fetchMicrosoft(fakeFetch([new Error('rede')]),'tok',FROM,TO),e=>e instanceof ProviderError&&e.kind==='error'&&e.message==='Não foi possível atualizar agora.');
- await assert.rejects(fetchMicrosoft(fakeFetch([401]),'tok',FROM,TO),e=>e.message==='Precisa reconectar.');});
+ await assert.rejects(fetchMicrosoft(fakeFetch([401]),'tok',FROM,TO),e=>e.message==='Precisa reconectar.');
+ assert.deepEqual(log.mock.calls.map(c=>c.arguments.slice(0,3)),[['calendar provider','www.googleapis.com',401],['calendar provider','www.googleapis.com',403],['calendar provider','www.googleapis.com',429],['calendar provider','www.googleapis.com',500],['calendar provider','graph.microsoft.com','Error'],['calendar provider','graph.microsoft.com',401]]);});
+test('falha do provedor deixa uma linha no log do servidor, com trecho da resposta e sem o token',async t=>{const log=t.mock.method(console,'error',()=>{});
+ await assert.rejects(fetchGoogle(async()=>new Response('{"error":\n"'+'x'.repeat(300)+'"}',{status:500}),'tok',FROM,TO),e=>e.kind==='error');
+ assert.equal(log.mock.callCount(),1);const [label,host,status,excerpt]=log.mock.calls[0].arguments;
+ assert.deepEqual([label,host,status],['calendar provider','www.googleapis.com',500]);assert.equal(excerpt.length,200);assert.ok(excerpt.startsWith('{"error": "xxx'));
+ await assert.rejects(fetchMicrosoft(async()=>{throw new DOMException('Tempo esgotado','TimeoutError');},'tok',FROM,TO),e=>e.kind==='error');
+ assert.equal(log.mock.callCount(),2);assert.deepEqual(log.mock.calls[1].arguments,['calendar provider','graph.microsoft.com','TimeoutError']);
+ for(const c of log.mock.calls)assert.equal(JSON.stringify(c.arguments).includes('tok'),false);});
 test('para em 1000 eventos',async()=>{
  const many=n=>Array.from({length:n},(_,i)=>google('e'+n+'-'+i));
  const f=fakeFetch([{items:many(600),nextPageToken:'p2'},{items:many(700),nextPageToken:'p3'},{items:many(10)}]);
