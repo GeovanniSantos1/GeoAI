@@ -28,3 +28,6 @@ test('relatório de testosterona traz protocolo, aplicações e exames revisados
 test('sugestão de aplicação num dia já registrado vira erro',()=>{const trt={id:'p1',title:'Durateston',dose:250,unit:'mg',intervalDays:14,startDate:'2026-09-01',status:'active',remind:true};const s=emptyWorkspace('Geo');s.trtProtocols=[trt];s.trtDoses=[{id:'x',title:'A',protocolId:'p1',date:'2026-10-16'}];
  const r=checkProposals([{collection:'trtDoses',title:'Apliquei'}],'2026-10-16',s);assert.equal(r.valid.length,0);assert.match(r.errors[0],/já está registrada/);
  assert.equal(checkProposals([{collection:'trtDoses',title:'Apliquei',date:'2026-10-15'}],'2026-10-16',s).valid.length,1);});
+test('agenda inclui compromissos do Outlook e do Google como só leitura',()=>{const external=[{id:'m1',provider:'microsoft',title:'Daily',allDay:false,start:'2026-10-16T12:00:00Z',end:'2026-10-16T12:30:00Z'},{id:'g1',provider:'google',title:'Feriado',allDay:true,start:'2026-10-16',end:'2026-10-17'}];
+ const [day]=agendaRange(workspace(),'2026-10-16','2026-10-16',external);
+ assert.deepEqual(day.items,[{title:'Feriado',type:'google',readOnly:true},{title:'Correr',time:'07:00',type:'habit',done:true},{title:'Daily',time:'09:00',endTime:'09:30',type:'outlook',readOnly:true}]);});

@@ -15,6 +15,13 @@
       "when": 1792208231750,
       "tag": "0001_short_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792368966050,
+      "tag": "0002_lucky_leo",
+      "breakpoints": true
     }
   ]
 }

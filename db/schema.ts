@@ -5,3 +5,5 @@ export const telegramLinks=pgTable("telegram_links",{chatId:text("chat_id").prim
 export const telegramCodes=pgTable("telegram_codes",{code:text("code").primaryKey(),userId:text("user_id").notNull(),expiresAt:text("expires_at").notNull()});
 // Usos por dia de recursos que custam IA (envio e parecer de exames). Excluir o exame não devolve a cota.
 export const usageCounters=pgTable("usage_counters",{userId:text("user_id").notNull(),kind:text("kind").notNull(),day:text("day").notNull(),count:integer("count").notNull().default(0)},t=>[primaryKey({columns:[t.userId,t.kind,t.day]})]);
+// Espelho das agendas externas (Outlook e Google) por usuário e provedor; events guarda o JSON da última sincronização boa.
+export const calendarFeeds=pgTable("calendar_feeds",{userId:text("user_id").notNull(),provider:text("provider").notNull(),account:text("account").notNull().default(""),events:text("events").notNull().default("[]"),syncedAt:text("synced_at"),status:text("status").notNull().default("ok"),error:text("error"),connectedAt:text("connected_at").notNull()},t=>[primaryKey({columns:[t.userId,t.provider]})]);
