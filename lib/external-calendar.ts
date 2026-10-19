@@ -26,12 +26,14 @@ function build(provider:Provider,id:string,title:unknown,allDay:boolean,range:{s
 function dayRange(start:unknown,end:unknown){const s=typeof start==='string'?start.slice(0,10):'';if(!validDate(s))return null;const e=typeof end==='string'?end.slice(0,10):'';return {start:s,end:validDate(e)&&e>s?e:addDays(s,1)};}
 // Com horário: fim ausente ou anterior ao início vira duração zero.
 function timeRange(start:Date,end:Date|null){if(!Number.isFinite(start.getTime()))return null;return {start:utc(start),end:utc(end&&Number.isFinite(end.getTime())&&end>start?end:start)};}
-// O Graph é chamado com Prefer: outlook.timezone="UTC" e devolve datas sem "Z", com sete casas de fração.
-const graphDate=(v?:GraphTime)=>typeof v?.dateTime==='string'?new Date(v.dateTime.replace(/\.\d+$/,'')+'Z'):new Date(NaN);
+// O Graph é chamado com Prefer: outlook.timezone="UTC" e devolve datas sem "Z", com sete casas de fração (um "Z" que venha não é repetido).
+const graphDate=(v?:GraphTime)=>typeof v?.dateTime==='string'?new Date(v.dateTime.replace(/Z$/,'').replace(/\.\d+$/,'')+'Z'):new Date(NaN);
+// Dia inteiro chega como a meia-noite do fuso do evento em UTC (23:00 do dia anterior a leste): vale a meia-noite mais próxima.
+const graphDay=(v?:GraphTime)=>{const t=graphDate(v).getTime();return Number.isFinite(t)?new Date(t+DAY/2).toISOString().slice(0,10):'';};
 export function normalizeGraphEvent(raw:GraphRaw|null|undefined):ExternalEvent|null{
  if(!raw||typeof raw.id!=='string'||!raw.id||raw.isCancelled||raw.responseStatus?.response==='declined')return null;
  const extra={location:raw.location?.displayName,joinUrl:raw.onlineMeeting?.joinUrl,webLink:raw.webLink};
- const range=raw.isAllDay?dayRange(raw.start?.dateTime,raw.end?.dateTime):timeRange(graphDate(raw.start),raw.end?graphDate(raw.end):null);
+ const range=raw.isAllDay?dayRange(graphDay(raw.start),graphDay(raw.end)):timeRange(graphDate(raw.start),raw.end?graphDate(raw.end):null);
  return range?build('microsoft',raw.id,raw.subject,!!raw.isAllDay,range,extra):null;}
 export function normalizeGoogleEvent(raw:GoogleRaw|null|undefined):ExternalEvent|null{
  if(!raw||typeof raw.id!=='string'||!raw.id||raw.status==='cancelled')return null;
@@ -50,7 +52,7 @@ const MAX_SPAN_DAYS=366;const indexes=new WeakMap<ExternalEvent[],Map<string,Map
 function dayIndex(events:ExternalEvent[],zone:string){let zones=indexes.get(events);if(!zones){zones=new Map();indexes.set(events,zones);}
  const cached=zones.get(zone);if(cached)return cached;const days=new Map<string,Item[]>();
  const add=(date:string,item:Item)=>{const list=days.get(date);if(list)list.push(item);else days.set(date,[item]);};
- for(const e of events){const base={id:e.provider+':'+e.id,title:e.title,type:'event',provider:e.provider,_collection:'external',...(e.location?{location:e.location}:{}),...(e.joinUrl?{joinUrl:e.joinUrl}:{}),...(e.webLink?{webLink:e.webLink}:{})};
+ for(const e of events){const base={id:e.provider+':'+e.id,title:e.title,type:'event',provider:e.provider,_collection:'external',eventStart:e.start,eventEnd:e.end,...(e.location?{location:e.location}:{}),...(e.joinUrl?{joinUrl:e.joinUrl}:{}),...(e.webLink?{webLink:e.webLink}:{})};
   if(e.allDay){if(validDate(e.start))for(let d=e.start,n=0;d<e.end&&n<MAX_SPAN_DAYS;d=addDays(d,1),n++)add(d,{...base,allDay:true});continue;}
   const start=local(e.start,zone),end=local(e.end,zone),long=Date.parse(e.end)-Date.parse(e.start)>=DAY;
   add(start.date,{...base,time:start.time,...(!long&&e.end>e.start?{endTime:end.time}:{})});if(!long)continue;
@@ -59,6 +61,13 @@ function dayIndex(events:ExternalEvent[],zone:string){let zones=indexes.get(even
  zones.set(zone,days);return days;}
 // Lista nova a cada chamada; os itens são compartilhados entre chamadas e não devem ser alterados.
 export function externalOn(events:ExternalEvent[],date:string,zone:string):Item[]{return [...(dayIndex(events,zone).get(date)??[])];}
+const dayMonth=new Intl.DateTimeFormat('pt-BR',{day:'numeric',month:'short',timeZone:'UTC'});const shortDay=(date:string)=>dayMonth.format(new Date(date+'T12:00:00Z'));
+// Resumo de evento que passa de um dia no fuso do perfil: "20 de out., 09:00 – 22 de out., 09:00"; dia inteiro "23 a 25 de out." (o fim
+// exclusivo vira inclusivo). Evento de um dia só (ou item que não é externo) devolve null e o resumo mantém o dia e o horário.
+export function externalRange(t:Item,zone:string):string|null{const s=t.eventStart,e=t.eventEnd;if(typeof s!=='string'||typeof e!=='string')return null;
+ if(validDate(s)){const last=validDate(e)&&e>s?addDays(e,-1):s;if(last<=s)return null;return (s.slice(0,7)===last.slice(0,7)?String(Number(s.slice(8))):shortDay(s))+' a '+shortDay(last);}
+ const start=local(s,zone),end=local(e,zone),last=end.time==='00:00'?addDays(end.date,-1):end.date;
+ return last>start.date?shortDay(start.date)+', '+start.time+' – '+shortDay(end.date)+', '+end.time:null;}
 export const agendaItems=(s:Workspace,events:ExternalEvent[],date:string):Item[]=>[...scheduledItems(s,date),...externalOn(events,date,s.profile.timezone)];
 // Dia inteiro primeiro, depois por horário; sem horário por último.
 export const agendaOrder=(x:Item,y:Item)=>(x.allDay?'':x.time||'99').localeCompare(y.allDay?'':y.time||'99');

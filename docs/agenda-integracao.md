@@ -12,7 +12,7 @@ O GeoAI lê (sem alterar) a agenda principal de cada conta conectada. Quem faz a
    - **Acesso a dados**: **Adicionar ou remover escopos** e marque `.../auth/calendar.events.readonly`.
 4. No painel do Clerk, abra **Configure › SSO connections › Google** (ou **Add connection › For all users › Google**), ligue **Use custom credentials** e copie a **Authorized Redirect URI**.
 5. De volta ao Google, em **Clientes › Criar cliente**, escolha **Aplicativo da Web**, cole a URI do passo anterior em **URIs de redirecionamento autorizados** e crie. Copie o **ID do cliente** e a **Chave secreta**.
-6. No Clerk, cole o ID e a chave e, em **Scopes**, acrescente `https://www.googleapis.com/auth/calendar.events.readonly`. Salve.
+6. No Clerk, cole o ID e a chave e salve. Deixe o campo **Scopes** sem o escopo da agenda: o GeoAI pede essa permissão só quando a pessoa clica em **Conectar**; com o escopo ali, todo login com o Google pediria acesso à agenda. Só acrescente `https://www.googleapis.com/auth/calendar.events.readonly` em **Scopes** se a conexão continuar voltando sem a permissão da agenda.
 
 Na hora de conectar, o Google mostra "O Google não verificou este app". Para seguir: **Avançado › Acessar GeoAI (não seguro)**. Esse aviso some quando o app for verificado pelo Google (necessário antes de abrir para o público; limite de 100 usuários até lá).
 
@@ -24,7 +24,7 @@ Na hora de conectar, o Google mostra "O Google não verificou este app". Para se
 4. Na **Visão geral** do app, copie o **ID do aplicativo (cliente)**.
 5. Em **Certificados e segredos › Novo segredo do cliente**, crie um segredo (validade de até 24 meses) e copie o **Valor**. Anote a data em que ele expira: depois disso, a conexão para até você criar outro e trocar no Clerk.
 6. Em **Permissões de API › Adicionar uma permissão › Microsoft Graph › Permissões delegadas**, marque `Calendars.Read`, `offline_access`, `User.Read`, `openid`, `email` e `profile`.
-7. No Clerk, cole o ID e o valor do segredo e, em **Scopes**, acrescente `Calendars.Read` e `offline_access`. Salve.
+7. No Clerk, cole o ID e o valor do segredo e salve. Deixe o campo **Scopes** sem os escopos da agenda: o GeoAI pede `Calendars.Read` e `offline_access` só quando a pessoa clica em **Conectar**; com eles ali, todo login com a Microsoft pediria acesso à agenda. Só acrescente `Calendars.Read` e `offline_access` em **Scopes** se a conexão continuar voltando sem a permissão da agenda.
 
 ### Conta da empresa
 

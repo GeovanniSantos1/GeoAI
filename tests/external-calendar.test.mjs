@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyWorkspace,addDays} from '../lib/core.ts';
-import {normalizeGraphEvent,normalizeGoogleEvent,externalOn,agendaItems,agendaOrder,externalWhen,hasScope,isStale,timeAgo} from '../lib/external-calendar.ts';
+import {normalizeGraphEvent,normalizeGoogleEvent,externalOn,externalRange,agendaItems,agendaOrder,externalWhen,hasScope,isStale,timeAgo} from '../lib/external-calendar.ts';
 
 const teams={id:'AAMk1',subject:'Daily do projeto',start:{dateTime:'2026-10-20T12:00:00.0000000',timeZone:'UTC'},end:{dateTime:'2026-10-20T12:30:00.0000000',timeZone:'UTC'},isAllDay:false,isCancelled:false,location:{displayName:'Microsoft Teams Meeting'},onlineMeeting:{joinUrl:'https://teams.microsoft.com/l/meetup-join/abc'},webLink:'https://outlook.office365.com/owa/?itemid=AAMk1',responseStatus:{response:'accepted'}};
 const meet={id:'g1',status:'confirmed',summary:'Dentista',start:{dateTime:'2026-10-20T14:00:00-03:00'},end:{dateTime:'2026-10-20T15:00:00-03:00'},location:'Rua A, 10',hangoutLink:'https://meet.google.com/abc-defg-hij',htmlLink:'https://www.google.com/calendar/event?eid=g1'};
@@ -19,6 +19,13 @@ test('Graph: dia inteiro, cancelado, recusado, sem título e link sem https',()=
  const bare=normalizeGraphEvent({...teams,subject:'  ',webLink:'http://outlook.example.com/x',location:{displayName:''}});
  assert.equal(bare.title,'(Sem título)');assert.equal('webLink' in bare,false);assert.equal('location' in bare,false);
  const long=normalizeGraphEvent({...teams,subject:'Linha 1\nLinha 2 '+'x'.repeat(300)});assert.equal(long.title.length,180);assert.ok(long.title.startsWith('Linha 1 Linha 2 x'));});
+test('Graph: dia inteiro arredonda para a meia-noite mais próxima e data que já termina em Z',()=>{
+ const day=(start,end)=>{const e=normalizeGraphEvent({...teams,isAllDay:true,start:{dateTime:start},end:{dateTime:end}});return [e.start,e.end];};
+ assert.deepEqual(day('2026-10-20T23:00:00.0000000','2026-10-21T23:00:00.0000000'),['2026-10-21','2026-10-22']);
+ assert.deepEqual(day('2026-10-21T03:00:00.0000000','2026-10-22T03:00:00.0000000'),['2026-10-21','2026-10-22']);
+ assert.deepEqual(day('2026-10-21T00:00:00.0000000','2026-10-22T00:00:00.0000000'),['2026-10-21','2026-10-22']);
+ assert.deepEqual(day('2026-10-20T23:00:00Z','2026-10-22T23:00:00.0000000Z'),['2026-10-21','2026-10-23']);
+ const zulu=normalizeGraphEvent({...teams,start:{dateTime:'2026-10-20T12:00:00.0000000Z'},end:{dateTime:'2026-10-20T12:30:00Z'}});assert.deepEqual([zulu.start,zulu.end],['2026-10-20T12:00:00Z','2026-10-20T12:30:00Z']);});
 test('evento sem fim ou com fim antes do início não quebra',()=>{
  assert.equal(normalizeGraphEvent({...teams,end:undefined}).end,'2026-10-20T12:00:00Z');
  assert.equal(normalizeGraphEvent({...teams,end:{dateTime:'2026-10-20T11:00:00.0000000'}}).end,'2026-10-20T12:00:00Z');
@@ -32,7 +39,7 @@ test('Google: Meet, Zoom pela conferência, dia inteiro, cancelado e recusado',(
  assert.equal(normalizeGoogleEvent({...meet,attendees:[{email:'a@x.com',responseStatus:'accepted'},{self:true,responseStatus:'declined'}]}),null);
  assert.notEqual(normalizeGoogleEvent({...meet,attendees:[{email:'a@x.com',responseStatus:'declined'},{self:true,responseStatus:'accepted'}]}),null);});
 test('externalOn usa o fuso do perfil, cruza a meia-noite e continua eventos longos',()=>{
- assert.deepEqual(externalOn([ev({start:'2026-10-21T01:00:00Z',end:'2026-10-21T02:00:00Z'})],'2026-10-20',SP),[{id:'microsoft:e',title:'Evento',type:'event',provider:'microsoft',_collection:'external',time:'22:00',endTime:'23:00'}]);
+ assert.deepEqual(externalOn([ev({start:'2026-10-21T01:00:00Z',end:'2026-10-21T02:00:00Z'})],'2026-10-20',SP),[{id:'microsoft:e',title:'Evento',type:'event',provider:'microsoft',_collection:'external',eventStart:'2026-10-21T01:00:00Z',eventEnd:'2026-10-21T02:00:00Z',time:'22:00',endTime:'23:00'}]);
  assert.deepEqual(externalOn([ev({start:'2026-10-21T01:00:00Z',end:'2026-10-21T02:00:00Z'})],'2026-10-21',SP),[]);
  const night=ev({start:'2026-10-21T02:00:00Z',end:'2026-10-21T03:30:00Z'});
  assert.deepEqual(externalOn([night],'2026-10-20',SP).map(x=>[x.time,x.endTime]),[['23:00','00:30']]);assert.deepEqual(externalOn([night],'2026-10-21',SP),[]);
@@ -56,6 +63,16 @@ test('externalOn calcula uma vez por lista e fuso, devolve lista nova e limita c
  assert.deepEqual(externalOn(events,addDays('2026-10-20',366),SP),[]);
  assert.equal(externalOn(events,'2026-10-20','Europe/Lisbon')[0].time,'13:00');assert.equal(externalOn(events,'2026-10-20',SP)[0].time,'09:00');
  assert.deepEqual(externalOn([...events],'2026-10-20',SP).map(x=>x.id),['microsoft:a','microsoft:b','microsoft:c']);});
+test('resumo mostra início e fim de evento que passa de um dia; evento de um dia mantém o texto do dia',()=>{
+ const range=(e,d)=>externalRange(externalOn([e],d,SP)[0],SP);
+ const long=ev({start:'2026-10-20T12:00:00Z',end:'2026-10-22T12:00:00Z'});
+ assert.deepEqual(['2026-10-20','2026-10-21','2026-10-22'].map(d=>range(long,d)),Array(3).fill('20 de out., 09:00 – 22 de out., 09:00'));
+ assert.equal(externalRange(externalOn([long],'2026-10-20','Europe/Lisbon')[0],'Europe/Lisbon'),'20 de out., 13:00 – 22 de out., 13:00');
+ assert.equal(range(ev({start:'2026-10-21T02:00:00Z',end:'2026-10-21T03:30:00Z'}),'2026-10-20'),'20 de out., 23:00 – 21 de out., 00:30');
+ assert.equal(range(ev({allDay:true,start:'2026-10-23',end:'2026-10-26'}),'2026-10-24'),'23 a 25 de out.');
+ assert.equal(range(ev({allDay:true,start:'2026-10-30',end:'2026-11-03'}),'2026-11-01'),'30 de out. a 2 de nov.');
+ assert.equal(range(ev(),'2026-10-20'),null);assert.equal(range(ev({allDay:true,start:'2026-10-23',end:'2026-10-24'}),'2026-10-23'),null);
+ assert.equal(range(ev({start:'2026-10-20T03:00:00Z',end:'2026-10-21T03:00:00Z'}),'2026-10-20'),null);assert.equal(externalRange({id:'t',title:'Tarefa'},SP),null);});
 test('agendaItems junta ações e externos; dia inteiro primeiro e sem horário por último',()=>{
  const s=emptyWorkspace('Geo');s.tasks=[{id:'t1',title:'Revisar proposta',date:'2026-10-20',time:'10:30',type:'task'},{id:'t2',title:'Ler',date:'2026-10-20',type:'task'}];
  const items=agendaItems(s,[ev({id:'m',title:'Daily',start:'2026-10-20T12:00:00Z',end:'2026-10-20T12:30:00Z'}),ev({id:'f',provider:'google',title:'Feriado',allDay:true,start:'2026-10-20',end:'2026-10-21'})],'2026-10-20').sort(agendaOrder);
