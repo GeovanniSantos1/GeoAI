@@ -19,3 +19,10 @@ test('Apliquei não mexe em aplicação do dia já registrada com outro id, loca
 test('Adiar 1 dia grava o adiamento; protocolo removido avisa',()=>{let s=space();const r=trtCallbackAction(s,'2026-10-16',{action:'snooze',protocolId:'p1'});s=applyCommand(s,r.command,'2026-10-16');
  assert.equal(s.trtProtocols[0].snoozedUntil,'2026-10-17');assert.equal(r.reply,'Combinado, lembro amanhã.');
  const gone=trtCallbackAction(s,'2026-10-16',{action:'done',protocolId:'nao'});assert.equal(gone.command,undefined);assert.match(gone.reply,/não existe/);});
+test('um usuário com Telegram e WhatsApp recebe nos dois e é marcado uma vez; falha num canal não impede o outro',async()=>{let s=space();const sent=[];
+ const deps={now:new Date('2026-10-16T11:00:00Z'),links:async()=>[{chatId:'c1',userId:'u1'},{chatId:'wa:5531@s.whatsapp.net',userId:'u1'}],load:async()=>({state:s}),mutate:async(_u,c)=>{s=applyCommand(s,c,'2026-10-16');},send:async(chatId)=>{sent.push(chatId);}};
+ assert.deepEqual(await sendDueReminders(deps),{checked:1,sent:2,failed:0});assert.deepEqual(sent,['c1','wa:5531@s.whatsapp.net']);assert.equal(s.trtProtocols[0].remindedOn,'2026-10-16');
+ let t=space();const ok=[];const flaky={...deps,load:async()=>({state:t}),mutate:async(_u,c)=>{t=applyCommand(t,c,'2026-10-16');},send:async(chatId)=>{if(chatId.startsWith('wa:'))throw new Error('ngrok fora');ok.push(chatId);}};
+ assert.deepEqual(await sendDueReminders(flaky),{checked:1,sent:1,failed:1});assert.deepEqual(ok,['c1']);assert.equal(t.trtProtocols[0].remindedOn,'2026-10-16');
+ let u=space();const down={...deps,load:async()=>({state:u}),mutate:async(_u,c)=>{u=applyCommand(u,c,'2026-10-16');},send:async()=>{throw new Error('fora');}};
+ assert.deepEqual(await sendDueReminders(down),{checked:1,sent:0,failed:2});assert.equal(u.trtProtocols[0].remindedOn,undefined);});

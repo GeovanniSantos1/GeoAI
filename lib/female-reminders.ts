@@ -1,5 +1,5 @@
-import {todayInZone,addDays} from './core.ts';import {femaleReminderDue,dailyStatus,injectionNext,takeId,reminderHour} from './female-health.ts';import {hiddenSections} from './gender.ts';import type {Workspace,Command,Item} from './types.ts';
-// Lembrete do anticoncepcional pelo Telegram, na hora escolhida. A Vercel chama a rota de hora em hora (24 crons diários);
+import {todayInZone,addDays} from './core.ts';import {femaleReminderDue,dailyStatus,injectionNext,takeId,reminderHour} from './female-health.ts';import {hiddenSections} from './gender.ts';import type {Workspace,Command,Item} from './types.ts';import {byUser,sendToAll} from './reminder-channels.ts';
+// Lembrete do anticoncepcional pelo Telegram e pelo WhatsApp, na hora escolhida. A Vercel chama a rota de hora em hora (24 crons diários);
 // cada pessoa recebe no próprio fuso. Texto discreto: a notificação aparece na tela de bloqueio.
 export const FEMALE_REMINDER_TEXT='Lembrete do GeoAI: hora do seu cuidado.';
 export const femaleButtons=(m:{id:string;method?:string})=>({inline_keyboard:[[{text:'✅ Tomei',callback_data:'fh:d:'+m.id},m.method==='daily'?{text:'Lembrar em 1h',callback_data:'fh:h:'+m.id}:{text:'Adiar 1 dia',callback_data:'fh:s:'+m.id}]]});
@@ -8,10 +8,10 @@ export function parseFemaleCallback(data:string){const m=/^fh:([dhs]):([\w-]{1,5
 export function hourInZone(zone:string,now=new Date()){return Number(new Intl.DateTimeFormat('en-GB',{timeZone:zone,hour:'2-digit',hourCycle:'h23'}).format(now));}
 export type FemaleReminderDeps={links:()=>Promise<{chatId:string;userId:string}[]>;load:(userId:string)=>Promise<{state:Workspace}>;mutate:(userId:string,command:Command)=>Promise<unknown>;send:(chatId:string,text:string,markup:ReturnType<typeof femaleButtons>)=>Promise<unknown>;now?:Date};
 export async function sendFemaleReminders(d:FemaleReminderDeps){let checked=0,sent=0,failed=0;
- for(const link of await d.links()){checked++;
-  try{const {state}=await d.load(link.userId);if(hiddenSections(state.profile.gender).includes('saude-feminina'))continue;
+ for(const [userId,chats] of byUser(await d.links())){checked++;
+  try{const {state}=await d.load(userId);if(hiddenSections(state.profile.gender).includes('saude-feminina'))continue;
    const zone=state.profile.timezone,today=todayInZone(zone,d.now),hour=hourInZone(zone,d.now);
-   for(const m of state.contraceptives.filter(x=>femaleReminderDue(x,state.contraceptiveDoses,today,hour))){await d.send(link.chatId,FEMALE_REMINDER_TEXT,femaleButtons(m));sent++;await d.mutate(link.userId,{type:'patch',collection:'contraceptives',id:m.id,item:{remindedOn:today}});}}
+   for(const m of state.contraceptives.filter(x=>femaleReminderDue(x,state.contraceptiveDoses,today,hour))){const r=await sendToAll(d.send,chats,FEMALE_REMINDER_TEXT,femaleButtons(m));sent+=r.sent;failed+=r.failed;if(r.sent)await d.mutate(userId,{type:'patch',collection:'contraceptives',id:m.id,item:{remindedOn:today}});}}
   catch(e){failed++;console.error('female reminder',e instanceof Error?e.message:'erro');}}
  return {checked,sent,failed};}
 const fmtDate=(d:string)=>d.split('-').reverse().join('/');
