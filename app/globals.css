@@ -51,3 +51,7 @@
 .exam-marker small{display:block;color:var(--muted)}
 .review-list,.tips-grid ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
 .tips-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
+.task-check.external-mark{border-style:dashed;color:var(--muted)}
+.pill.external{background:var(--surface-2);color:var(--text)}
+.agenda-chip.external{background:var(--surface-2)}
+.external-detail p{display:flex;gap:9px;align-items:center;font-size:13px;color:var(--muted);padding:10px 0;border-bottom:1px solid var(--border)}
