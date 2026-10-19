@@ -43,7 +43,8 @@ function CalendarAccounts(){const a=useApp();const {user}=useUser();const [busy,
  async function connect(p:Provider){if(!user)return;setBusy(p);
   try{const ext=user.externalAccounts.find(x=>x.provider===p),redirectUrl=window.location.origin+'/perfil?agenda='+p;
    // Conta já ligada com a permissão (por exemplo, quem entra com o Google): basta sincronizar.
-   if(ext?.verification?.status==='verified'&&hasScope(p,ext.approvedScopes.split(' '))){announce(await a.calendar.refresh(p),true);return;}
+   const stale=a.calendar.feeds.find(f=>f.provider===p)?.status==='reconnect';
+   if(!stale&&ext?.verification?.status==='verified'&&hasScope(p,ext.approvedScopes.split(' '))){announce(await a.calendar.refresh(p),true);return;}
    const account=ext?await ext.reauthorize({additionalScopes:OAUTH_SCOPES[p],redirectUrl}):await createExternal({strategy:('oauth_'+p) as OAuthStrategy,additionalScopes:OAUTH_SCOPES[p],redirectUrl});
    const url=account?.verification?.externalVerificationRedirectURL;if(!url)throw new Error('Sem endereço de autorização');window.location.assign(url.href);}
   catch(e){console.error('calendar connect',e);a.toast('A conexão com o '+ACCOUNT[p].name+' ainda não foi ativada.',true);}
