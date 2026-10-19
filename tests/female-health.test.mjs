@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyWorkspace, applyCommand, validateItem, upgradeWorkspace, validateWorkspace } from '../lib/core.ts';
+import { cycleStats, cyclePrediction, cyclePhase, cycleDayOn, forecastDays, nextPeriodStart } from '../lib/female-health.ts';
+const add=(d,n)=>{const t=new Date(d+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10);};
+const per=(date,endDate)=>({id:'p-'+date,title:'Menstruação',date,...(endDate?{endDate}:{})});
 
 const T='2026-10-18';
 const up=(s,collection,item)=>applyCommand(s,{type:'upsert',collection,item},T);
@@ -32,3 +35,20 @@ test('registro de uso exige método e é único por método e dia',()=>{let s=em
  assert.throws(()=>validateItem('contraceptiveDoses',{title:'Tomei',date:T}),/Escolha o método/);});
 test('preventivo exige intervalo em meses',()=>{assert.equal(validateItem('preventives',{title:'Papanicolau',intervalMonths:12,lastDate:'2025-10-01'}).intervalMonths,12);
  assert.throws(()=>validateItem('preventives',{title:'Papanicolau'}),/intervalo entre 1 e 120 meses/);assert.throws(()=>validateItem('preventives',{title:'P',intervalMonths:200}),/intervalo entre 1 e 120 meses/);});
+test('média do ciclo usa os últimos 6 intervalos válidos e ignora os absurdos',()=>{assert.deepEqual(cycleStats([]),{starts:[],cycleLength:28,periodLength:5,cycles:0});
+ const st=cycleStats([per('2026-07-01','2026-07-05'),per('2026-07-31','2026-08-02'),per('2026-08-30'),per('2026-09-05'),per('2026-10-01')]);
+ assert.deepEqual([st.cycleLength,st.periodLength,st.cycles],[29,4,3]);
+ let d='2025-06-01';const list=[per(d)];for(const g of [40,40,40,28,28,28,28,28,28]){d=add(d,g);list.push(per(d));}assert.equal(cycleStats(list).cycleLength,28);});
+test('previsão: próxima, janela fértil, atraso e inícios futuros ignorados',()=>{const list=[per('2026-08-20'),per('2026-09-17'),per('2026-10-15')];
+ const c=cyclePrediction(list,'2026-10-18');
+ assert.deepEqual({day:c.cycleDay,next:c.next,ov:c.ovulation,fs:c.fertileStart,fe:c.fertileEnd,late:c.late,to:c.daysToNext},{day:4,next:'2026-11-12',ov:'2026-10-29',fs:'2026-10-24',fe:'2026-10-30',late:0,to:25});
+ const late=cyclePrediction(list,'2026-11-15');assert.deepEqual([late.next,late.late,late.daysToNext],['2026-11-12',3,0]);
+ assert.equal(cyclePrediction([...list,per('2026-12-01')],'2026-10-18').next,'2026-11-12');
+ assert.equal(cyclePrediction([],'2026-10-18'),null);assert.equal(nextPeriodStart(list),'2026-11-12');assert.equal(nextPeriodStart([]),null);});
+test('fase do ciclo pelo dia',()=>{const list=[per('2026-09-17','2026-09-21'),per('2026-10-15','2026-10-19')];
+ assert.equal(cyclePhase(list,'2026-10-16'),'menstrual');assert.equal(cyclePhase(list,'2026-10-22'),'folicular');assert.equal(cyclePhase(list,'2026-10-29'),'ovulatória');assert.equal(cyclePhase(list,'2026-11-03'),'lútea');assert.equal(cyclePhase(list,'2026-09-01'),null);
+ assert.equal(cycleDayOn(list,'2026-10-29'),15);assert.equal(cycleDayOn(list,'2026-09-01'),null);});
+test('calendário marca menstruação, janela fértil e ovulação',()=>{const list=[per('2026-09-17','2026-09-21'),per('2026-10-15','2026-10-19')];const days=forecastDays(list,'2026-10-18',35);
+ assert.equal(days.length,35);assert.equal(days[0].date,'2026-10-18');const kind=d=>days.find(x=>x.date===d)?.kind;
+ assert.deepEqual(['2026-10-18','2026-10-20','2026-10-24','2026-10-29','2026-10-30','2026-10-31','2026-11-12','2026-11-16','2026-11-17'].map(kind),['period',null,'fertile','ovulation','fertile',null,'period','period',null]);
+ assert.deepEqual(forecastDays([],'2026-10-18',3).map(d=>d.kind),[null,null,null]);});
