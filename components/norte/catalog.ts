@@ -1,4 +1,4 @@
-import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck,FlaskConical,Flower2} from 'lucide-react';
+import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck,FlaskConical,Flower2,Headphones} from 'lucide-react';
 import type {Collection,Workspace} from '@/lib/types';
 import {categoryOptions} from '@/lib/gender';
 import {SYMPTOMS,FLOWS,METHODS} from '@/lib/female-health';
@@ -13,6 +13,7 @@ export const NAV=[
 {id:'cuidados',path:'/beleza',label:'Cuidados pessoais',icon:Sparkles,group:'CUIDE DE VOCÊ'},
 {id:'journal',path:'/journal',label:'Bem-estar',icon:Heart,group:'CUIDE DE VOCÊ'},
 {id:'sono',path:'/sono',label:'Sono',icon:Moon,group:'CUIDE DE VOCÊ'},
+{id:'musicas',path:'/musicas',label:'Músicas',icon:Headphones,group:'CUIDE DE VOCÊ'},
 {id:'testosterona',path:'/testosterona',label:'Testosterona',icon:FlaskConical,group:'CUIDE DE VOCÊ'},
 {id:'saude-feminina',path:'/saude-feminina',label:'Saúde feminina',icon:Flower2,group:'CUIDE DE VOCÊ'},
 {id:'vicios',path:'/vicios',label:'Novos caminhos',icon:ShieldCheck,group:'CUIDE DE VOCÊ'},
