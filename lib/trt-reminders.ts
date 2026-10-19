@@ -1,4 +1,4 @@
-import {todayInZone,addDays} from './core.ts';import {dueReminder,protocolStatus,doseId} from './testosterone.ts';import type {Workspace,Command} from './types.ts';
+import {todayInZone,addDays} from './core.ts';import {dueReminder,protocolStatus,doseId} from './testosterone.ts';import {hiddenSections} from './gender.ts';import type {Workspace,Command} from './types.ts';
 // Lembrete diário das aplicações pelo Telegram. Texto discreto: a notificação aparece na tela de bloqueio.
 export const REMINDER_TEXT='Lembrete do GeoAI: hoje é dia da sua aplicação.';
 export const reminderButtons=(protocolId:string)=>({inline_keyboard:[[{text:'✅ Apliquei',callback_data:'trt:d:'+protocolId},{text:'Adiar 1 dia',callback_data:'trt:s:'+protocolId}]]});
@@ -6,7 +6,7 @@ export function parseTrtCallback(data:string){const m=/^trt:([ds]):([\w-]{1,56})
 export type ReminderDeps={links:()=>Promise<{chatId:string;userId:string}[]>;load:(userId:string)=>Promise<{state:Workspace}>;mutate:(userId:string,command:Command)=>Promise<unknown>;send:(chatId:string,text:string,markup:ReturnType<typeof reminderButtons>)=>Promise<unknown>;now?:Date};
 export async function sendDueReminders(d:ReminderDeps){let checked=0,sent=0,failed=0;
  for(const link of await d.links()){checked++;
-  try{const {state}=await d.load(link.userId);const today=todayInZone(state.profile.timezone,d.now);
+  try{const {state}=await d.load(link.userId);if(hiddenSections(state.profile.gender).includes('testosterona'))continue;const today=todayInZone(state.profile.timezone,d.now);
    for(const p of state.trtProtocols.filter(x=>dueReminder(x,state.trtDoses,today))){await d.send(link.chatId,REMINDER_TEXT,reminderButtons(p.id));sent++;await d.mutate(link.userId,{type:'patch',collection:'trtProtocols',id:p.id,item:{remindedOn:today}});}}
   catch(e){failed++;console.error('trt reminder',e instanceof Error?e.message:'erro');}}
  return {checked,sent,failed};}

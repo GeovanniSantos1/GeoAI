@@ -1,5 +1,5 @@
 // Formato dos exames do menu Testosterona guardados no workspace. Sem dependências: usado pelo core e pelas regras do menu.
-export const MARKER_KEYS=['testosterona_total','testosterona_livre','testosterona_biodisponivel','shbg','estradiol','lh','fsh','prolactina','hematocrito','hemoglobina','psa_total','psa_livre','vitamina_d','tsh','t4_livre','glicemia','hba1c','colesterol_total','hdl','ldl','triglicerides','tgo','tgp','creatinina','outro'] as const;
+export const MARKER_KEYS=['testosterona_total','testosterona_livre','testosterona_biodisponivel','shbg','estradiol','lh','fsh','prolactina','hematocrito','hemoglobina','psa_total','psa_livre','vitamina_d','tsh','t4_livre','glicemia','hba1c','colesterol_total','hdl','ldl','triglicerides','tgo','tgp','creatinina','progesterona','ferritina','ferro','amh','beta_hcg','vitamina_b12','insulina','outro'] as const;
 export type MarkerKey=typeof MARKER_KEYS[number];
 export type Marker={key:MarkerKey;label:string;value:number;qualifier?:'<'|'>';unit?:string;refMin?:number;refMax?:number};
 export const OVERALLS=['ok','attention','doctor'] as const;

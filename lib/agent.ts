@@ -1,15 +1,17 @@
 import type { UIMessage } from 'ai';
 import { COLLECTIONS } from './types.ts';
-import type { Workspace, Item, Proposal, Collection } from './types.ts';
+import type { Workspace, Item, Proposal, Collection, Gender } from './types.ts';
 import { validDate, addDays, isComplete, financeSummary, formatMoney, validateItem } from './core.ts';
+import { genderBrief } from './gender.ts';
+import { cyclePrediction, dailyStatus, injectionNext, iudStatus, preventiveStatus, METHOD_SHORT, PREVENTIVE_LABEL } from './female-health.ts';
 import { protocolStatus, punctuality, finalOverall, classifyMarker, rangeText, valueText, STATUS_LABEL, OVERALL_LABEL } from './testosterone.ts';
 import type { Marker } from './exam-schema.ts';
 import { agendaItems, agendaOrder, type ExternalEvent } from './external-calendar.ts';
 
 // Consultas e validações usadas pelas ferramentas do assistente. Puras: recebem o espaço já carregado do usuário.
 export type AgentMessage = UIMessage<unknown,{proposals:{items:Proposal[]}}>;
-export const PROPOSABLE = ['tasks','transactions','notes','trtDoses'] as const;
-const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',trtDoses:'Aplicação'};
+export const PROPOSABLE = ['tasks','transactions','notes','trtDoses','periods','contraceptiveDoses'] as const;
+const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',trtDoses:'Aplicação',periods:'Menstruação',contraceptiveDoses:'Uso do método'};
 const FIELDS = ['title','date','time','endTime','repeat','type','category','status','priority','amount','direction','costPerDay','content','notes','bedtime','waketime','duration','quality','mood','target','current','unit','deadline','pages','pagesRead','day','startDate','dueDate','checked','weight','dose','intervalDays','site','lab'];
 const clip = (value:string,max=300) => value.length>max?value.slice(0,max)+'…':value;
 const norm = (value:unknown) => String(value??'').toLocaleLowerCase('pt-BR');
@@ -52,6 +54,13 @@ function proposalDefaults(collection:unknown,fields:Record<string,unknown>,today
   const day=typeof fields.date==='string'?fields.date:today;
   if((s?.trtDoses||[]).some(d=>d.protocolId===p.id&&d.date===day))throw new Error('a aplicação desse dia já está registrada');
   return {date:today,title:'Aplicação: '+p.title,protocolId:p.id,...(p.dose?{dose:p.dose}:{})};}
+ if(collection==='periods')return {date:today,title:'Menstruação'};
+ if(collection==='contraceptiveDoses'){const methods=s?.contraceptives||[],active=methods.filter(m=>m.status==='active'&&m.method!=='iud');
+  const m=fields.methodId?methods.find(x=>x.id===fields.methodId):active.length===1?active[0]:undefined;
+  if(!m)throw new Error('cadastre ou escolha o método no menu Saúde feminina');
+  const day=typeof fields.date==='string'?fields.date:today;
+  if((s?.contraceptiveDoses||[]).some(d=>d.methodId===m.id&&d.date===day))throw new Error('o registro desse dia já existe');
+  return {date:today,title:(m.method==='injection'?'Injeção: ':'Tomei: ')+m.title,methodId:m.id};}
  return {};
 }
 export function checkProposals(raw:unknown,today:string,s?:Workspace){
@@ -60,7 +69,7 @@ export function checkProposals(raw:unknown,today:string,s?:Workspace){
   // O id é descartado: confirmPlan faz upsert, e um id vindo do modelo poderia sobrescrever um registro existente.
   const {collection,...fields}=(entry&&typeof entry==='object'?entry:{}) as Record<string,unknown>;delete fields.id;
   try{
-   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas e aplicações');
+   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, aplicações, início da menstruação e uso do método');
    valid.push({collection:collection as Collection,item:validateItem(collection as Collection,{...proposalDefaults(collection,fields,today,s),...fields})});
   }catch(e){errors.push(String(fields.title||'Item').slice(0,80)+': '+(e instanceof Error?e.message:'inválido'));}
  }
@@ -70,14 +79,14 @@ export function checkProposals(raw:unknown,today:string,s?:Workspace){
 export function assistantBrief(s:Workspace,today:string){
  const p=s.profile,weekday=new Date(today+'T12:00:00Z').toLocaleDateString('pt-BR',{weekday:'long',timeZone:'UTC'});
  const counts=['tasks','objectives','transactions','notes','sleep','books'].map(c=>c+': '+(s[c as keyof Workspace] as Item[]).length).join(', ');
- return ['Usuário: '+p.name,'Hoje: '+today+' ('+weekday+')','Fuso horário: '+p.timezone,'Ações por dia que cabem na rotina: '+p.dailyTarget,'Orçamento mensal: '+(p.budget?formatMoney(p.budget):'não definido'),'Meta de sono: '+p.sleepGoal/60+'h','Registros salvos: '+counts].join('\n');
+ return ['Usuário: '+p.name,genderBrief(p.gender),'Hoje:'+today+' ('+weekday+')','Fuso horário: '+p.timezone,'Ações por dia que cabem na rotina: '+p.dailyTarget,'Orçamento mensal: '+(p.budget?formatMoney(p.budget):'não definido'),'Meta de sono: '+p.sleepGoal/60+'h','Registros salvos: '+counts].join('\n');
 }
 
-export function describeProposal(p:Proposal){return [p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
+export function describeProposal(p:Proposal){return [p.collection==='periods'?'Início da menstruação'+(p.item.flow?' · fluxo '+p.item.flow:''):p.collection==='contraceptiveDoses'?'Uso do método':p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
 
 export function proposalsText(items:unknown){
  const lines=(Array.isArray(items)?items:[]).slice(0,15).map(entry=>{const p=(entry||{}) as {collection?:string;item?:Record<string,unknown>},i=p.item||{};return '- ['+(LABELS[p.collection||'']||'Registro')+'] '+String(i.title||'').slice(0,200)+(typeof i.amount==='number'?' · '+formatMoney(i.amount)+(i.direction==='income'?' (receita)':' (despesa)'):'')+(i.date?' · '+String(i.date):'')+(i.time?' '+String(i.time):'');});
- return 'Sugestões mostradas ao usuário, aguardando a confirmação dele:\n'+lines.join('\n');
+ return 'Sugestões mostradas, aguardando confirmação:\n'+lines.join('\n');
 }
 
 export function cleanHistory(raw:unknown):AgentMessage[]{
@@ -99,10 +108,25 @@ export function cleanHistory(raw:unknown):AgentMessage[]{
 }
 
 export function testosteroneReport(s:Workspace,today:string){
- const exams=s.labExams.filter(e=>e.status==='reviewed').sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);
  return {
   protocolos:s.trtProtocols.map(p=>{const st=protocolStatus(p,s.trtDoses,today),score=punctuality(p,s.trtDoses,today);return {id:p.id,medicamento:p.title,dose:p.dose+' '+(p.unit||'mg'),intervaloDias:p.intervalDays,inicio:p.startDate,situacao:p.status==='paused'?'pausado':'ativo',proximaAplicacao:st.next,...(st.overdue?{diasDeAtraso:st.overdue}:{}),...(score!==null?{pontualidade90dias:score+'%'}:{})};}),
   aplicacoesRecentes:s.trtDoses.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10).map(d=>({data:d.date,...(d.dose?{dose:d.dose}:{}),...(d.site?{local:d.site}:{}),...(d.notes?{observacoes:clip(d.notes,200)}:{})})),
-  exames:exams.map(e=>({data:e.date,...(e.lab?{laboratorio:e.lab}:{}),situacao:OVERALL_LABEL[finalOverall(e,s.labExams)],marcadores:(e.markers as Marker[]).map(m=>({nome:m.label,valor:valueText(m),faixa:rangeText(m),classificacao:STATUS_LABEL[classifyMarker(m)]})),...(e.review?{parecer:e.review.summary}:{})})),
+  exames:examsReport(s),
+ };
+}
+function examsReport(s:Workspace,gender?:Gender){return s.labExams.filter(e=>e.status==='reviewed').sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3).map(e=>({data:e.date,...(e.lab?{laboratorio:e.lab}:{}),situacao:OVERALL_LABEL[finalOverall(e,s.labExams,gender)],marcadores:(e.markers as Marker[]).map(m=>({nome:m.label,valor:valueText(m),faixa:rangeText(m),classificacao:STATUS_LABEL[classifyMarker(m)]})),...(e.review?{parecer:e.review.summary}:{})}));}
+function methodNow(m:Item,doses:Item[],today:string){
+ if(m.method==='iud')return {troca:m.changeDate,diasParaTroca:iudStatus(m,today).daysLeft};
+ if(m.method==='injection')return {proximaAplicacao:injectionNext(m,doses),...(m.remind?{lembrete:m.time}:{})};
+ const st=dailyStatus(m,today);return {hoje:!st.active?(st.pauseUntil?'pausa até '+st.pauseUntil:'sem uso hoje'):doses.some(d=>d.methodId===m.id&&d.date===today)?'tomado':'pendente',...(st.active?{diaDaCartela:st.packDay}:{}),...(m.remind?{lembrete:m.time}:{})};
+}
+export function femaleHealthReport(s:Workspace,today:string){
+ const c=cyclePrediction(s.periods,today),since=addDays(today,-6);
+ return {
+  ciclo:c?{ultimoInicio:c.lastStart,diaDoCiclo:c.cycleDay,proximaPrevista:c.next,...(c.late?{diasDeAtraso:c.late}:{}),janelaFertil:c.fertileStart+' a '+c.fertileEnd,ovulacaoEstimada:c.ovulation,duracaoMediaCiclo:c.cycleLength,duracaoMediaMenstruacao:c.periodLength,ciclosConsiderados:c.cycles}:'sem menstruação registrada',
+  sintomasRecentes:s.symptoms.filter(x=>x.date>=since&&x.date<=today).sort((a,b)=>b.date.localeCompare(a.date)).map(x=>({data:x.date,sintomas:x.symptoms||[],...(x.mood?{humor:x.mood}:{}),...(x.notes?{observacoes:clip(x.notes,200)}:{})})),
+  metodos:s.contraceptives.map(m=>({id:m.id,nome:m.title,tipo:METHOD_SHORT[m.method],situacao:m.status==='paused'?'pausado':'ativo',...methodNow(m,s.contraceptiveDoses,today)})),
+  preventivos:s.preventives.map(p=>{const st=preventiveStatus(p,today);return {nome:p.title,situacao:PREVENTIVE_LABEL[st.state],...(p.lastDate?{ultimaVez:p.lastDate}:{}),...(st.next?{proxima:st.next}:{})};}),
+  exames:examsReport(s,'female'),
  };
 }

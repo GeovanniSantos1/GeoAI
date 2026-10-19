@@ -41,12 +41,12 @@ export function ExamsPanel(){const a=useApp(),call=useExamApi();const input=useR
   {viewing&&<ExamDetail id={viewing} onClose={()=>setViewing(null)} onEdit={id=>{setViewing(null);setEditing({id});}}/>}
  </>;}
 
-function ExamCard({exam,all,onOpen}:{exam:Item;all:Item[];onOpen:()=>void}){const total=(exam.markers as Marker[]|undefined)?.find(m=>m.key==='testosterona_total');const overall=exam.status==='reviewed'?finalOverall(exam,all):null;
+function ExamCard({exam,all,onOpen}:{exam:Item;all:Item[];onOpen:()=>void}){const gender=useApp().state.profile.gender;const total=gender==='female'?undefined:(exam.markers as Marker[]|undefined)?.find(m=>m.key==='testosterona_total');const overall=exam.status==='reviewed'?finalOverall(exam,all,gender):null;
  return <article className="panel record-card"><div className="record-head"><span className={overall?OVERALL_PILL[overall]:'pill'}>{overall?OVERALL_LABEL[overall]:'Rascunho'}</span><time>{dayLabel(exam.date)}</time>{exam.file&&<FileText size={15} aria-label="Com arquivo"/>}</div>
   <button className="record-title" onClick={onOpen}>{exam.lab||exam.title}</button><p className="record-content">{total?'Testosterona total: '+valueText(total):exam.status==='draft'?'Confira os valores para gerar o parecer.':(exam.markers?.length||0)+' marcadores'}</p></article>;}
 
 function ExamForm({id,warning,onClose,onReviewed}:{id:string;warning?:string;onClose:()=>void;onReviewed:(id:string)=>void}){const a=useApp(),call=useExamApi();const exam=a.state.labExams.find(e=>e.id===id);
- const [date,setDate]=useState(exam?.date||a.today),[lab,setLab]=useState(exam?.lab||''),[rows,setRows]=useState<Row[]>(()=>exam?.markers?.length?toRows(exam.markers):[{...emptyRow(),key:'testosterona_total',label:'Testosterona total',unit:'ng/dL'}]),[saving,setSaving]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState(false);
+ const [date,setDate]=useState(exam?.date||a.today),[lab,setLab]=useState(exam?.lab||''),[rows,setRows]=useState<Row[]>(()=>exam?.markers?.length?toRows(exam.markers):[a.state.profile.gender==='female'?{...emptyRow(),key:'estradiol',label:'Estradiol',unit:'pg/mL'}:{...emptyRow(),key:'testosterona_total',label:'Testosterona total',unit:'ng/dL'}]),[saving,setSaving]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState(false);
  if(!exam)return null;
  async function removeDraft(){setSaving(true);try{await call('/api/exams/'+id,{method:'DELETE'});a.toast('Exame excluído.');onClose();}catch(err){setError(err instanceof Error?err.message:'Não foi possível excluir.');setSaving(false);}}
  const set=(i:number,patch:Partial<Row>)=>setRows(rows.map((r,j)=>j===i?{...r,...patch}:r));
@@ -73,7 +73,7 @@ function ExamForm({id,warning,onClose,onReviewed}:{id:string;warning?:string;onC
 
 function ExamDetail({id,onClose,onEdit}:{id:string;onClose:()=>void;onEdit:(id:string)=>void}){const a=useApp(),call=useExamApi();const [busy,setBusy]=useState(''),[confirm,setConfirm]=useState(false);const exam=a.state.labExams.find(e=>e.id===id);
  if(!exam)return null;
- const overall=finalOverall(exam,a.state.labExams),review=exam.review;
+ const overall=finalOverall(exam,a.state.labExams,a.state.profile.gender),review=exam.review;
  async function again(){setBusy('review');try{const j=await call('/api/exams/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:exam!.date,lab:exam!.lab||'',markers:exam!.markers})});a.toast(j.warning||'Parecer atualizado.',!!j.warning);}catch(e){a.toast(e instanceof Error?e.message:'Não foi possível revisar.',true);}finally{setBusy('');}}
  async function remove(){setBusy('delete');try{await call('/api/exams/'+id,{method:'DELETE'});a.toast('Exame excluído.');onClose();}catch(e){a.toast(e instanceof Error?e.message:'Não foi possível excluir.',true);setBusy('');}}
  return <Modal wide title={exam.lab||exam.title} subtitle={'Coleta em '+dayLabel(exam.date)} onClose={()=>!busy&&onClose()}>

@@ -1,0 +1,24 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { emptyWorkspace, upgradeWorkspace, validateWorkspace, applyCommand } from '../lib/core.ts';
+import { assistantBrief } from '../lib/agent.ts';
+import { byGender, careCategories, careTab, categoryOptions, hiddenSections } from '../lib/gender.ts';
+
+test('conta nova ainda não escolheu o gênero e já tem penteado e brincos padrão',()=>{const s=emptyWorkspace('Ana');assert.equal(s.profile.gender,'');assert.equal(s.profile.avatar.style,'longo');assert.equal(s.profile.avatar.earrings,true);});
+test('espaços antigos continuam no masculino sem alterar o objeto original',()=>{const old=emptyWorkspace('Geo');delete old.profile.gender;delete old.profile.avatar.style;delete old.profile.avatar.earrings;const before=structuredClone(old.profile);
+ const up=upgradeWorkspace({...old});assert.equal(up.profile.gender,'male');assert.equal(up.profile.avatar.style,'longo');assert.equal(up.profile.avatar.earrings,true);assert.equal(up.profile.avatar.beard,true);assert.deepEqual(old.profile,before);
+ assert.equal(upgradeWorkspace(emptyWorkspace('Ana')).profile.gender,'');
+ assert.equal(validateWorkspace(old).profile.gender,'male');});
+test('perfil aceita só gênero, penteado e brincos válidos',()=>{let s=emptyWorkspace('Ana');s=applyCommand(s,{type:'profile',profile:{gender:'female',avatar:{style:'cacheado',earrings:false}}},'2026-10-18');assert.equal(s.profile.gender,'female');assert.deepEqual([s.profile.avatar.style,s.profile.avatar.earrings],['cacheado',false]);
+ s=applyCommand(s,{type:'profile',profile:{gender:'outro',avatar:{style:'moicano',earrings:'sim'}}},'2026-10-18');assert.equal(s.profile.gender,'female');assert.deepEqual([s.profile.avatar.style,s.profile.avatar.earrings],['cacheado',false]);
+ s=applyCommand(s,{type:'profile',profile:{gender:''}},'2026-10-18');assert.equal(s.profile.gender,'female');
+ assert.equal(validateWorkspace(s).profile.gender,'female');});
+test('trocar de gênero mantém barba, penteado e registros',()=>{let s=emptyWorkspace('Geo');s.profile.gender='male';s.trtProtocols=[{id:'p1',title:'Durateston',dose:250,unit:'mg',intervalDays:14,startDate:'2026-09-01',status:'active',remind:true}];
+ s=applyCommand(s,{type:'profile',profile:{gender:'female'}},'2026-10-18');s=applyCommand(s,{type:'profile',profile:{gender:'male'}},'2026-10-18');assert.equal(s.profile.avatar.beard,true);assert.equal(s.trtProtocols.length,1);});
+test('textos e menus mudam com o gênero; sem escolha vale o masculino',()=>{assert.equal(byGender('female','Você mesmo','Você mesma'),'Você mesma');assert.equal(byGender('male','Você mesmo','Você mesma'),'Você mesmo');assert.equal(byGender('','Você mesmo','Você mesma'),'Você mesmo');
+ assert.deepEqual(hiddenSections('female'),['testosterona']);assert.deepEqual(hiddenSections('male'),['saude-feminina']);assert.deepEqual(hiddenSections(''),['saude-feminina']);});
+test('cuidados pessoais têm categorias femininas e rotinas antigas acham sua aba',()=>{assert.deepEqual(careCategories('male'),['Pele','Cabelo & barba','Higiene','Autocuidado']);assert.deepEqual(careCategories('female'),['Pele','Cabelo','Unhas','Maquiagem','Higiene','Autocuidado']);
+ assert.equal(careTab('Cabelo & barba','female'),'Cabelo');assert.equal(careTab('Cabelo','male'),'Cabelo & barba');assert.equal(careTab('Unhas','male'),'Autocuidado');assert.equal(careTab(undefined,'female'),'Pele');assert.equal(careTab('Higiene','female'),'Higiene');});
+test('formulário troca Cabelo & barba pelas categorias femininas',()=>{const options=[['Rotina','Rotina'],['Pele','Pele'],['Cabelo & barba','Cabelo & barba'],['Higiene','Higiene']];
+ assert.deepEqual(categoryOptions(options,'female').map(o=>o[0]),['Rotina','Pele','Cabelo','Unhas','Maquiagem','Higiene']);assert.deepEqual(categoryOptions(options,'male'),options);});
+test('assistente sabe como tratar a pessoa',()=>{const s=emptyWorkspace('Ana');assert.match(assistantBrief(s,'2026-10-18'),/linguagem neutra/);s.profile.gender='female';assert.match(assistantBrief(s,'2026-10-18'),/feminino/);s.profile.gender='male';assert.match(assistantBrief(s,'2026-10-18'),/masculino/);});

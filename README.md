@@ -8,7 +8,7 @@ Aplicativo em português para organização pessoal do público masculino, recon
 - Finanças com receitas, despesas, orçamento, contas mensais, cartões e parcelas com valores exatos em centavos.
 - Diário, sono, treinos, medidas, rotinas de alimentação e cuidados, acompanhamento de vícios e recaídas.
 - Cursos, estudos e livros com progresso de leitura; casa, compras, trabalho, clientes e metas.
-- Notas, revisão semanal, Pomodoro, recompensas e avatar masculino personalizável.
+- Notas, revisão semanal, Pomodoro, recompensas e avatar personalizável, masculino ou feminino.
 - Perfil e fuso horário, temas claro/escuro, backup JSON validado, calendário ICS para importar/exportar eventos e agenda sincronizada (só leitura) com Outlook/Teams e Google Agenda.
 - Assistente de IA em conversa: consulta agenda, finanças e registros e sugere ações, sempre confirmadas pelo usuário; sem chave de IA, modo guiado que transforma texto em propostas de ações.
 
@@ -53,6 +53,20 @@ Os scripts de navegador (`npm run test:e2e` e `tests/smoke-ui.mjs`) foram escrit
 - Cotas por usuário: 20 envios e 40 pareceres por dia.
 - Lembrete diário: a tarefa agendada do `vercel.json` (`0 11 * * *`) chama `/api/cron/trt-reminders`. Cadastre o segredo `CRON_SECRET` na Vercel; sem o cabeçalho `Authorization: Bearer <CRON_SECRET>` a rota responde 401.
 - Desenvolvimento local: use `EXAM_FILES=memory` no `.env.local` para guardar os arquivos na memória do servidor, sem Blob. Eles se perdem ao reiniciar.
+
+## Versão feminina
+
+- O perfil guarda como a pessoa quer ser tratada (`gender`: `male`, `female` ou vazio). Contas novas respondem no primeiro acesso; contas criadas antes desta versão seguem no masculino. Dá para trocar em Configurações e em Sua jornada.
+- No feminino: avatar com penteado (longo, cacheado ou coque) e brincos opcionais, textos no feminino, categorias Cabelo, Unhas e Maquiagem em Cuidados pessoais, e o assistente (app e Telegram) fala no feminino.
+- O menu Testosterona fica oculto para mulheres. Os dados continuam salvos e voltam a aparecer se o perfil for trocado para masculino.
+
+## Menu Saúde feminina
+
+- Aparece para quem escolheu ser tratada no feminino, no lugar do menu Testosterona. Abas: Resumo, Ciclo, Anticoncepcional, Exames, Preventivos e Dicas.
+- Ciclo: a previsão usa a média dos últimos 6 ciclos (ou 28 dias, sem histórico); ovulação 14 dias antes da próxima menstruação e janela fértil de 5 dias antes a 1 dia depois. São estimativas, não método contraceptivo.
+- Anticoncepcional: uso diário (com ou sem pausa), injeção mensal ou trimestral e DIU/implante. Lembrete no Telegram na hora escolhida, com os botões Tomei e Lembrar em 1h ou Adiar 1 dia.
+- Lembrete: na Vercel Hobby cada cron roda uma vez por dia, então o `vercel.json` tem 24 entradas diárias (`0 H * * *`) para `/api/cron/female-reminders`; a rota calcula a hora local de cada pessoa. Usa o mesmo `CRON_SECRET` do lembrete de testosterona.
+- Exames: mesma leitura e parecer da IA, com faixas femininas, fase do ciclo na coleta e alertas para hemoglobina abaixo de 8 g/dL, TSH fora de 0,1 a 10 e beta-hCG positivo.
 
 ## Integrações e limites
 
