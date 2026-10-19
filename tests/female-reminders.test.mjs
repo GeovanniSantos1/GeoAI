@@ -35,3 +35,8 @@ test('Lembrar em 1h volta na hora seguinte; às 23h fica para amanhã; Adiar 1 d
 test('callback_data do Telegram',()=>{assert.deepEqual(['fh:d:m1','fh:h:m1','fh:s:m1'].map(parseFemaleCallback).map(x=>x.action),['done','hour','snooze']);assert.equal(parseFemaleCallback('trt:d:m1'),null);assert.equal(parseFemaleCallback('fh:x:m1'),null);
  assert.deepEqual(femaleButtons({id:'i',method:'injection'}).inline_keyboard[0].map(b=>b.callback_data),['fh:d:i','fh:s:i']);
  assert.ok(femaleButtons({id:crypto.randomUUID(),method:'daily'}).inline_keyboard[0].every(b=>Buffer.byteLength(b.callback_data)<=64));});
+test('Tomei depois da meia-noite registra o dia do lembrete, não o dia novo',()=>{const s=space({time:'23:00',remindedOn:'2026-10-10'});
+ const r=femaleCallbackAction(s,'2026-10-11',0,{action:'done',methodId:'m1'});assert.equal(r.command.item.date,'2026-10-10');assert.equal(r.command.item.id,'take-m1-2026-10-10');
+ const after=applyCommand(s,r.command,'2026-10-11');assert.equal(femaleReminderDue(after.contraceptives[0],after.contraceptiveDoses,'2026-10-11',23),true);
+ assert.equal(femaleCallbackAction(s,'2026-10-11',23,{action:'done',methodId:'m1'}).command.item.date,'2026-10-11');
+ assert.equal(femaleCallbackAction(space({time:'23:00',remindedOn:'2026-10-08'}),'2026-10-11',0,{action:'done',methodId:'m1'}).command.item.date,'2026-10-11');});

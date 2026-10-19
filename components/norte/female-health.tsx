@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';import {Plus,Droplet,CalendarDays,ShieldCheck,Pill,Syringe,FlaskConical,Stethoscope,Pencil,Trash2,Check,Sparkles,Utensils,Moon,Dumbbell,Heart,HeartPulse,Leaf} from 'lucide-react';
 import {useApp,type AppContext} from './context';import {PageHeading,Tabs,Stat,Empty} from './primitives';import {Records} from './records';import {ExamsPanel,OVERALL_PILL} from './exams';import {FEMALE_TIPS} from './female-health-tips';
-import {cyclePrediction,forecastDays,dailyStatus,injectionNext,iudStatus,preventiveStatus,takeId,dayDiff,FLOW_LABEL,METHOD_SHORT,PREVENTIVE_LABEL,PREVENTIVE_SUGGESTIONS,type PreventiveState} from '@/lib/female-health';import {finalOverall,OVERALL_LABEL} from '@/lib/testosterone';import type {Item} from '@/lib/types';
+import {cyclePrediction,forecastDays,dailyStatus,injectionNext,iudStatus,sortPreventives,takeId,dayDiff,FLOW_LABEL,METHOD_SHORT,PREVENTIVE_LABEL,PREVENTIVE_SUGGESTIONS,type PreventiveState} from '@/lib/female-health';import {finalOverall,OVERALL_LABEL} from '@/lib/testosterone';import type {Item} from '@/lib/types';
 const ICONS={utensils:Utensils,heart:Heart,moon:Moon,dumbbell:Dumbbell,droplet:Droplet,stethoscope:Stethoscope};
 const PREVENTIVE_PILL:Record<PreventiveState,string>={none:'pill',late:'pill danger',soon:'pill warn',ok:'pill green'};
 const dayLabel=(d:string)=>d?d.split('-').reverse().join('/'):'';
@@ -28,7 +28,7 @@ function MethodToday({m}:{m:Item}){const a=useApp();
  const st=iudStatus(m,a.today);return <Stat label={'Troca · '+m.title} icon={CalendarDays} value={dayLabel(m.changeDate)} foot={st.daysLeft<0?'Troca atrasada':st.soon?'Faltam '+plural(st.daysLeft):'Em dia'} accent={st.soon}/>;}
 
 function Summary({onTab}:{onTab:(t:string)=>void}){const a=useApp();const c=cyclePrediction(a.state.periods,a.today);const active=a.state.contraceptives.filter(m=>m.status==='active');
- const next=a.state.preventives.map(p=>({p,st:preventiveStatus(p,a.today)})).sort((x,y)=>(x.st.next||'').localeCompare(y.st.next||''))[0];
+ const next=sortPreventives(a.state.preventives,a.today)[0];
  const reviewed=a.state.labExams.filter(e=>e.status==='reviewed').sort((x,y)=>x.date.localeCompare(y.date));const last=reviewed[reviewed.length-1];const overall=last?finalOverall(last,a.state.labExams,'female'):null;const points=(last?.review?.points||[]) as {marker:string;text:string}[];
  const pending=active.filter(m=>m.method!=='iud'&&!takenToday(a,m)&&(m.method==='injection'?dayDiff(a.today,injectionNext(m,a.state.contraceptiveDoses))<=3:dailyStatus(m,a.today).active));
  return <>
@@ -75,7 +75,7 @@ function MethodsPanel(){const a=useApp();const doses=a.state.contraceptiveDoses.
   <Records collection="contraceptiveDoses" items={doses} compact emptyTitle="Nenhum registro ainda" emptyText="Toque em Tomei ou responda o lembrete do Telegram."/>
  </>;}
 
-function PreventivesPanel(){const a=useApp();const list=a.state.preventives.map(p=>({p,st:preventiveStatus(p,a.today)})).sort((x,y)=>(x.st.next||'').localeCompare(y.st.next||''));
+function PreventivesPanel(){const a=useApp();const list=sortPreventives(a.state.preventives,a.today);
  const missing=PREVENTIVE_SUGGESTIONS.filter(([t])=>!a.state.preventives.some(p=>p.title.toLocaleLowerCase('pt-BR')===t.toLocaleLowerCase('pt-BR')));const add=()=>a.edit('preventives',undefined,{intervalMonths:12});
  return <>
   <div className="section-action"><p>Consultas e exames de rotina. O GeoAI calcula a próxima data a partir da última vez.</p><button className="button primary" onClick={add}><Plus size={16}/>Novo preventivo</button></div>

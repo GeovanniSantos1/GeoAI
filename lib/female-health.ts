@@ -89,3 +89,6 @@ export function femaleCriticalFlags(exam:{markers:Marker[]}):string[]{const flag
  const tsh=get('tsh');if(tsh&&unitIs(tsh,['mui/l','miu/l','µui/ml','μui/ml','uui/ml','uiu/ml'])&&(tsh.value<0.1||tsh.value>10))flags.push('TSH em '+fmtNum(tsh.value)+': fora de 0,1 a 10 pede avaliação médica logo.');
  const hcg=get('beta_hcg');if(hcg&&unitIs(hcg,['mui/ml','miu/ml','ui/l','iu/l'])&&hcg.value>5)flags.push('Beta-hCG positivo: confirme com seu médico.');
  return flags;}
+const PREVENTIVE_ORDER:Record<PreventiveState,number>={late:0,soon:1,ok:2,none:3};
+// Ordem de atenção: atrasados, vencendo, em dia e, por último, os ainda sem data; dentro de cada grupo, a próxima data primeiro.
+export function sortPreventives(list:Item[],today:string){return list.map(p=>({p,st:preventiveStatus(p,today)})).sort((x,y)=>PREVENTIVE_ORDER[x.st.state]-PREVENTIVE_ORDER[y.st.state]||(x.st.next||'').localeCompare(y.st.next||''));}

@@ -4,7 +4,7 @@ import { emptyWorkspace, applyCommand, validateItem, upgradeWorkspace, validateW
 import { cycleStats, cyclePrediction, cyclePhase, cycleDayOn, forecastDays, nextPeriodStart } from '../lib/female-health.ts';
 const add=(d,n)=>{const t=new Date(d+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10);};
 const per=(date,endDate)=>({id:'p-'+date,title:'Menstruação',date,...(endDate?{endDate}:{})});
-import { dailyStatus, injectionNext, iudStatus, reminderHour, femaleReminderDue, addMonths, preventiveStatus, takeId } from '../lib/female-health.ts';
+import { dailyStatus, injectionNext, iudStatus, reminderHour, femaleReminderDue, addMonths, preventiveStatus, takeId, sortPreventives } from '../lib/female-health.ts';
 const pill={id:'m1',title:'Yasmin',method:'daily',startDate:'2026-10-01',activeDays:21,pauseDays:7,status:'active',remind:true,time:'21:00'};
 import { femaleCriticalFlags } from '../lib/female-health.ts';
 import { reviewContext, finalOverall } from '../lib/testosterone.ts';
@@ -122,3 +122,5 @@ test('assistente propõe menstruação e uso do método',()=>{const s=emptyWorks
  assert.match(checkProposals([{collection:'contraceptiveDoses',title:'Tomei'}],'2026-10-18',s).errors[0],/menu Saúde feminina/);
  s.contraceptives=[{...pill}];assert.equal(checkProposals([{collection:'contraceptiveDoses',title:'Tomei'}],'2026-10-18',s).valid[0].item.methodId,'m1');
  s.contraceptiveDoses=[{id:'take-m1-2026-10-18',title:'Tomei',methodId:'m1',date:'2026-10-18'}];assert.match(checkProposals([{collection:'contraceptiveDoses',title:'Tomei'}],'2026-10-18',s).errors[0],/já existe/);});
+test('preventivos: atrasados primeiro, depois vencendo, em dia e sem registro por último',()=>{const list=[{id:'a',title:'Ginecologista',intervalMonths:12},{id:'b',title:'Papanicolau',intervalMonths:12,lastDate:'2025-10-01'},{id:'c',title:'Mamografia',intervalMonths:12,lastDate:'2026-03-01'},{id:'d',title:'Ultrassom',intervalMonths:12,lastDate:'2025-11-10'},{id:'e',title:'Dentista',intervalMonths:6,lastDate:'2026-02-01'}];
+ assert.deepEqual(sortPreventives(list,'2026-10-18').map(x=>x.p.title),['Dentista','Papanicolau','Ultrassom','Mamografia','Ginecologista']);});
