@@ -40,3 +40,5 @@ test('Tomei depois da meia-noite registra o dia do lembrete, não o dia novo',()
  const after=applyCommand(s,r.command,'2026-10-11');assert.equal(femaleReminderDue(after.contraceptives[0],after.contraceptiveDoses,'2026-10-11',23),true);
  assert.equal(femaleCallbackAction(s,'2026-10-11',23,{action:'done',methodId:'m1'}).command.item.date,'2026-10-11');
  assert.equal(femaleCallbackAction(space({time:'23:00',remindedOn:'2026-10-08'}),'2026-10-11',0,{action:'done',methodId:'m1'}).command.item.date,'2026-10-11');});
+test('anticoncepcional nos dois canais, marcado uma vez',async()=>{const h=harness(space());h.deps.links=async()=>[{chatId:'c1',userId:'u1'},{chatId:'wa:5531@s.whatsapp.net',userId:'u1'}];
+ assert.deepEqual(await sendFemaleReminders({...h.deps,now:NIGHT}),{checked:1,sent:2,failed:0});assert.deepEqual(h.sent.map(x=>x.chatId),['c1','wa:5531@s.whatsapp.net']);assert.equal(h.state.contraceptives[0].remindedOn,'2026-10-10');});

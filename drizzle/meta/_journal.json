@@ -22,6 +22,13 @@
       "when": 1792368966050,
       "tag": "0002_lucky_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792423794763,
+      "tag": "0003_uneven_madame_hydra",
+      "breakpoints": true
     }
   ]
 }
