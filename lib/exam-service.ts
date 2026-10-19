@@ -2,12 +2,15 @@ import {todayInZone,validDate} from './core.ts';
 import {cleanMarkers,cleanReview,MAX_FILE_BYTES,type Marker,type Overall} from './exam-schema.ts';
 import {detectFileType,examPrefix,examTitle,FILE_EXT,mergeOverall,reviewContext} from './testosterone.ts';
 import type {ExamFileStore,StoredFile} from './exam-files.ts';
-import type {Command,Item,Workspace} from './types.ts';
+import type {Command,Item,Workspace,Gender} from './types.ts';
+import {cyclePhase,type Phase} from './female-health.ts';
 
 // Casos de uso dos exames com dependências injetadas: as rotas ligam banco, Blob e IA; os testes usam versões em memória.
 export type ExtractedExam={date?:string|null;lab?:string|null;markers:unknown[]};
 export type ModelReview={overall:Overall;summary:string;points:{marker:string;text:string}[];tips:string[];model:string};
-export type ExamDeps={userId:string;load:()=>Promise<{state:Workspace}>;mutate:(command:Command)=>Promise<{state:Workspace;version:number}>;files:ExamFileStore|null;quota:(kind:'exam_upload'|'exam_review',day:string)=>Promise<boolean>;extract:((file:{data:Uint8Array;type:string;name:string})=>Promise<ExtractedExam>)|null;review:((input:{text:string})=>Promise<ModelReview>)|null;now?:()=>Date};
+// Contexto da leitura do laudo: no feminino, a faixa de hormônios depende da fase do ciclo no dia do envio.
+export type ExamContext={gender:Gender;phase:Phase|null};
+export type ExamDeps={userId:string;load:()=>Promise<{state:Workspace}>;mutate:(command:Command)=>Promise<{state:Workspace;version:number}>;files:ExamFileStore|null;quota:(kind:'exam_upload'|'exam_review',day:string)=>Promise<boolean>;extract:((file:{data:Uint8Array;type:string;name:string},context:ExamContext)=>Promise<ExtractedExam>)|null;review:((input:{text:string;gender?:Gender})=>Promise<ModelReview>)|null;now?:()=>Date};
 export class ExamError extends Error{status:number;constructor(message:string,status=400){super(message);this.status=status;}}
 export const UNREADABLE='Não consegui ler este exame. Confira e digite os valores.';
 export const REVIEW_UNAVAILABLE='O parecer da IA está indisponível agora. A classificação dos valores já está salva; tente Revisar de novo em instantes.';
@@ -33,7 +36,7 @@ export async function createExamFromFile(d:ExamDeps,input:{bytes:Uint8Array;name
  const id=crypto.randomUUID(),path=examPrefix(d.userId)+id+'-'+crypto.randomUUID().slice(0,8)+'.'+FILE_EXT[type];
  await d.files.save(path,input.bytes,type);
  let read:{markers:Marker[];date:string;lab?:string}={markers:[],date:today};
- if(d.extract){try{read=cleanExtracted(await d.extract({data:input.bytes,type,name:input.name}),today);}catch(e){console.error('exam:extract',e instanceof Error?e.message:'erro');}}
+ if(d.extract){try{read=cleanExtracted(await d.extract({data:input.bytes,type,name:input.name},{gender:state.profile.gender,phase:cyclePhase(state.periods||[],today)}),today);}catch(e){console.error('exam:extract',e instanceof Error?e.message:'erro');}}
  const exam={id,title:examTitle(read.date),date:read.date,status:'draft',createdOn:today,markers:read.markers,...(read.lab?{lab:read.lab}:{}),file:{path,name:safeName(input.name,FILE_EXT[type]),type,size:input.bytes.length}};
  try{return result(await d.mutate({type:'upsert',collection:'labExams',item:exam}),id,read.markers.length?undefined:UNREADABLE);}
  catch(e){await d.files.remove([path]).catch(()=>{});throw e;}
@@ -49,7 +52,7 @@ export async function reviewExam(d:ExamDeps,id:string,input:{date?:unknown;lab?:
  const ctx=reviewContext({id,date:input.date,markers},state);let warning:string|undefined;
  if(!d.review)warning=REVIEW_UNAVAILABLE;
  else if(!await d.quota('exam_review',today))warning='Você atingiu o limite de pareceres de hoje. A classificação dos valores já está salva.';
- else{try{const r=clipReview(await d.review({text:ctx.text}));exam.review=cleanReview({...r,overall:mergeOverall(ctx.codeOverall,r.overall),reviewedAt:now(d).toISOString()});}catch(e){console.error('exam:review',e instanceof Error?e.message:'erro');warning=REVIEW_UNAVAILABLE;}}
+ else{try{const r=clipReview(await d.review({text:ctx.text,gender:state.profile.gender}));exam.review=cleanReview({...r,overall:mergeOverall(ctx.codeOverall,r.overall),reviewedAt:now(d).toISOString()});}catch(e){console.error('exam:review',e instanceof Error?e.message:'erro');warning=REVIEW_UNAVAILABLE;}}
  return result(await d.mutate({type:'upsert',collection:'labExams',item:exam}),id,warning);
 }
 export async function deleteExam(d:ExamDeps,id:string){const {exam}=await findExam(d,id);

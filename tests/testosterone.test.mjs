@@ -77,10 +77,10 @@ test('lembrete: do dia previsto até 3 dias depois, uma vez por dia, com adiamen
  assert.equal(dueReminder({...protocol,status:'paused'},doses,'2026-10-16'),false);
  assert.equal(dueReminder({...protocol,remind:false},doses,'2026-10-16'),false);});
 test('/api/state não altera exames e o backup perde arquivos de outra conta',()=>{
- assert.throws(()=>guardStateCommand({type:'upsert',collection:'labExams',item:{}},'user_1'),/menu Testosterona/);
- assert.throws(()=>guardStateCommand({type:'delete',collection:'labExams',id:'e'},'user_1'),/menu Testosterona/);
+ assert.throws(()=>guardStateCommand({type:'upsert',collection:'labExams',item:{}},'user_1'),/aba Exames/);
+ assert.throws(()=>guardStateCommand({type:'delete',collection:'labExams',id:'e'},'user_1'),/aba Exames/);
  assert.throws(()=>guardStateCommand({type:'patch',collection:'labExams',id:'e',item:{}},'user_1'),/Ação não permitida/);assert.throws(()=>guardStateCommand({type:'patch',collection:'trtProtocols',id:'p1',item:{}},'user_1'),/Ação não permitida/);
- assert.throws(()=>guardStateCommand({type:'confirmPlan',items:[{collection:'labExams',item:{}}]},'user_1'),/menu Testosterona/);
+ assert.throws(()=>guardStateCommand({type:'confirmPlan',items:[{collection:'labExams',item:{}}]},'user_1'),/aba Exames/);
  const cmd={type:'upsert',collection:'tasks',item:{title:'x'}};assert.equal(guardStateCommand(cmd,'user_1'),cmd);
  const state={labExams:[{id:'a',title:'A',file:{path:'exames/user_1/a.pdf'}},{id:'b',title:'B',file:{path:'exames/user_2/b.pdf'}},{id:'c',title:'C'}]};
  const out=guardStateCommand({type:'import',state},'user_1');assert.equal(out.state.labExams[0].file.path,'exames/user_1/a.pdf');assert.equal(out.state.labExams[1].file,undefined);assert.equal(out.state.labExams[2].id,'c');});
