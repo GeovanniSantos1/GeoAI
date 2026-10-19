@@ -1,0 +1,34 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { emptyWorkspace, applyCommand, validateItem, upgradeWorkspace, validateWorkspace } from '../lib/core.ts';
+
+const T='2026-10-18';
+const up=(s,collection,item)=>applyCommand(s,{type:'upsert',collection,item},T);
+
+test('coleções novas existem e espaços antigos ganham listas vazias',()=>{const s=emptyWorkspace('Ana');for(const k of ['periods','symptoms','contraceptives','contraceptiveDoses','preventives'])assert.deepEqual(s[k],[]);
+ const old=emptyWorkspace('Ana');delete old.periods;delete old.preventives;const u=upgradeWorkspace({...old});assert.deepEqual([u.periods,u.preventives],[[],[]]);assert.doesNotThrow(()=>validateWorkspace(old));});
+test('menstruação valida fluxo e fim e não repete o início',()=>{let s=emptyWorkspace('Ana');s=up(s,'periods',{id:'p1',title:'Menstruação',date:'2026-10-01',endDate:'2026-10-05',flow:'moderado'});assert.equal(s.periods.length,1);
+ assert.throws(()=>up(s,'periods',{title:'M',date:'2026-10-01'}),/Já existe uma menstruação/);
+ assert.throws(()=>validateItem('periods',{title:'M',date:'2026-10-10',endDate:'2026-10-09'}),/até 15 dias/);
+ assert.throws(()=>validateItem('periods',{title:'M',date:'2026-10-10',endDate:'2026-10-26'}),/até 15 dias/);
+ assert.throws(()=>validateItem('periods',{title:'M',date:'2026-10-10',flow:'muito'}),/Fluxo inválido/);
+ assert.throws(()=>validateItem('periods',{title:'M'}),/data do registro/);});
+test('sintomas aceitam só a lista fixa, um registro por dia',()=>{let s=emptyWorkspace('Ana');s=up(s,'symptoms',{id:'s1',title:'Sintomas do dia',date:T,symptoms:['Cólica','Acne'],mood:3});assert.deepEqual(s.symptoms[0].symptoms,['Cólica','Acne']);
+ assert.throws(()=>up(s,'symptoms',{title:'Outro',date:T}),/Já existe um registro para esta data/);
+ assert.throws(()=>validateItem('symptoms',{title:'S',date:T,symptoms:['Febre alta']}),/Sintoma inválido/);
+ assert.throws(()=>validateItem('symptoms',{title:'S',date:T,mood:9}),/Humor inválido/);});
+test('método valida campos por tipo',()=>{const pill=validateItem('contraceptives',{title:'Yasmin',method:'daily',startDate:'2026-10-01',remind:true,time:'21:00'});assert.deepEqual([pill.activeDays,pill.pauseDays,pill.status],[21,7,'active']);
+ assert.throws(()=>validateItem('contraceptives',{title:'Yasmin',method:'daily',startDate:'2026-10-01',remind:true}),/horário do lembrete/);
+ assert.throws(()=>validateItem('contraceptives',{title:'X',method:'daily',startDate:'2026-10-01',activeDays:0}),/dias de uso/);
+ assert.equal(validateItem('contraceptives',{title:'Depo',method:'injection',startDate:'2026-10-01',intervalDays:90}).intervalDays,90);
+ assert.throws(()=>validateItem('contraceptives',{title:'Depo',method:'injection',startDate:'2026-10-01'}),/intervalo entre 1 e 120 dias/);
+ assert.throws(()=>validateItem('contraceptives',{title:'Mirena',method:'iud',startDate:'2026-10-01',changeDate:'2026-09-01'}),/data de troca/);
+ assert.equal(validateItem('contraceptives',{title:'Mirena',method:'iud',startDate:'2024-01-10',changeDate:'2029-01-10'}).method,'iud');
+ assert.throws(()=>validateItem('contraceptives',{title:'X',method:'adesivo',startDate:'2026-10-01'}),/Método inválido/);
+ assert.throws(()=>validateItem('contraceptives',{title:'X',method:'daily'}),/data de início/);});
+test('registro de uso exige método e é único por método e dia',()=>{let s=emptyWorkspace('Ana');s=up(s,'contraceptiveDoses',{id:'take-m1-'+T,title:'Tomei: Yasmin',date:T,methodId:'m1'});
+ assert.throws(()=>up(s,'contraceptiveDoses',{title:'Tomei',date:T,methodId:'m1'}),/Já existe um registro deste método/);
+ assert.doesNotThrow(()=>up(s,'contraceptiveDoses',{title:'Tomei',date:T,methodId:'m2'}));
+ assert.throws(()=>validateItem('contraceptiveDoses',{title:'Tomei',date:T}),/Escolha o método/);});
+test('preventivo exige intervalo em meses',()=>{assert.equal(validateItem('preventives',{title:'Papanicolau',intervalMonths:12,lastDate:'2025-10-01'}).intervalMonths,12);
+ assert.throws(()=>validateItem('preventives',{title:'Papanicolau'}),/intervalo entre 1 e 120 meses/);assert.throws(()=>validateItem('preventives',{title:'P',intervalMonths:200}),/intervalo entre 1 e 120 meses/);});

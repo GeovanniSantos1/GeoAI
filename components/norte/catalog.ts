@@ -1,6 +1,7 @@
 import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck,FlaskConical} from 'lucide-react';
 import type {Collection,Workspace} from '@/lib/types';
 import {categoryOptions} from '@/lib/gender';
+import {SYMPTOMS,FLOWS,METHODS} from '@/lib/female-health';
 export const NAV=[
 {id:'inicio',path:'/',label:'Meu dia',icon:House,group:'SEU DIA'},
 {id:'agenda',path:'/agenda-v2',label:'Agenda',icon:CalendarDays,group:'SEU DIA'},
@@ -23,7 +24,7 @@ export const NAV=[
 {id:'avatar',path:'/it-girl-collection',label:'Sua jornada',icon:Compass,group:'EVOLUA'},
 {id:'perfil',path:'/perfil',label:'Configurações',icon:Settings,group:'EVOLUA'}
 ];
-export type Field={key:string;label:string;type?:string;options?:string[][];required?:boolean;hint?:string;min?:number;max?:number;step?:string;source?:Collection;default?:any};
+export type Field={key:string;label:string;type?:string;options?:string[][];required?:boolean;hint?:string;min?:number;max?:number;step?:string;source?:Collection;default?:any;showIf?:(values:any)=>boolean};
 const title:Field={key:'title',label:'Título',required:true};
 const date:Field={key:'date',label:'Data',type:'date',required:true};
 const notes:Field={key:'notes',label:'Observações',type:'textarea'};
@@ -58,8 +59,19 @@ reviews:[title,date,{key:'category',label:'Direção da próxima semana',type:'s
 focusSessions:[title,date,{key:'duration',label:'Minutos de foco',type:'number',min:1,default:25},notes],
 labExams:[],
 trtProtocols:[{...title,label:'Medicamento',hint:'Ex.: Durateston, Deposteron, Nebido, testosterona gel'},{key:'dose',label:'Dose',type:'number',step:'0.1',min:0,required:true},{key:'unit',label:'Unidade',type:'select',options:[['mg','mg'],['mL','mL'],['g','g']],default:'mg'},{key:'intervalDays',label:'Intervalo entre aplicações (dias)',type:'number',min:1,max:90,required:true,default:14},{key:'startDate',label:'Início',type:'date',required:true},{key:'doctor',label:'Médico responsável'},{key:'status',label:'Situação',type:'select',options:[['active','Ativo'],['paused','Pausado']],default:'active'},{key:'remind',label:'Lembrar no Telegram',type:'checkbox',default:true},notes],
-trtDoses:[{...title,label:'Registro'},date,{key:'protocolId',label:'Protocolo',type:'select',source:'trtProtocols',required:true},{key:'dose',label:'Dose',type:'number',step:'0.1',min:0},{key:'site',label:'Local',type:'select',options:[['','Não informado'],['Glúteo','Glúteo'],['Coxa','Coxa'],['Deltoide','Deltoide'],['Abdômen','Abdômen'],['Outro','Outro']]},{...notes,label:'Como você se sentiu?'}]
+trtDoses:[{...title,label:'Registro'},date,{key:'protocolId',label:'Protocolo',type:'select',source:'trtProtocols',required:true},{key:'dose',label:'Dose',type:'number',step:'0.1',min:0},{key:'site',label:'Local',type:'select',options:[['','Não informado'],['Glúteo','Glúteo'],['Coxa','Coxa'],['Deltoide','Deltoide'],['Abdômen','Abdômen'],['Outro','Outro']]},{...notes,label:'Como você se sentiu?'}],
+periods:[{...title,label:'Registro',default:'Menstruação'},{...date,label:'Início'},{key:'endDate',label:'Fim',type:'date',hint:'Deixe em branco se ainda não terminou.'},{key:'flow',label:'Fluxo',type:'select',options:FLOWS.map(([v,l])=>[v,l]),default:'moderado'},notes],
+symptoms:[{...title,label:'Registro',default:'Sintomas do dia'},date,{key:'symptoms',label:'O que você sentiu?',type:'multi',options:SYMPTOMS.map(x=>[x,x])},{key:'mood',label:'Como você está?',type:'select',options:[['5','Muito bem'],['4','Bem'],['3','Na média'],['2','Um pouco difícil'],['1','Dia difícil']]},notes],
+contraceptives:[{...title,label:'Nome',hint:'Ex.: Yasmin, Depo-Provera, Mirena, gel de estradiol'},{key:'method',label:'Tipo',type:'select',options:METHODS.map(([v,l])=>[v,l]),default:'daily',required:true},
+ {key:'startDate',label:'Primeiro dia da cartela atual',type:'date',required:true,showIf:v=>v.method==='daily'},{key:'startDate',label:'Data da última aplicação',type:'date',required:true,showIf:v=>v.method==='injection'},{key:'startDate',label:'Data da colocação',type:'date',required:true,showIf:v=>v.method==='iud'},
+ {key:'activeDays',label:'Dias de uso',type:'number',min:1,max:90,default:21,hint:'Ex.: 21 e 7 de pausa; 24 e 4; contínua: 28 e 0.',showIf:v=>v.method==='daily'},{key:'pauseDays',label:'Dias de pausa',type:'number',min:0,max:30,default:7,showIf:v=>v.method==='daily'},
+ {key:'intervalDays',label:'Intervalo entre aplicações (dias)',type:'number',min:1,max:120,default:30,hint:'30 para mensal, 90 para trimestral.',showIf:v=>v.method==='injection'},
+ {key:'changeDate',label:'Data prevista de troca',type:'date',required:true,showIf:v=>v.method==='iud'},
+ {key:'time',label:'Horário do lembrete',type:'time',default:'21:00',hint:'Chega na hora cheia, com até 1 hora de atraso.',showIf:v=>v.method!=='iud'},{key:'remind',label:'Lembrar no Telegram',type:'checkbox',default:true,showIf:v=>v.method!=='iud'},
+ {key:'status',label:'Situação',type:'select',options:[['active','Ativo'],['paused','Pausado']],default:'active'},{key:'doctor',label:'Médico responsável'},notes],
+contraceptiveDoses:[{...title,label:'Registro'},date,{key:'methodId',label:'Método',type:'select',source:'contraceptives',required:true},notes],
+preventives:[{...title,label:'Consulta ou exame',hint:'Ex.: Papanicolau, mamografia, ginecologista'},{key:'intervalMonths',label:'Repetir a cada (meses)',type:'number',min:1,max:120,default:12,required:true},{key:'lastDate',label:'Última vez',type:'date'},{key:'doctor',label:'Médico ou clínica'},notes]
 };
-export const COLLECTION_LABELS:Record<Collection,string>={tasks:'Nova ação',objectives:'Novo objetivo',transactions:'Novo lançamento',bills:'Nova conta',cards:'Novo cartão',journal:'Registrar meu dia',workouts:'Novo treino',sessions:'Registrar treino',measurements:'Peso e medidas',courses:'Novo estudo',activities:'Planejar atividade',books:'Adicionar livro',readingLogs:'Registrar leitura',rooms:'Novo cômodo',chores:'Nova tarefa de casa',shopping:'Adicionar à lista',clients:'Novo cliente',workGoals:'Nova meta de trabalho',sleep:'Registrar minha noite',vices:'Começar um novo caminho',relapses:'Registrar recomeço',notes:'Nova anotação',reviews:'Minha revisão',focusSessions:'Registrar foco',labExams:'Novo exame',trtProtocols:'Novo protocolo',trtDoses:'Registrar aplicação'};
+export const COLLECTION_LABELS:Record<Collection,string>={tasks:'Nova ação',objectives:'Novo objetivo',transactions:'Novo lançamento',bills:'Nova conta',cards:'Novo cartão',journal:'Registrar meu dia',workouts:'Novo treino',sessions:'Registrar treino',measurements:'Peso e medidas',courses:'Novo estudo',activities:'Planejar atividade',books:'Adicionar livro',readingLogs:'Registrar leitura',rooms:'Novo cômodo',chores:'Nova tarefa de casa',shopping:'Adicionar à lista',clients:'Novo cliente',workGoals:'Nova meta de trabalho',sleep:'Registrar minha noite',vices:'Começar um novo caminho',relapses:'Registrar recomeço',notes:'Nova anotação',reviews:'Minha revisão',focusSessions:'Registrar foco',labExams:'Novo exame',trtProtocols:'Novo protocolo',trtDoses:'Registrar aplicação',periods:'Registrar menstruação',symptoms:'Registrar sintomas',contraceptives:'Novo método',contraceptiveDoses:'Registrar uso',preventives:'Novo preventivo'};
 export const relationOptions=(field:Field,state:Workspace)=>field.source?[['','Sem vínculo'],...state[field.source].map(x=>[x.id,x.title])]:field.key==='category'?categoryOptions(field.options||[],state.profile.gender):field.options||[];
 

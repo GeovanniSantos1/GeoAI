@@ -2,6 +2,7 @@ import { COLLECTIONS } from './types.ts';
 import type { Workspace, Item, Collection, Command, Proposal } from './types.ts';
 import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
 import { HAIR_STYLES } from './gender.ts';
+import { SYMPTOMS, FLOWS, METHODS } from './female-health.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -23,8 +24,10 @@ const DATES=new Set(['date','deadline','startDate','dueDate','repeatUntil']);
 const TIMES=new Set(['time','endTime','bedtime','waketime','startTime']);
 VALID_KEYS.add('appliedPages');NUMBERS.add('appliedPages');
 for(const key of ['lab','markers','file','review','createdOn','dose','intervalDays','doctor','remind','remindedOn','snoozedUntil','protocolId','site'])VALID_KEYS.add(key);NUMBERS.add('dose');NUMBERS.add('intervalDays');for(const key of ['createdOn','remindedOn','snoozedUntil'])DATES.add(key);
+// Menu Saúde feminina.
+for(const key of ['endDate','flow','symptoms','method','activeDays','pauseDays','changeDate','methodId','intervalMonths','lastDate','snoozeHour'])VALID_KEYS.add(key);for(const key of ['activeDays','pauseDays','intervalMonths','snoozeHour'])NUMBERS.add(key);for(const key of ['endDate','changeDate','lastDate'])DATES.add(key);
 // Coleções criadas depois do lançamento: espaços e backups antigos ganham a lista vazia.
-const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses'];
+const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives'];
 // Perfis de antes da versão feminina eram todos tratados no masculino; o avatar ganha penteado e brincos padrão.
 // Copia o perfil em vez de alterá-lo, porque validateWorkspace só copia o primeiro nível do backup.
 export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];
@@ -57,11 +60,11 @@ export function validateItem(collection:string,raw:any):Item{
   else if(key==='review')item[key]=cleanReview(value);
   else if(key==='file')item[key]=cleanFile(value);
   else if(typeof value==='string'){if(value.length>10000)throw new Error('Texto muito longo');item[key]=value;}
-  else if(Array.isArray(value)&&['weekdays','paidMonths','tags'].includes(key)&&value.length<=100&&value.every(x=>typeof x==='string'||typeof x==='number'))item[key]=value;
+  else if(Array.isArray(value)&&['weekdays','paidMonths','tags','symptoms'].includes(key)&&value.length<=100&&value.every(x=>typeof x==='string'||typeof x==='number'))item[key]=value;
   else throw new Error('Tipo inválido para '+key);
  }
  if(item.repeat&&!['none','daily','weekdays','weekly','monthly'].includes(item.repeat))throw new Error('Repetição inválida');
- if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
+ if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses','periods','symptoms','contraceptiveDoses'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
  if(['transactions','bills'].includes(collection)&&(!Number.isSafeInteger(item.amount)||item.amount<=0))throw new Error('Informe um valor maior que zero');
  if(collection==='bills'&&(!Number.isInteger(item.day)||item.day<1||item.day>31))throw new Error('Informe um dia entre 1 e 31');
  if(['books','readingLogs'].includes(collection)&&(!Number.isInteger(item.pages)||item.pages<1))throw new Error('Informe a quantidade de páginas');
@@ -75,6 +78,15 @@ export function validateItem(collection:string,raw:any):Item{
  if(collection==='labExams'){item.status??='draft';if(!['draft','reviewed'].includes(item.status))throw new Error('Situação do exame inválida');item.markers??=[];}
  if(collection==='trtProtocols'){if(!item.startDate)throw new Error('Informe o início do protocolo');if(!(item.dose>0))throw new Error('Informe a dose');if(!Number.isInteger(item.intervalDays)||item.intervalDays<1||item.intervalDays>90)throw new Error('Informe o intervalo entre 1 e 90 dias');item.unit??='mg';if(!['mg','mL','g'].includes(item.unit))throw new Error('Unidade inválida');item.status??='active';if(!['active','paused'].includes(item.status))throw new Error('Situação do protocolo inválida');}
  if(collection==='trtDoses'){if(typeof item.protocolId!=='string'||!/^[\w-]{1,100}$/.test(item.protocolId))throw new Error('Escolha o protocolo');if(item.dose!==undefined&&!(item.dose>0))throw new Error('Dose inválida');}
+ if(collection==='periods'){if(item.flow&&!FLOWS.some(([id])=>id===item.flow))throw new Error('Fluxo inválido');if(item.endDate&&(item.endDate<item.date||(Date.parse(item.endDate+'T12:00:00Z')-Date.parse(item.date+'T12:00:00Z'))/86400000>15))throw new Error('O fim deve ficar entre o início e até 15 dias depois');}
+ if(collection==='symptoms'){if(item.mood!==undefined&&(!Number.isInteger(item.mood)||item.mood<1||item.mood>5))throw new Error('Humor inválido');if((item.symptoms||[]).some((x:string)=>!(SYMPTOMS as readonly string[]).includes(x)))throw new Error('Sintoma inválido');}
+ if(collection==='contraceptives'){item.method??='daily';if(!METHODS.some(([id])=>id===item.method))throw new Error('Método inválido');if(!item.startDate)throw new Error('Informe a data de início');item.status??='active';if(!['active','paused'].includes(item.status))throw new Error('Situação inválida');
+  if(item.method==='daily'){item.activeDays??=21;item.pauseDays??=7;if(!Number.isInteger(item.activeDays)||item.activeDays<1||item.activeDays>90||!Number.isInteger(item.pauseDays)||item.pauseDays>30)throw new Error('Informe dias de uso (1 a 90) e de pausa (0 a 30)');}
+  if(item.method==='injection'&&(!Number.isInteger(item.intervalDays)||item.intervalDays<1||item.intervalDays>120))throw new Error('Informe o intervalo entre 1 e 120 dias');
+  if(item.method==='iud'&&(!item.changeDate||item.changeDate<=item.startDate))throw new Error('Informe a data de troca, depois da colocação');
+  if(item.method!=='iud'&&item.remind&&!item.time)throw new Error('Informe o horário do lembrete');}
+ if(collection==='contraceptiveDoses'&&(typeof item.methodId!=='string'||!/^[\w-]{1,100}$/.test(item.methodId)))throw new Error('Escolha o método');
+ if(collection==='preventives'&&(!Number.isInteger(item.intervalMonths)||item.intervalMonths<1||item.intervalMonths>120))throw new Error('Informe o intervalo entre 1 e 120 meses');
  if(item.repeatUntil&&item.date&&item.repeatUntil<item.date)throw new Error('Término anterior ao início');
  return item;
 }
@@ -110,8 +122,10 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   const col=command.collection as Collection;const item=validateItem(col,command.item);const index=s[col].findIndex(x=>x.id===item.id);
   if(index>=0&&command.item?._rev!==undefined&&command.item._rev!==(s[col][index]._rev||0))throw new Error('Este registro foi atualizado em outra aba. Feche o formulário e abra novamente.');
   item._rev=(index>=0?s[col][index]._rev||0:0)+1;
-  if(['journal','sleep'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
+  if(['journal','sleep','symptoms'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
   if(col==='trtDoses'&&s.trtDoses.some(x=>x.protocolId===item.protocolId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma aplicação deste protocolo nesta data. Edite o registro existente.');
+  if(col==='periods'&&s.periods.some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma menstruação com este início. Edite o registro existente.');
+  if(col==='contraceptiveDoses'&&s.contraceptiveDoses.some(x=>x.methodId===item.methodId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro deste método nesta data. Edite o registro existente.');
   if(col==='readingLogs'){const previous=index>=0?s[col][index]:undefined;if(previous){const oldBook=s.books.find(x=>x.id===previous.bookId);if(oldBook){oldBook.pagesRead=Math.max(0,(oldBook.pagesRead||0)-(previous.appliedPages??previous.pages));if(oldBook.status==='done'&&oldBook.pagesRead<oldBook.pages)oldBook.status='active';}}const book=s.books.find(x=>x.id===item.bookId);if(!book)throw new Error('Selecione um livro da sua biblioteca');item.appliedPages=Math.min(item.pages,Math.max(0,book.pages-(book.pagesRead||0)));book.pagesRead=(book.pagesRead||0)+item.appliedPages;if(book.pagesRead>=book.pages)book.status='done';}
   if(index<0&&s[col].length>=2000)throw new Error('Limite da coleção atingido');if(index<0)s[col].push(item);else s[col][index]=item;
   if(col==='journal')reward(s,'journal:'+item.date,15);
