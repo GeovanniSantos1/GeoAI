@@ -69,3 +69,14 @@ export function femaleReminderDue(m:Item,doses:Item[],today:string,hour:number){
 export function addMonths(date:string,months:number){const [y,m,d]=date.split('-').map(Number);const t=new Date(Date.UTC(y,m-1+months,1,12));const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();return t.toISOString().slice(0,8)+String(Math.min(d,last)).padStart(2,'0');}
 export const preventiveNext=(p:Item)=>valid(p.lastDate)?addMonths(p.lastDate,p.intervalMonths||12):null;
 export function preventiveStatus(p:Item,today:string):{state:PreventiveState;next?:string;days?:number}{const next=preventiveNext(p);if(!next)return {state:'none'};const days=dayDiff(today,next);return {state:days<0?'late':days<=30?'soon':'ok',next,days};}
+// Itens calculados da agenda (não são salvos em tasks). Os `readonly` só informam: sem marcar, editar ou excluir.
+export function femaleAgenda(s:{periods:Item[];contraceptives:Item[];contraceptiveDoses:Item[];preventives:Item[]},date:string):Item[]{
+ const out:Item[]=[];
+ for(const m of s.contraceptives){if(m.status!=='active')continue;const time=m.time?{time:m.time}:{};
+  if(m.method==='daily'&&dailyStatus(m,date).active)out.push({id:m.id,title:'Uso diário: '+m.title,type:'habit',section:'saude',_collection:'contraceptives',...time});
+  if(m.method==='injection'&&injectionNext(m,s.contraceptiveDoses,date)===date)out.push({id:m.id,title:'Injeção: '+m.title,type:'event',section:'saude',_collection:'contraceptives',...time});
+  if(m.method==='iud'&&m.changeDate===date)out.push({id:m.id,title:'Troca: '+m.title,type:'event',section:'saude',_collection:'contraceptives',readonly:true});}
+ if(nextPeriodStart(s.periods)===date)out.push({id:'period-forecast',title:'Menstruação prevista',type:'event',section:'saude',_collection:'forecast',readonly:true});
+ for(const p of s.preventives)if(preventiveNext(p)===date)out.push({id:p.id,title:'Preventivo: '+p.title,type:'event',section:'saude',_collection:'preventives',readonly:true});
+ return out;
+}

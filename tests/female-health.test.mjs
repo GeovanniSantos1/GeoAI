@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyWorkspace, applyCommand, validateItem, upgradeWorkspace, validateWorkspace } from '../lib/core.ts';
+import { emptyWorkspace, applyCommand, validateItem, upgradeWorkspace, validateWorkspace, scheduledItems, isComplete } from '../lib/core.ts';
 import { cycleStats, cyclePrediction, cyclePhase, cycleDayOn, forecastDays, nextPeriodStart } from '../lib/female-health.ts';
 const add=(d,n)=>{const t=new Date(d+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10);};
 const per=(date,endDate)=>({id:'p-'+date,title:'Menstruação',date,...(endDate?{endDate}:{})});
@@ -77,3 +77,15 @@ test('preventivos: próxima data com fim de mês e situação',()=>{assert.equal
  const p={id:'p',title:'Papanicolau',intervalMonths:12};assert.deepEqual(preventiveStatus(p,'2026-10-18'),{state:'none'});
  assert.deepEqual(preventiveStatus({...p,lastDate:'2025-10-01'},'2026-10-18'),{state:'late',next:'2026-10-01',days:-17});
  assert.equal(preventiveStatus({...p,lastDate:'2025-11-10'},'2026-10-18').state,'soon');assert.equal(preventiveStatus({...p,lastDate:'2026-03-01'},'2026-10-18').state,'ok');});
+test('agenda mostra os cuidados só para quem vê o menu',()=>{let s=emptyWorkspace('Ana');s.profile.gender='female';
+ s.contraceptives=[{...pill},{...inj},{id:'u',title:'Mirena',method:'iud',startDate:'2021-11-01',changeDate:'2026-10-30',status:'active'}];s.periods=[{id:'p1',title:'Menstruação',date:'2026-10-02'}];s.preventives=[{id:'pv',title:'Papanicolau',intervalMonths:12,lastDate:'2025-10-30'}];
+ const titles=d=>scheduledItems(s,d).map(x=>x.title).sort();
+ assert.deepEqual(titles('2026-10-10'),['Uso diário: Yasmin']);
+ assert.deepEqual(titles('2026-10-30'),['Injeção: Depo','Menstruação prevista','Preventivo: Papanicolau','Troca: Mirena','Uso diário: Yasmin']);
+ assert.deepEqual(titles('2026-10-24'),[]);
+ const item=scheduledItems(s,'2026-10-10')[0];assert.equal(isComplete(s,item,'2026-10-10'),false);
+ s=applyCommand(s,{type:'upsert',collection:'contraceptiveDoses',item:{id:takeId('m1','2026-10-10'),title:'Tomei: Yasmin',date:'2026-10-10',methodId:'m1'}},'2026-10-10');assert.equal(isComplete(s,item,'2026-10-10'),true);
+ assert.ok(scheduledItems(s,'2026-10-30').filter(x=>!['Uso diário: Yasmin','Injeção: Depo'].includes(x.title)).every(x=>x.readonly));
+ s.profile.gender='male';assert.deepEqual(titles('2026-10-30'),[]);});
+test('aplicações de testosterona saem da agenda no feminino, sem apagar o protocolo',()=>{const s=emptyWorkspace('Ana');s.trtProtocols=[{id:'t1',title:'Durateston',dose:250,unit:'mg',intervalDays:14,startDate:'2026-10-10',status:'active'}];
+ s.profile.gender='male';assert.equal(scheduledItems(s,'2026-10-10').length,1);s.profile.gender='female';assert.equal(scheduledItems(s,'2026-10-10').length,0);assert.equal(s.trtProtocols.length,1);});

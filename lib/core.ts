@@ -1,8 +1,8 @@
 import { COLLECTIONS } from './types.ts';
 import type { Workspace, Item, Collection, Command, Proposal } from './types.ts';
 import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
-import { HAIR_STYLES } from './gender.ts';
-import { SYMPTOMS, FLOWS, METHODS } from './female-health.ts';
+import { HAIR_STYLES, hiddenSections } from './gender.ts';
+import { SYMPTOMS, FLOWS, METHODS, femaleAgenda } from './female-health.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -179,8 +179,10 @@ export function financeSummary(s:Workspace,month:string){const monthRows=s.trans
 // Próxima aplicação de um protocolo: última aplicação (antes de `before`, quando informado) + intervalo; sem aplicações, a data de início.
 export function nextApplicationDate(protocol:Item,doses:Item[],before?:string):string{const last=doses.filter(d=>d.protocolId===protocol.id&&validDate(d.date)&&(!before||d.date<before)).map(d=>d.date as string).sort().pop();return last?addDays(last,protocol.intervalDays||0):protocol.startDate;}
 export function scheduledItems(s:Workspace,date:string):Item[]{
- // Aplicações de testosterona entram como compromissos calculados: não são salvas em tasks.
- const applications=s.trtProtocols.filter(p=>p.status==='active'&&nextApplicationDate(p,s.trtDoses,date)===date).map(p=>({id:p.id,title:'Aplicação: '+p.title,type:'event',section:'testosterona',_collection:'trtProtocols'}));
- return [...[...s.tasks.map(x=>({...x,_collection:'tasks'})),...s.chores.map(x=>({...x,_collection:'chores',type:'task',section:'casa'})),...s.activities.map(x=>({...x,_collection:'activities',type:'task',section:'estudos'}))].filter(x=>occursOn(x,date)),...applications];}
-export function isComplete(s:Workspace,item:Item,date:string){const source=item._collection||'tasks';return !!s.completions[(source==='tasks'?'':source+'-')+item.id+':'+date]||(source==='activities'&&item.status==='done')||(source==='chores'&&item.checked&&item.date===date)||(source==='trtProtocols'&&s.trtDoses.some(d=>d.protocolId===item.id&&d.date===date));}
+ // Aplicações de testosterona e cuidados do menu Saúde feminina entram como itens calculados: não são salvos em tasks.
+ // Menu oculto pelo gênero também some da agenda (os registros continuam salvos).
+ const hidden=hiddenSections(s.profile.gender);
+ const applications=hidden.includes('testosterona')?[]:s.trtProtocols.filter(p=>p.status==='active'&&nextApplicationDate(p,s.trtDoses,date)===date).map(p=>({id:p.id,title:'Aplicação: '+p.title,type:'event',section:'testosterona',_collection:'trtProtocols'}));
+ return [...[...s.tasks.map(x=>({...x,_collection:'tasks'})),...s.chores.map(x=>({...x,_collection:'chores',type:'task',section:'casa'})),...s.activities.map(x=>({...x,_collection:'activities',type:'task',section:'estudos'}))].filter(x=>occursOn(x,date)),...applications,...(hidden.includes('saude-feminina')?[]:femaleAgenda(s,date))];}
+export function isComplete(s:Workspace,item:Item,date:string){const source=item._collection||'tasks';return !!s.completions[(source==='tasks'?'':source+'-')+item.id+':'+date]||(source==='activities'&&item.status==='done')||(source==='chores'&&item.checked&&item.date===date)||(source==='trtProtocols'&&s.trtDoses.some(d=>d.protocolId===item.id&&d.date===date))||(source==='contraceptives'&&s.contraceptiveDoses.some(d=>d.methodId===item.id&&d.date===date));}
 
