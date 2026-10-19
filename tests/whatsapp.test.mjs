@@ -19,9 +19,18 @@ test('sem o número da instância, só a mensagem do dono pede a conferência; g
  assert.equal(parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:false}),'Evolution').fromMe,false);
  assert.equal(parseEvolutionEvent(ev({remoteJid:'1203630@g.us',fromMe:true}),'Evolution'),null);
  assert.equal(parseEvolutionEvent(ev({remoteJid:'status@broadcast',fromMe:true}),'Evolution'),null);});
-test('na conversa consigo mesmo, foto e áudio ficam em silêncio',()=>{
+test('na conversa consigo mesmo, foto fica em silêncio e áudio vai para o assistente',()=>{
  assert.equal(parseEvolutionEvent(ev({remoteJid:OWNER,fromMe:true},{imageMessage:{}}),'Evolution',OWNER),null);
- assert.equal(parseEvolutionEvent(ev({remoteJid:OWNER,fromMe:true},{audioMessage:{}}),'Evolution'),null);});
+ const self=parseEvolutionEvent(ev({remoteJid:OWNER,fromMe:true},{audioMessage:{seconds:9,ptt:true}}),'Evolution',OWNER);assert.equal(self.textless,true);assert.equal(self.voice.seconds,9);
+ assert.equal(parseEvolutionEvent(ev({remoteJid:OWNER,fromMe:true},{audioMessage:{seconds:9}}),'Evolution').fromMe,true);
+ assert.equal(parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:true},{audioMessage:{seconds:9}}),'Evolution',OWNER),null);});
+test('áudio de um contato guarda a duração e a mensagem original para buscar o arquivo na Evolution',()=>{
+ const m=parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:false},{audioMessage:{seconds:12,ptt:true}}),'Evolution',OWNER);
+ assert.deepEqual(m.voice,{seconds:12,key:{id:'ID1',remoteJid:FRIEND,fromMe:false},message:{audioMessage:{seconds:12,ptt:true}}});assert.equal(m.textless,true);
+ const wrapped={ephemeralMessage:{message:{audioMessage:{seconds:5}}}},e=parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:false},wrapped),'Evolution',OWNER);
+ assert.equal(e.voice.seconds,5);assert.deepEqual(e.voice.message,wrapped);
+ assert.equal('seconds' in parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:false},{audioMessage:{}}),'Evolution',OWNER).voice,false);
+ assert.equal('voice' in parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:false},{imageMessage:{}}),'Evolution',OWNER),false);});
 test('mensagens com mais de 10 minutos ficam de fora, inclusive um "1" velho',()=>{const NOW=Date.parse('2026-10-19T12:00:00Z'),at=messageTimestamp=>({messageTimestamp});
  assert.equal(parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:false},{conversation:'1'},at(NOW/1000-11*60)),'Evolution',OWNER,NOW),null);
  assert.equal(parseEvolutionEvent(ev({remoteJid:FRIEND,fromMe:false},{conversation:'1'},at(String(NOW/1000-11*60))),'Evolution',OWNER,NOW),null);
@@ -79,3 +88,10 @@ test('cliente da Evolution: cabeçalhos, corpo e erros',async()=>{const calls=[]
  assert.equal(await api.ownerJid(),OWNER);assert.equal(calls[2].url,'https://x.ngrok-free.dev/instance/fetchInstances?instanceName=Evolution');assert.equal(calls[2].init.method,'GET');
  const bad=evolutionApi({url:'https://x.ngrok-free.dev/falha',key:'k',instance:'Evolution'},fetcher);await assert.rejects(bad.sendText(FRIEND,'oi'),/Evolution respondeu 500/);
  const none=evolutionApi({url:'https://x',key:'k',instance:'Evolution'},async()=>Response.json([{name:'Outra',ownerJid:FRIEND}]));await assert.rejects(none.ownerJid(),/Instância não encontrada/);});
+test('cliente da Evolution: o áudio vem em base64 pela mensagem original, sem consultar o banco da Evolution',async()=>{const calls=[];
+ const api=evolutionApi({url:'https://x.ngrok-free.dev',key:'k',instance:'Evolution'},async(url,init)=>{calls.push({url,init});return Response.json({mediaType:'audioMessage',mimetype:'audio/ogg; codecs=opus',base64:'T2dnUwE='},{status:201});});
+ const key={id:'ID1',remoteJid:FRIEND,fromMe:false},message={audioMessage:{seconds:12}};
+ assert.deepEqual(await api.audio({key,message}),new Uint8Array([79,103,103,83,1]));
+ assert.equal(calls[0].url,'https://x.ngrok-free.dev/chat/getBase64FromMediaMessage/Evolution');assert.equal(calls[0].init.method,'POST');
+ assert.deepEqual(JSON.parse(calls[0].init.body),{message:{key,message},convertToMp4:false});
+ const empty=evolutionApi({url:'https://x',key:'k',instance:'Evolution'},async()=>Response.json({base64:''},{status:201}));await assert.rejects(empty.audio({key,message}),/Áudio indisponível/);});

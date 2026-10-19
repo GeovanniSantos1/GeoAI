@@ -1,4 +1,4 @@
-import {after} from 'next/server';import {timingSafeEqual} from 'node:crypto';import {parseEvolutionEvent,linkCodeOf,waCommand,choiceIndex,choicesOf,waSecret,type WaMessage} from '@/lib/whatsapp';import {waContext,ownerJidCached,sayWa,knownUnlinked,rememberUnlinked,forgetUnlinked} from '@/lib/whatsapp-server';import {consumeWaCode,linkWhatsapp,getWaLinkByJid,claimWaMessage,unlinkWaJid,saveWaConversation,swapWaChoices} from '@/lib/whatsapp-store';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {proposalList,pushHistory,addPending,newCode,type Pending} from '@/lib/telegram';import {proposalsText} from '@/lib/agent';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';
+import {after} from 'next/server';import {timingSafeEqual} from 'node:crypto';import {parseEvolutionEvent,linkCodeOf,waCommand,choiceIndex,choicesOf,waSecret,type WaMessage} from '@/lib/whatsapp';import {waContext,ownerJidCached,sayWa,knownUnlinked,rememberUnlinked,forgetUnlinked} from '@/lib/whatsapp-server';import {consumeWaCode,linkWhatsapp,getWaLinkByJid,claimWaMessage,unlinkWaJid,saveWaConversation,swapWaChoices} from '@/lib/whatsapp-store';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {proposalList,pushHistory,addPending,newCode,type Pending} from '@/lib/telegram';import {proposalsText} from '@/lib/agent';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';
 // Webhook público da Evolution API. Só aceita o segredo registrado no webhook; responde 200 na hora e processa depois,
 // para a Evolution não reenviar por demora. Número pessoal: conversas não ligadas e grupos ficam em silêncio.
 export const maxDuration=120;
@@ -31,12 +31,15 @@ async function onMessage(ctx:Ctx,m:WaMessage){const say=(text:string)=>sayWa(ctx
   return say(r.reply);}
  // Qualquer outra mensagem apaga as escolhas antes da IA; um lembrete que chegar durante a chamada grava escolhas novas depois e continua valendo.
  if(link.choices!=='[]')await swapWaChoices(link.jid,link.choices,'[]');
- if(m.textless)return say('Por enquanto eu entendo só mensagens de texto.');
+ // Áudio vira texto antes da IA (comandos e "1/2" continuam digitados); a resposta começa com o que foi ouvido, e só o texto entra no histórico.
+ let said=m.text,heard='';
+ if(m.textless){const ready=voiceReady(),voice=m.voice;if(!voice||!ready)return say(mediaReply(ready));
+  const h=await hear(link.userId,voice.seconds,()=>ctx.api.audio(voice));if('reply' in h)return say(h.reply);said=h.text;heard=heardLine(said)+'\n\n';}
  const cmd=waCommand(m.text);
  if(cmd==='desconectar'){await unlinkWaJid(m.jid);return say('WhatsApp desconectado do GeoAI. Para conectar de novo, use Configurações no app.');}
  if(cmd==='ajuda')return say(HELP);
- const turn=await agentTurn(link.userId,link.history,m.text,'whatsapp');if('error' in turn)return say(turn.error);
- const {reply,items}=turn;let pending:Pending|undefined,choices:string[]|undefined,text=reply;
- if(items.length){const id=newCode().slice(0,10);pending=addPending(link.pending,id,items);choices=['add:'+id,'drop:'+id];text=reply+'\n\n'+proposalList(items)+'\n\nResponda 1 para adicionar ou 2 para descartar.';}
+ const turn=await agentTurn(link.userId,link.history,said,'whatsapp');if('error' in turn)return say(heard+turn.error);
+ const {reply,items}=turn;let pending:Pending|undefined,choices:string[]|undefined,text=heard+reply;
+ if(items.length){const id=newCode().slice(0,10);pending=addPending(link.pending,id,items);choices=['add:'+id,'drop:'+id];text=heard+reply+'\n\n'+proposalList(items)+'\n\nResponda 1 para adicionar ou 2 para descartar.';}
  await say(text);
- await saveWaConversation(link.jid,pushHistory(link.history,[{role:'user',text:m.text},{role:'assistant',text:reply+(items.length?'\n\n'+proposalsText(items):'')}]),pending,choices);}
+ await saveWaConversation(link.jid,pushHistory(link.history,[{role:'user',text:said},{role:'assistant',text:reply+(items.length?'\n\n'+proposalsText(items):'')}]),pending,choices);}
