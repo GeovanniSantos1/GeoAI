@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { formatMoney } from '../lib/core.ts';
 import { describeProposal } from '../lib/agent.ts';
-import { parseUpdate, command, webhookSecret, newCode, chunkText, proposalList, pushHistory, addPending } from '../lib/telegram.ts';
+import { parseUpdate, command, webhookSecret, newCode, chunkText, proposalList, pushHistory, addPending, telegramFile } from '../lib/telegram.ts';
 
 test('mensagens privadas viram eventos com texto e nome do chat',()=>{assert.deepEqual(parseUpdate({update_id:5,message:{message_id:1,chat:{id:123,type:'private',first_name:'Geo',username:'geo'},text:'oi'}}),{kind:'message',updateId:5,chatId:'123',private:true,text:'oi',label:'Geo (@geo)'});assert.equal(parseUpdate({update_id:6,message:{message_id:2,chat:{id:-9,type:'group',title:'Família'},voice:{}}}).text,'');assert.equal(parseUpdate({update_id:6,message:{message_id:2,chat:{id:-9,type:'group',title:'Família'}}}).private,false);});
 test('cliques nos botões viram eventos de callback',()=>{assert.deepEqual(parseUpdate({update_id:7,callback_query:{id:'cb1',data:'add:abc',message:{message_id:9,chat:{id:123,type:'private'}}}}),{kind:'callback',updateId:7,chatId:'123',callbackId:'cb1',messageId:9,data:'add:abc'});});
@@ -14,3 +14,15 @@ test('textos longos são divididos dentro do limite, de preferência em quebras 
 test('sugestões aparecem como lista legível',()=>{const items=[{collection:'tasks',item:{id:'a',title:'Revisar orçamento',date:'2026-10-16',time:'19:00',type:'task'}},{collection:'transactions',item:{id:'b',title:'Padaria',amount:1250,direction:'expense',date:'2026-10-16'}},{collection:'notes',item:{id:'c',title:'Presente',category:'Ideias'}}];assert.equal(describeProposal(items[0]),'Tarefa · 2026-10-16 · 19:00');assert.equal(proposalList(items),'• Revisar orçamento — Tarefa · 2026-10-16 · 19:00\n• Padaria — '+formatMoney(1250)+' · Despesa · 2026-10-16\n• Presente — Nota · Ideias');});
 test('histórico guarda só as últimas mensagens',()=>{const h=pushHistory([{role:'user',text:'1'},{role:'assistant',text:'2'}],[{role:'user',text:'3'},{role:'assistant',text:'4'}],3);assert.deepEqual(h.map(x=>x.text),['2','3','4']);assert.deepEqual(pushHistory('lixo',[{role:'user',text:'x'}]).length,1);});
 test('sugestões pendentes guardam no máximo cinco grupos',()=>{let p={};for(let i=0;i<7;i++)p=addPending(p,'id'+i,[{collection:'tasks',item:{id:String(i),title:'T'+i}}]);assert.deepEqual(Object.keys(p),['id2','id3','id4','id5','id6']);});
+test('áudio no chat privado traz o arquivo e a duração; áudio sem arquivo é ignorado',()=>{const chat={id:123,type:'private',first_name:'Geo'};
+ assert.deepEqual(parseUpdate({update_id:9,message:{message_id:3,chat,voice:{file_id:'F1',duration:7,mime_type:'audio/ogg'}}}),{kind:'message',updateId:9,chatId:'123',private:true,text:'',label:'Geo',voice:{fileId:'F1',seconds:7}});
+ assert.deepEqual(parseUpdate({update_id:10,message:{message_id:4,chat,audio:{file_id:'F2',duration:30,mime_type:'audio/mpeg'}}}).voice,{fileId:'F2',seconds:30});
+ assert.equal('voice' in parseUpdate({update_id:11,message:{message_id:5,chat,voice:{}}}),false);
+ assert.equal('voice' in parseUpdate({update_id:12,message:{message_id:6,chat,text:'oi'}}),false);});
+test('arquivo do Telegram: getFile e depois o download pelo caminho devolvido',async()=>{const calls=[];
+ const fetcher=async(url,init)=>{calls.push({url,init});if(url.endsWith('/getFile'))return Response.json({ok:true,result:{file_id:'F1',file_path:'voice/file_9.oga'}});return new Response(new Uint8Array([79,103,103,83]));};
+ assert.deepEqual(await telegramFile('123:abc','F1','https://api.telegram.org',fetcher),new Uint8Array([79,103,103,83]));
+ assert.equal(calls[0].url,'https://api.telegram.org/bot123:abc/getFile');assert.equal(calls[0].init.method,'POST');assert.deepEqual(JSON.parse(calls[0].init.body),{file_id:'F1'});
+ assert.equal(calls[1].url,'https://api.telegram.org/file/bot123:abc/voice/file_9.oga');
+ await assert.rejects(telegramFile('t','F1','https://x',async()=>Response.json({ok:false,description:'file is too big'})),/file is too big/);
+ await assert.rejects(telegramFile('t','F1','https://x',async url=>url.endsWith('/getFile')?Response.json({ok:true,result:{file_path:'a.oga'}}):new Response('',{status:404})),/404/);});

@@ -4,8 +4,10 @@ import {chunkText} from './telegram.ts';
 export const BOT_PREFIX='🤖 ';
 export const WA_LIMIT=4000;
 export const CODE_ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-export type WaMessage={id:string;jid:string;fromMe:boolean;text:string;label:string;textless:boolean};
 type RawKey={id?:unknown;remoteJid?:unknown;fromMe?:unknown;participant?:unknown};
+// Áudio: a chave e a mensagem originais (com os embrulhos) vão de volta para a Evolution baixar o arquivo.
+export type WaVoice={seconds?:number;key:RawKey;message:Record<string,unknown>};
+export type WaMessage={id:string;jid:string;fromMe:boolean;text:string;label:string;textless:boolean;voice?:WaVoice};
 type RawEvent={event?:unknown;instance?:unknown;data?:{key?:RawKey;pushName?:unknown;message?:Record<string,unknown>|null;messageTimestamp?:unknown}};
 const isGroup=(jid:string)=>/@(g\.us|broadcast|newsletter)$/.test(jid);
 // Efêmeras, de visualização única, documento com legenda e mensagens de outro aparelho embrulham a mensagem em .message.
@@ -16,7 +18,7 @@ function unwrap(m:unknown){let msg=(m&&typeof m==='object'?m:{}) as Record<strin
 function textOf(m:Record<string,unknown>|null|undefined){if(!m)return '';if(typeof m.conversation==='string')return m.conversation;const e=m.extendedTextMessage as {text?:unknown}|undefined;return typeof e?.text==='string'?e.text:'';}
 // Número pessoal: grupos e listas ficam de fora; mensagens do dono só valem na conversa consigo mesmo; o que o bot escreveu (🤖) é ignorado.
 // Só mídia de verdade merece a resposta "só texto"; reações, edições, apagamentos e eventos de chave não chegam ao bot.
-// Na conversa consigo mesmo, foto e áudio são anotações do dono: ficam em silêncio.
+// Na conversa consigo mesmo, foto e outras mídias são anotações do dono e ficam em silêncio; áudio vai para o assistente, como o texto.
 // Sem ownerJid, a mensagem do dono passa com fromMe e quem chama busca o número da instância e lê de novo: assim só ela custa a chamada à Evolution.
 // Mensagens com mais de 10 minutos ficam de fora: quando o PC volta, a fila acumulada (inclusive um "1" velho) não é processada.
 const MAX_AGE=10*60*1000;
@@ -27,9 +29,11 @@ export function parseEvolutionEvent(raw:unknown,instance:string,ownerJid?:string
  const k=e.data?.key;if(!k||typeof k.id!=='string'||!k.id||typeof k.remoteJid!=='string'||!k.remoteJid)return null;
  const jid=k.remoteJid,fromMe=k.fromMe===true;if(isGroup(jid)||k.participant||(fromMe&&ownerJid!==undefined&&jid!==ownerJid))return null;
  const msg=unwrap(e.data?.message),text=textOf(msg).slice(0,4000);if(text.trimStart().startsWith('🤖'))return null;
- if(!text.trim()&&(fromMe||!MEDIA_KEYS.some(key=>key in msg)))return null;
+ const audio=msg.audioMessage&&typeof msg.audioMessage==='object'?msg.audioMessage as {seconds?:unknown}:null,voice=!text.trim()&&audio;
+ if(!text.trim()&&!audio&&(fromMe||!MEDIA_KEYS.some(key=>key in msg)))return null;
  const name=typeof e.data?.pushName==='string'?e.data.pushName.trim():'';
- return {id:k.id.slice(0,128),jid,fromMe,text,label:((name?name+' · ':'')+'+'+jid.split('@')[0]).slice(0,120),textless:!text.trim()};}
+ return {id:k.id.slice(0,128),jid,fromMe,text,label:((name?name+' · ':'')+'+'+jid.split('@')[0]).slice(0,120),textless:!text.trim(),
+  ...(voice?{voice:{...(typeof voice.seconds==='number'&&voice.seconds>0?{seconds:voice.seconds}:{}),key:k,message:e.data?.message as Record<string,unknown>}}:{})};}
 export function linkCodeOf(text:string){const m=/^\s*geoai\s+([a-z0-9]{6})\s*$/i.exec(text);return m?m[1].toUpperCase():null;}
 export function newLinkCode(random:(n:number)=>Uint8Array=n=>crypto.getRandomValues(new Uint8Array(n))){return [...random(6)].map(b=>CODE_ALPHABET[b%CODE_ALPHABET.length]).join('');}
 export function waCommand(text:string):'ajuda'|'desconectar'|null{const m=/^\s*\/?(ajuda|help|desconectar)\s*$/i.exec(text);if(!m)return null;return m[1].toLowerCase()==='desconectar'?'desconectar':'ajuda';}
@@ -59,4 +63,7 @@ export function evolutionApi(c:EvolutionConfig,fetcher:Fetch=(url,init)=>fetch(u
  return {
   sendText:(jid:string,text:string)=>call('POST','/message/sendText/'+inst,{number:jid,text}),
   setWebhook:(url:string,secret:string)=>call('POST','/webhook/set/'+inst,{webhook:{enabled:true,url,events:['MESSAGES_UPSERT'],byEvents:false,base64:false,headers:{'x-geoai-secret':secret}}}),
-  async ownerJid(){const list=await call<{name?:string;ownerJid?:string}[]|null>('GET','/instance/fetchInstances?instanceName='+inst);const jid=Array.isArray(list)?list.find(x=>x.name===c.instance)?.ownerJid:undefined;if(!jid)throw new Error('Instância não encontrada');return jid;}};}
+  async ownerJid(){const list=await call<{name?:string;ownerJid?:string}[]|null>('GET','/instance/fetchInstances?instanceName='+inst);const jid=Array.isArray(list)?list.find(x=>x.name===c.instance)?.ownerJid:undefined;if(!jid)throw new Error('Instância não encontrada');return jid;},
+  // Com a mensagem completa, a Evolution baixa o áudio do WhatsApp sem procurá-lo no banco dela; o webhook segue sem base64 para as mídias de quem não está ligado.
+  async audio(voice:Pick<WaVoice,'key'|'message'>){const r=await call<{base64?:unknown}|null>('POST','/chat/getBase64FromMediaMessage/'+inst,{message:{key:voice.key,message:voice.message},convertToMp4:false});
+   if(typeof r?.base64!=='string'||!r.base64)throw new Error('Áudio indisponível na Evolution');return Uint8Array.from(atob(r.base64),ch=>ch.charCodeAt(0));}};}
