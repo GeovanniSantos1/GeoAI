@@ -138,6 +138,7 @@ Sem dependências de interface, todas com testes.
 - **Uso diário ativo naquele dia**: `{id: method.id, title: 'Uso diário: '+title, type:'habit', section:'saude', _collection:'contraceptives'}`. Concluído quando existe `contraceptiveDoses` do método naquela data. Marcar cria o registro com o id fixo, e desmarcar o apaga, como já acontece com `trtDoses`.
 - **Injeção prevista naquele dia**: `title: 'Injeção: '+title`, `type:'event'`, mesma conclusão.
 - **Menstruação prevista** (só na data prevista): `{id:'period-forecast', title:'Menstruação prevista', type:'event', _collection:'forecast', readonly:true}`.
+- **Troca do DIU/implante** (na data de troca): `title: 'Troca: '+title`, `type:'event'`, `readonly:true`.
 - **Preventivo vencendo naquele dia**: `{id: p.id, title: 'Preventivo: '+title, type:'event', _collection:'preventives', readonly:true}`.
 
 Itens `readonly` aparecem sem caixa de marcar e sem editar/excluir; o clique leva a `/saude-feminina`. As aplicações de testosterona saem da Agenda quando `testosterona` está oculta.
