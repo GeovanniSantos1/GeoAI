@@ -1,6 +1,7 @@
 // Regras do menu Saúde feminina. Datas, previsões e alertas são calculados aqui; a IA só lê laudos e escreve pareceres.
 // Não importa o core: o core usa este arquivo para validar registros e montar a agenda.
 import type { Item } from './types.ts';
+import type { Marker } from './exam-schema.ts';
 export const SYMPTOMS=['Cólica','Dor de cabeça','Inchaço','Seios sensíveis','Acne','Cansaço','Alteração de humor','Ansiedade','Insônia','Desejo por doce','Náusea','Sangramento fora do período'] as const;
 export const FLOWS=[['leve','Leve'],['moderado','Moderado'],['intenso','Intenso']] as const;
 export const METHODS=[['daily','Uso diário (pílula, comprimido ou gel)'],['injection','Injeção'],['iud','DIU ou implante']] as const;
@@ -80,3 +81,11 @@ export function femaleAgenda(s:{periods:Item[];contraceptives:Item[];contracepti
  for(const p of s.preventives)if(preventiveNext(p)===date)out.push({id:p.id,title:'Preventivo: '+p.title,type:'event',section:'saude',_collection:'preventives',readonly:true});
  return out;
 }
+const unitIs=(m:Marker,units:string[])=>units.includes((m.unit||'').replace(/\s/g,'').toLowerCase());
+const fmtNum=(n:number)=>n.toLocaleString('pt-BR',{maximumFractionDigits:2});
+// Alertas que pedem médico logo, no feminino. Substituem os do menu Testosterona (hematócrito e PSA).
+export function femaleCriticalFlags(exam:{markers:Marker[]}):string[]{const flags:string[]=[],get=(k:string)=>exam.markers.find(m=>m.key===k);
+ const hb=get('hemoglobina');if(hb&&unitIs(hb,['g/dl'])&&hb.value<8)flags.push('Hemoglobina em '+fmtNum(hb.value)+' g/dL: abaixo de 8 pede avaliação médica logo.');
+ const tsh=get('tsh');if(tsh&&unitIs(tsh,['mui/l','miu/l','µui/ml','μui/ml','uui/ml','uiu/ml'])&&(tsh.value<0.1||tsh.value>10))flags.push('TSH em '+fmtNum(tsh.value)+': fora de 0,1 a 10 pede avaliação médica logo.');
+ const hcg=get('beta_hcg');if(hcg&&unitIs(hcg,['mui/ml','miu/ml','ui/l','iu/l'])&&hcg.value>5)flags.push('Beta-hCG positivo: confirme com seu médico.');
+ return flags;}

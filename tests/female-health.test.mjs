@@ -6,6 +6,11 @@ const add=(d,n)=>{const t=new Date(d+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+n
 const per=(date,endDate)=>({id:'p-'+date,title:'Menstruação',date,...(endDate?{endDate}:{})});
 import { dailyStatus, injectionNext, iudStatus, reminderHour, femaleReminderDue, addMonths, preventiveStatus, takeId } from '../lib/female-health.ts';
 const pill={id:'m1',title:'Yasmin',method:'daily',startDate:'2026-10-01',activeDays:21,pauseDays:7,status:'active',remind:true,time:'21:00'};
+import { femaleCriticalFlags } from '../lib/female-health.ts';
+import { reviewContext, finalOverall } from '../lib/testosterone.ts';
+import { MARKER_KEYS } from '../lib/exam-schema.ts';
+import { createExamFromFile, reviewExam } from '../lib/exam-service.ts';
+const mk=(key,value,extra={})=>({key,label:key,value,...extra});
 const inj={id:'i1',title:'Depo',method:'injection',startDate:'2026-08-01',intervalDays:90,status:'active',remind:true,time:'09:00'};
 
 const T='2026-10-18';
@@ -89,3 +94,19 @@ test('agenda mostra os cuidados só para quem vê o menu',()=>{let s=emptyWorksp
  s.profile.gender='male';assert.deepEqual(titles('2026-10-30'),[]);});
 test('aplicações de testosterona saem da agenda no feminino, sem apagar o protocolo',()=>{const s=emptyWorkspace('Ana');s.trtProtocols=[{id:'t1',title:'Durateston',dose:250,unit:'mg',intervalDays:14,startDate:'2026-10-10',status:'active'}];
  s.profile.gender='male';assert.equal(scheduledItems(s,'2026-10-10').length,1);s.profile.gender='female';assert.equal(scheduledItems(s,'2026-10-10').length,0);assert.equal(s.trtProtocols.length,1);});
+test('alertas críticos femininos',()=>{assert.equal(femaleCriticalFlags({markers:[mk('hemoglobina',7.9,{unit:'g/dL'})]}).length,1);assert.deepEqual(femaleCriticalFlags({markers:[mk('hemoglobina',8,{unit:'g/dL'})]}),[]);
+ assert.equal(femaleCriticalFlags({markers:[mk('tsh',0.05,{unit:'µUI/mL'})]}).length,1);assert.equal(femaleCriticalFlags({markers:[mk('tsh',10.5,{unit:'mUI/L'})]}).length,1);assert.deepEqual(femaleCriticalFlags({markers:[mk('tsh',2.1,{unit:'mUI/L'})]}),[]);
+ assert.match(femaleCriticalFlags({markers:[mk('beta_hcg',120,{unit:'mUI/mL'})]})[0],/Beta-hCG positivo/);assert.deepEqual(femaleCriticalFlags({markers:[mk('beta_hcg',2,{unit:'mUI/mL',qualifier:'<'})]}),[]);
+ assert.ok(['progesterona','ferritina','ferro','amh','beta_hcg','vitamina_b12','insulina'].every(k=>MARKER_KEYS.includes(k)));assert.equal(MARKER_KEYS[MARKER_KEYS.length-1],'outro');});
+test('situação do exame usa os alertas do gênero',()=>{const exam={id:'e',title:'Exame',date:'2026-10-02',status:'reviewed',markers:[mk('hematocrito',55,{unit:'%'}),mk('hemoglobina',7.5,{unit:'g/dL'})]};
+ assert.equal(finalOverall(exam,[exam]),'doctor');assert.equal(finalOverall({...exam,markers:[mk('hematocrito',55,{unit:'%'})]},[],'female'),'ok');assert.equal(finalOverall(exam,[exam],'female'),'doctor');});
+test('contexto do parecer no feminino traz fase do ciclo e método',()=>{const s=emptyWorkspace('Ana');s.profile.gender='female';s.periods=[per('2026-09-17','2026-09-21'),per('2026-10-15','2026-10-19')];s.contraceptives=[{...pill}];
+ const ctx=reviewContext({id:'n',date:'2026-10-29',markers:[mk('estradiol',180,{unit:'pg/mL',refMin:30,refMax:400})]},s);
+ assert.match(ctx.text,/fase ovulatória do ciclo \(dia 15\)/);assert.match(ctx.text,/Método ativo: Yasmin \(uso diário\)/);assert.doesNotMatch(ctx.text,/reposição/);
+ s.periods=[];s.contraceptives=[];const none=reviewContext({id:'n',date:'2026-10-29',markers:[mk('hemoglobina',7,{unit:'g/dL'})]},s);assert.match(none.text,/Sem registro do ciclo/);assert.match(none.text,/Sem método/);assert.equal(none.codeOverall,'doctor');});
+test('leitura e parecer recebem o gênero e a fase do ciclo',async()=>{let s=emptyWorkspace('Ana');s.profile.gender='female';s.profile.timezone='UTC';s.periods=[per('2026-10-15','2026-10-19')];const seen={};
+ const deps={userId:'u1',load:async()=>({state:s}),mutate:async c=>{s=applyCommand(s,c,'2026-10-18');return {state:s,version:1};},files:{save:async()=>{},remove:async()=>{},read:async()=>null},quota:async()=>true,
+  extract:async(_f,ctx)=>{seen.extract=ctx;return {date:'2026-10-18',markers:[{key:'estradiol',label:'Estradiol',value:120,unit:'pg/mL',refMin:30,refMax:400}]};},
+  review:async input=>{seen.review=input.gender;return {overall:'ok',summary:'Tudo dentro das faixas.',points:[],tips:[],model:'teste'};},now:()=>new Date('2026-10-18T12:00:00Z')};
+ const r=await createExamFromFile(deps,{bytes:new TextEncoder().encode('%PDF-1.4 teste'),name:'laudo.pdf'});assert.deepEqual(seen.extract,{gender:'female',phase:'menstrual'});
+ await reviewExam(deps,r.exam.id,{date:'2026-10-18',markers:r.exam.markers});assert.equal(seen.review,'female');});
