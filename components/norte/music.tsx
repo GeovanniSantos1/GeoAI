@@ -33,9 +33,9 @@ export function MusicView(){const s=useSound(),{state}=s;
  <p>As ondas e os ruídos são gerados no seu navegador. No iPhone, o volume da música segue o volume do aparelho.</p></section></>;}
 export function MiniPlayer(){const {state,togglePlay,next,stop}=useSound(),{navigate}=useApp(),left=useRemaining(state.timerEndsAt);
  if(!state.visible)return null;
- const track=TRACKS.find(t=>t.id===state.trackId)||null,label=nowPlaying({moment:state.moment,track,musicPlaying:state.musicOn&&!state.paused,wavesPlaying:state.wavesOn&&!state.paused,noise:state.noise[state.moment]});
+ const track=TRACKS.find(t=>t.id===state.trackId)||null,label=nowPlaying({moment:state.moment,track,musicPlaying:state.musicOn&&!state.paused,wavesPlaying:state.wavesOn&&!state.paused,noise:state.noise[state.moment]}),playing=(state.musicOn||state.wavesOn)&&!state.paused;
  const open=()=>{try{sessionStorage.setItem(MOMENT_KEY,state.moment);}catch{}navigate('/musicas');};
- return <div className="mini-player" role="region" aria-label="Player de músicas"><button className="mini-player-info" onClick={open}><Headphones size={18}/><span><strong>{label}</strong><small>{MOMENTS[state.moment].label}{left?' · desliga em '+left:''}</small></span></button>
- <button className="icon-button" aria-label={state.paused?'Tocar':'Pausar'} onClick={togglePlay}>{state.paused?<Play size={17}/>:<Pause size={17}/>}</button>
+ return <div className="mini-player" role="region" aria-label="Player de músicas"><button className="mini-player-info" onClick={open}><Headphones size={18}/><span><strong>{label}</strong><small>{left?'Desliga em '+left+' · ':''}{MOMENTS[state.moment].label}</small></span></button>
+ <button className="icon-button" aria-label={playing?'Pausar':'Tocar'} onClick={togglePlay}>{playing?<Pause size={17}/>:<Play size={17}/>}</button>
  <button className="icon-button" aria-label="Próxima faixa" disabled={!state.musicOn} onClick={next}><SkipForward size={17}/></button>
  <button className="icon-button" aria-label="Fechar player" onClick={stop}><X size={17}/></button></div>;}
