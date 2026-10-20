@@ -8,7 +8,7 @@ export type Money=(cents:number)=>string;
 export const shortMonth=(m:string)=>new Date(m+'-15T12:00:00Z').toLocaleDateString('pt-BR',{month:'short',timeZone:'UTC'}).replace('.','');
 export function CategoryIcon({name,size=16}:{name?:string;size?:number}){const c=categoryInfo(name),Icon=ICONS[c.icon]||Ellipsis;return <span className="fin-cat-icon" style={{color:c.color,background:c.color+'1f'}} aria-hidden="true"><Icon size={size}/></span>;}
 export function CategoryBars({rows,money}:{rows:CategoryRow[];money:Money}){return <ul className="fin-bars">{rows.map(r=>{const c=categoryInfo(r.name),share=Math.round(r.share*100);return <li key={r.name}><CategoryIcon name={r.name}/><div>
- <p><span>{r.name}</span><b>{money(r.total)}</b></p><span className="fin-bar"><i style={{width:Math.max(2,share)+'%',background:r.state==='over'?'var(--danger)':c.color}}/></span>
+ <p><span>{r.name}</span><b>{money(r.total)}</b></p><span className="fin-bar"><i className={r.state==='over'?undefined:'cat'} style={{width:Math.max(2,share)+'%',background:r.state==='over'?'var(--danger)':c.color}}/></span>
  <small>{share}% das saídas{r.cap?' · '+r.capPct+'% do teto ('+money(r.cap)+')':''}</small></div></li>;})}</ul>;}
 // Barras proporcionais ao maior valor do gráfico; o valor exato fica no title de cada barra.
 export function BarChart({groups,money,legend}:{groups:{label:string;values:{name:string;value:number;color:string}[]}[];money:Money;legend?:{name:string;color:string}[]}){const max=Math.max(1,...groups.flatMap(g=>g.values.map(v=>v.value)));

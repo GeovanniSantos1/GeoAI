@@ -3,7 +3,7 @@ import type { Workspace, Item, Collection, Command, Proposal } from './types.ts'
 import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
 import { HAIR_STYLES, hiddenSections } from './gender.ts';
 import { SYMPTOMS, FLOWS, METHODS, femaleAgenda } from './female-health.ts';
-import { formatMoney, PAYMENTS, EXPENSE_CATEGORIES } from './finance.ts';
+import { formatMoney, PAYMENTS, EXPENSE_CATEGORIES, CATEGORIES } from './finance.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -44,7 +44,7 @@ export function emptyWorkspace(name=''): Workspace {
 export function validDate(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(value+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;}
 export function addDays(value:string,days:number){if(!validDate(value))throw new Error('Data inválida');const d=new Date(value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
 export function todayInZone(zone='America/Sao_Paulo',now=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
-export function moneyToCents(input:string|number){const raw=String(input).trim().replace(/R\$\s*/g,'');const value=raw.includes(',')||/^\d{1,3}(\.\d{3})+$/.test(raw)?Number(raw.replace(/\./g,'').replace(',','.')):Number(raw);if(!raw||!Number.isFinite(value)||value<0||value>1e9)throw new Error('Informe um valor válido');return Math.round((value+Number.EPSILON)*100);}
+export function moneyToCents(input:string|number){const raw=String(input).trim().replace(/R\$\s*/g,'');const value=raw.includes(',')||/^[1-9]\d{0,2}(\.\d{3})+$/.test(raw)?Number(raw.replace(/\./g,'').replace(',','.')):Number(raw);if(!raw||!Number.isFinite(value)||value<0||value>1e9)throw new Error('Informe um valor válido');return Math.round((value+Number.EPSILON)*100);}
 export {formatMoney};
 export function allocateInstallments(total:number,count:number,date:string){if(!Number.isSafeInteger(total)||total<=0||!Number.isInteger(count)||count<1||count>120||!validDate(date))throw new Error('Parcelamento inválido');const [y,m,d]=date.split('-').map(Number);return Array.from({length:count},(_,i)=>{const anchor=new Date(Date.UTC(y,m-1+i,1,12));const last=new Date(Date.UTC(anchor.getUTCFullYear(),anchor.getUTCMonth()+1,0)).getUTCDate();return {amount:Math.floor(total/count)+(i<total%count?1:0),date:anchor.toISOString().slice(0,8)+String(Math.min(d,last)).padStart(2,'0')};});}
 export function occursOn(task:any,date:string){if(!validDate(date))return false;const start=task.date||task.startDate;if(start&&!validDate(start))return false;if(start&&date<start)return false;if(task.repeatUntil&&date>task.repeatUntil)return false;const repeat=task.repeat||'none';if(repeat==='none')return !start||date===start;const day=new Date(date+'T12:00:00Z').getUTCDay();if(repeat==='daily')return true;if(repeat==='weekdays')return day>0&&day<6;if(repeat==='weekly'){if(Array.isArray(task.weekdays)&&task.weekdays.length)return task.weekdays.includes(day);return !!start&&day===new Date(start+'T12:00:00Z').getUTCDay();}if(repeat==='monthly'){if(!start)return false;const last=new Date(Date.UTC(Number(date.slice(0,4)),Number(date.slice(5,7)),0)).getUTCDate();return Number(date.slice(8))===Math.min(Number(start.slice(8)),last);}return false;}
@@ -77,6 +77,7 @@ export function validateItem(collection:string,raw:any):Item{
  if(collection==='vices'&&!item.startDate)throw new Error('Informe o início do acompanhamento');
  if(['focusSessions','sessions'].includes(collection)&&(!Number.isFinite(item.duration)||item.duration<1||item.duration>1440))throw new Error('Informe a duração em minutos');
  if(collection==='transactions'&&!['income','expense'].includes(item.direction))throw new Error('Tipo de transação inválido');
+ if(['transactions','bills'].includes(collection)&&typeof item.category==='string'){const fold=(x:string)=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),hit=CATEGORIES.find(k=>fold(k.name)===fold(item.category));if(hit)item.category=hit.name;}
  if(collection==='transactions'){if(item.cardId)item.payment='credit';else if(item.payment!==undefined&&!PAYMENTS.some(([id])=>id===item.payment))throw new Error('Forma de pagamento inválida');}
  if(collection==='journal'&&(!Number.isInteger(item.mood)||item.mood<1||item.mood>5))throw new Error('Humor inválido');
  if(collection==='sleep'&&(!Number.isInteger(item.quality)||item.quality<1||item.quality>5))throw new Error('Informe a qualidade da noite');

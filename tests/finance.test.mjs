@@ -77,10 +77,10 @@ test('filtro de lançamentos: tipo, categoria, pagamento e texto sem acento',()=
  assert.deepEqual(ids({payment:'card'}),['uber']);assert.deepEqual(ids({payment:'pix'}),['acai']);assert.deepEqual(ids({payment:'none'}),['avulso','sal']);
  assert.deepEqual(ids({text:'ACAI'}),['acai']);assert.deepEqual(ids({text:'ana'}),['avulso']);assert.deepEqual(ids({text:'alimentacao',type:'expense'}),['acai']);});
 test('CSV: BOM, ordem por data, sinal, cartão e escape',()=>{const csv=transactionsCsv(fin([tx('almoco','2026-10-03',3590,'Alimentação',{title:'Almoço, "executivo"',notes:'linha 1\nlinha 2',payment:'pix'}),tx('uber','2026-10-05',2500,'Transporte',{title:'Uber',cardId:'c1',payment:'credit'}),inc('sal','2026-10-01',500000,{title:'Salário',payment:'transfer'}),tx('x','2026-09-30',1000,'Viagem',{title:'Hotel'})],{},[{id:'c1',title:'Nubank'}]));
- assert.equal(csv,'﻿Data,Tipo,Categoria,Descrição,Valor,Pagamento,Notas\r\n30/09/2026,Despesa,Viagem,Hotel,"-10,00",,\r\n01/10/2026,Receita,Salário,Salário,"5000,00",Transferência,\r\n03/10/2026,Despesa,Alimentação,"Almoço, ""executivo""","-35,90",PIX,"linha 1\nlinha 2"\r\n05/10/2026,Despesa,Transporte,Uber,"-25,00",Crédito (Nubank),');});
+ assert.equal(csv,'\ufeffData;Tipo;Categoria;Descrição;Valor;Pagamento;Notas\r\n30/09/2026;Despesa;Viagem;Hotel;-10,00;;\r\n01/10/2026;Receita;Salário;Salário;5000,00;Transferência;\r\n03/10/2026;Despesa;Alimentação;"Almoço, ""executivo""";-35,90;PIX;"linha 1\nlinha 2"\r\n05/10/2026;Despesa;Transporte;Uber;-25,00;Crédito (Nubank);');});
 test('aviso de teto ao confirmar: só quando a situação muda',()=>{const base=fin([tx('feira','2026-10-02',30000,'Alimentação')],{budget:50000,categoryBudgets:{Alimentação:40000}});
  const item=(amount,date='2026-10-18',category='Alimentação')=>({collection:'transactions',item:{title:'Mercado',amount,direction:'expense',date,category}});
- assert.deepEqual(budgetAlerts(base,[item(15000)]),['⚠️ Alimentação: R$ 450,00 de R$ 400,00, passou do teto.','⚠️ Você já usou 90% do teto do mês.']);
+ assert.deepEqual(budgetAlerts(base,[item(15000)]),['⚠️ Você já usou 90% do teto do mês.','⚠️ Alimentação: R$ 450,00 de R$ 400,00, passou do teto.']);
  assert.deepEqual(budgetAlerts(base,[item(5000)]),['⚠️ Alimentação já usou 88% do teto.']);
  assert.deepEqual(budgetAlerts(fin([tx('feira','2026-10-02',45000,'Alimentação')],{categoryBudgets:{Alimentação:40000}}),[item(1000)]),[]);
  assert.deepEqual(budgetAlerts(base,[item(15000,'2026-11-02')]),[]);
@@ -91,7 +91,22 @@ test('mês vazio e dados antigos não quebram as contas',()=>{const empty=fin([]
  assert.deepEqual(expenseByCategory(empty,'2026-10'),[]);const b=budgetView(empty,'2026-10');assert.deepEqual([b.month,b.capsSum,b.capsOverMonth],[{cap:0,spent:0,pct:0,state:'none'},0,0]);
  assert.deepEqual(reportCards(empty,'2026-10','2026-10-18'),{expense:0,dailyAvg:0,vsPrev:{kind:'stable',prev:0},top:null});
  assert.deepEqual(insights(empty,'2026-10','2026-10-18'),[]);assert.deepEqual(topExpenses(empty,'2026-10'),[]);
- assert.equal(transactionsCsv(empty),'﻿Data,Tipo,Categoria,Descrição,Valor,Pagamento,Notas');
+ assert.equal(transactionsCsv(empty),'\ufeffData;Tipo;Categoria;Descrição;Valor;Pagamento;Notas');
  const legacy={transactions:[{id:'x',title:'Sem data',amount:100,direction:'expense'},tx('ok','2026-10-02',500,'Lazer')],profile:{budget:0}};
  assert.deepEqual(expenseByCategory(legacy,'2026-10').map(r=>r.name),['Lazer']);assert.equal(budgetView(legacy,'2026-10').categories.find(c=>c.name==='Lazer').cap,0);
  assert.equal(transactionsCsv(legacy).split('\r\n').length,2);assert.deepEqual(filterTransactions(legacy.transactions,{}).map(x=>x.id),['ok','x']);});
+test('revisão final: crédito em lançamento antigo de cartão',()=>{const L=[{id:'old',title:'x',amount:100,direction:'expense',date:T,cardId:'c1'},tx('p','2026-10-03',100,'Lazer',{payment:'pix'})];
+ assert.deepEqual(filterTransactions(L,{payment:'credit'}).map(x=>x.id),['old']);assert.deepEqual(filterTransactions(L,{payment:'card'}).map(x=>x.id),['old']);});
+test('categoria do assistente sem acento ou em outra caixa vira a da lista',()=>{const b={title:'x',amount:100,direction:'expense',date:T};
+ assert.equal(validateItem('transactions',{...b,category:'alimentacao'}).category,'Alimentação');assert.equal(validateItem('transactions',{...b,category:'MORADIA'}).category,'Moradia');assert.equal(validateItem('transactions',{...b,category:'Viagem'}).category,'Viagem');
+ assert.equal(validateItem('bills',{title:'x',amount:100,day:5,category:'saude'}).category,'Saúde');});
+test('budgetAlerts nunca quebra a confirmação',()=>{assert.deepEqual(budgetAlerts({transactions:null,profile:null},[{collection:'transactions',item:{title:'x',amount:100,direction:'expense',date:T}}]),[]);});
+test('mês futuro não compara com o mês anterior',()=>{const s=fin([tx('a','2026-10-01',100000,'Lazer')]);
+ assert.ok(!insights(s,'2026-11','2026-10-18').some(l=>/caíram|subiram/.test(l)));});
+test('categoria com nome de Object.prototype não ganha teto',()=>{const s=fin([tx('c','2026-10-01',100,'constructor'),tx('t','2026-10-01',100,'toString')]);
+ for(const r of expenseByCategory(s,'2026-10')){assert.equal(r.cap,undefined);assert.equal(r.state,'none');}
+ assert.ok(budgetView(s,'2026-10').categories.every(c=>c.cap===0));});
+test('aviso do teto do mês vem antes das categorias e não é cortado',()=>{const s=fin([],{budget:100,categoryBudgets:{Moradia:100,Mercado:100,Lazer:100}});
+ const it=c=>({collection:'transactions',item:{title:'x',amount:200,direction:'expense',date:'2026-10-18',category:c}});
+ const out=budgetAlerts(s,['Moradia','Mercado','Lazer'].map(it));assert.equal(out.length,3);assert.ok(out[0].startsWith('⚠️ Teto do mês'));});
+test('sem caracteres invisíveis crus nos fontes',async()=>{const fs=await import('node:fs');for(const f of ['lib/finance.ts','tests/finance.test.mjs'])assert.ok(!/[\uFEFF\u0300-\u036F]/.test(fs.readFileSync(new URL('../'+f,import.meta.url),'utf8')),f);});
