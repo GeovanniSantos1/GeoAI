@@ -10,7 +10,7 @@ import { femaleCriticalFlags } from '../lib/female-health.ts';
 import { reviewContext, finalOverall } from '../lib/testosterone.ts';
 import { MARKER_KEYS } from '../lib/exam-schema.ts';
 import { createExamFromFile, reviewExam } from '../lib/exam-service.ts';
-import { femaleHealthReport, checkProposals, describeProposal } from '../lib/agent.ts';
+import { femaleHealthReport, checkProposals, describeProposal, searchRecords } from '../lib/agent.ts';
 const mk=(key,value,extra={})=>({key,label:key,value,...extra});
 const inj={id:'i1',title:'Depo',method:'injection',startDate:'2026-08-01',intervalDays:90,status:'active',remind:true,time:'09:00'};
 
@@ -129,11 +129,11 @@ test('relação: proteção válida, data obrigatória e um registro por dia',()
  assert.throws(()=>up(s,'intimacy',{id:'r2',title:'Relação',date:T}),/Já existe um registro para esta data/);
  const old=emptyWorkspace('Ana');delete old.intimacy;assert.deepEqual(upgradeWorkspace({...old}).intimacy,[]);assert.doesNotThrow(()=>validateWorkspace(old));});
 test('assistente sugere registrar relação, com proteção, uma vez por dia',()=>{
- const {valid,errors}=checkProposals([{collection:'intimacy',protection:'com'}],T,emptyWorkspace('Ana'));assert.deepEqual(errors,[]);
+ const f=emptyWorkspace('Ana');f.profile.gender='female';const {valid,errors}=checkProposals([{collection:'intimacy',protection:'com'}],T,f);assert.deepEqual(errors,[]);
  assert.deepEqual([valid[0].collection,valid[0].item.title,valid[0].item.date,valid[0].item.protection],['intimacy','Relação',T,'com']);
  assert.equal(describeProposal(valid[0]),'Relação · com proteção · '+T);
  assert.equal(describeProposal({collection:'intimacy',item:{title:'Relação',date:T}}),'Relação · '+T);
- const s=up(emptyWorkspace('Ana'),'intimacy',{id:'r1',title:'Relação',date:T});const again=checkProposals([{collection:'intimacy'}],T,s);
+ const s=up(emptyWorkspace('Ana'),'intimacy',{id:'r1',title:'Relação',date:T});s.profile.gender='female';const again=checkProposals([{collection:'intimacy'}],T,s);
  assert.equal(again.valid.length,0);assert.match(again.errors[0],/registro desse dia já existe/);});
 const cal=(s,from,to,today=T)=>cycleCalendar({periods:[],symptoms:[],journal:[],contraceptives:[],contraceptiveDoses:[],intimacy:[],...s},from,to,today);
 const at=(days,date)=>days.find(d=>d.date===date);
@@ -187,3 +187,22 @@ test('calendário: inícios a menos de 15 dias não marcam ovulação nem janela
 test('calendário: uso e injeção registrados antes do início do método continuam aparecendo',()=>{const s={contraceptives:[pill,inj],contraceptiveDoses:[{id:'x1',title:'Tomei',date:'2026-09-30',methodId:'m1'},{id:'x2',title:'Injeção',date:'2026-07-20',methodId:'i1'}]};
  const m=(date,id)=>cal(s,date,date)[0].methods.find(x=>x.id===id);
  assert.deepEqual(m('2026-09-30','m1'),{id:'m1',title:'Yasmin',method:'daily',taken:true,active:false});assert.deepEqual(m('2026-07-20','i1'),{id:'i1',title:'Depo',method:'injection',taken:true,due:false});assert.equal(m('2026-09-29','m1'),undefined);});
+test('assistente enxerga a proteção da relação ao buscar',()=>{const s=up(emptyWorkspace('Ana'),'intimacy',{id:'r1',title:'Relação',date:T,protection:'sem'});
+ const r=searchRecords(s,{collection:'intimacy'});assert.equal(JSON.stringify(r).includes('"protection":"sem"'),true);});
+test('propostas respeitam os menus escondidos pelo perfil',()=>{for(const gender of ['male','']){const s=emptyWorkspace('Ana');s.profile.gender=gender;
+  for(const collection of ['intimacy','periods','contraceptiveDoses']){const r=checkProposals([{collection}],T,s);assert.equal(r.valid.length,0);assert.match(r.errors[0],/menu Saúde feminina/);}}
+ const f=emptyWorkspace('Ana');f.profile.gender='female';const r=checkProposals([{collection:'trtDoses'}],T,f);assert.equal(r.valid.length,0);assert.match(r.errors[0],/menu Testosterona/);});
+test('relação não pode ter data no futuro',()=>{assert.throws(()=>up(emptyWorkspace('Ana'),'intimacy',{title:'Relação',date:'2026-10-19'}),/futuro/);
+ const f=emptyWorkspace('Ana');f.profile.gender='female';const r=checkProposals([{collection:'intimacy',date:'2026-10-19'}],T,f);assert.equal(r.valid.length,0);assert.match(r.errors[0],/futuro/);});
+test('calendário: atraso de um ciclo inteiro para de projetar',()=>{const days=cal({periods:[per('2026-08-01','2026-08-05')]},'2026-08-01','2026-12-31');const t=at(days,'2026-10-18');
+ assert.deepEqual([t.late,t.cycleDay,t.phase,t.period],[50,79,null,null]);
+ for(const d of days.filter(x=>x.date>='2026-10-18'))assert.deepEqual([d.date,d.period,d.fertile,d.ovulation],[d.date,null,false,false]);
+ assert.equal(at(days,'2026-08-15').ovulation,false);assert.deepEqual([at(days,'2026-08-03').period,at(days,'2026-08-03').periodDay],['logged',3]);});
+test('calendário: regra 4 com fim futuro explícito',()=>{const days=cal({periods:[per('2026-09-17','2026-09-21'),per('2026-10-16','2026-10-20')]},'2026-10-17','2026-10-22');
+ assert.deepEqual([at(days,'2026-10-18').period,at(days,'2026-10-18').periodDay],['logged',3]);
+ assert.deepEqual([at(days,'2026-10-19').period,at(days,'2026-10-19').periodDay],['predicted',4]);assert.deepEqual([at(days,'2026-10-20').period,at(days,'2026-10-20').periodDay],['predicted',5]);
+ assert.equal(at(days,'2026-10-21').period,null);});
+test('calendário: ciclo curto no começo não marca janela fértil antes do primeiro início',()=>{const days=cal({periods:[per('2026-09-01','2026-09-03'),per('2026-09-17','2026-09-19')]},'2026-08-25','2026-09-20');
+ for(const d of ['2026-08-29','2026-08-30','2026-08-31'])assert.equal(at(days,d).fertile,false);
+ assert.equal(at(days,'2026-09-03').ovulation,true);assert.equal(at(days,'2026-09-01').period,'logged');});
+test('proposta de relação sem proteção é descrita',()=>{assert.equal(describeProposal({collection:'intimacy',item:{title:'Relação',date:T,protection:'sem'}}),'Relação · sem proteção · '+T);});

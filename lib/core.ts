@@ -122,6 +122,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
  if(command.type==='upsert'){
   const col=command.collection as Collection;const item=validateItem(col,command.item);const index=s[col].findIndex(x=>x.id===item.id);
   if(index>=0&&command.item?._rev!==undefined&&command.item._rev!==(s[col][index]._rev||0))throw new Error('Este registro foi atualizado em outra aba. Feche o formulário e abra novamente.');
+  if(col==='intimacy'&&item.date>today)throw new Error('A relação não pode ter data no futuro.');
   item._rev=(index>=0?s[col][index]._rev||0:0)+1;
   if(['journal','sleep','symptoms','intimacy'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
   if(col==='trtDoses'&&s.trtDoses.some(x=>x.protocolId===item.protocolId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma aplicação deste protocolo nesta data. Edite o registro existente.');

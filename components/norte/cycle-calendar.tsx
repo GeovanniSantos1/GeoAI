@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';import {ChevronLeft,ChevronRight,CircleHelp,Droplet,NotebookPen,Heart,Pill} from 'lucide-react';
+import {useState} from 'react';import {ChevronLeft,ChevronRight,CircleHelp,Droplet,NotebookPen,Heart,Pill,Trash2} from 'lucide-react';
 import {useApp} from './context';import {MOODS} from './health';
 import {cycleCalendar,calendarMonth,shiftMonth,durationLabel,FLOW_LABEL,type CalendarDay,type CalendarMethod} from '@/lib/female-health';
 // Calendário da aba Ciclo: mês com o painel do dia e ano com 12 mini-meses. O que cada dia mostra vem de cycleCalendar.
@@ -15,7 +15,7 @@ const tone=(d:CalendarDay)=>d.period==='logged'?'period':d.period==='predicted'?
 const usedMethod=(d:CalendarDay)=>d.methods.some(m=>m.method!=='iud'&&m.taken);
 function methodText(m:CalendarMethod,date:string,today:string){
  if(m.method==='daily')return m.taken?'tomada':m.active?(date<=today?'não registrada':'dia '+m.packDay+' da cartela'):m.pauseUntil?'pausa até '+shortDate(m.pauseUntil):'';
- if(m.method==='injection')return m.taken?'aplicada':'prevista';
+ if(m.method==='injection')return m.taken?'aplicada':date<today?'não registrada':'prevista';
  return m.change?'troca prevista':m.daysLeft<0?'troca atrasada':'troca em '+durationLabel(m.daysLeft);}
 function dayAria(d:CalendarDay){const mood=MOODS.find(x=>x.value===d.mood);
  return [fmt(d.date,{day:'numeric',month:'long'}),d.cycleDay!==null?'dia do ciclo '+d.cycleDay:'',d.period==='logged'?'menstruação registrada':d.period==='predicted'?'menstruação prevista':'',d.ovulation?'ovulação estimada':d.fertile?'janela fértil estimada':'',mood?'humor '+mood.label:'',d.symptoms.length?'sintomas':'',usedMethod(d)?'anticoncepcional':'',d.intimacy?'relação':''].filter(Boolean).join(', ');}
@@ -58,7 +58,8 @@ function DayPanel({d}:{d:CalendarDay}){const a=useApp();const mood=MOODS.find(x=
   {past&&<div className="button-group">
    <button className="button outline small" disabled={a.busy} onClick={()=>current?a.edit('periods',current):a.edit('periods',undefined,{date:d.date,title:'Menstruação',flow:'moderado'})}><Droplet size={15}/>{current?'Editar menstruação':'Menstruação começou'}</button>
    <button className="button outline small" disabled={a.busy} onClick={()=>sym?a.edit('symptoms',sym):a.edit('symptoms',undefined,{date:d.date,title:'Sintomas do dia',symptoms:[]})}><NotebookPen size={15}/>Anotações</button>
-   <button className="button outline small" disabled={a.busy} onClick={()=>rel?a.edit('intimacy',rel):a.edit('intimacy',undefined,{date:d.date,title:'Relação'})}><Heart size={15}/>Relação</button></div>}
+   <button className="button outline small" disabled={a.busy} onClick={()=>rel?a.edit('intimacy',rel):a.edit('intimacy',undefined,{date:d.date,title:'Relação'})}><Heart size={15}/>Relação</button>
+   {rel&&<button className="button outline small" disabled={a.busy} onClick={()=>a.remove('intimacy',rel)}><Trash2 size={15}/>Apagar relação</button>}</div>}
  </div>;}
 
 function Legend(){return <ul className="cc-legend">{[['period','Menstruação'],['predicted','Menstruação prevista'],['fertile','Janela fértil estimada'],['ovulation','Ovulação estimada']].map(([c,l])=><li key={c}><i className={'cc-swatch '+c}/>{l}</li>)}
@@ -67,4 +68,4 @@ function Legend(){return <ul className="cc-legend">{[['period','Menstruação'],
 function YearView({year,days,today,onMonth}:{year:string;days:CalendarDay[];today:string;onMonth:(m:string)=>void}){const map=new Map(days.map(d=>[d.date,d]));
  return <div className="cc-year">{Array.from({length:12},(_,i)=>{const m=year+'-'+String(i+1).padStart(2,'0'),{lead,days:dates}=calendarMonth(m);
   return <button key={m} className="cc-mini" aria-label={'Abrir '+monthTitle(m)} onClick={()=>onMonth(m)}><span className="cc-mini-title">{cap(fmt(m+'-01',{month:'long'}))}</span>
-   <div className="cc-mini-grid">{Array.from({length:lead},(_,k)=><i key={'b'+k} className="blank"/>)}{dates.map(date=>{const d=map.get(date);return <i key={date} className={[d?tone(d):'',date===today?'today':''].filter(Boolean).join(' ')}/>;})}</div></button>;})}</div>;}
+   <span className="cc-mini-grid">{Array.from({length:lead},(_,k)=><i key={'b'+k} className="blank"/>)}{dates.map(date=>{const d=map.get(date);return <i key={date} className={[d?tone(d):'',date===today?'today':''].filter(Boolean).join(' ')}/>;})}</span></button>;})}</div>;}

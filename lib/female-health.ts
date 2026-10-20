@@ -45,25 +45,26 @@ const latest=(list:string[],date:string)=>{let found:string|undefined;for(const 
 export function cycleCalendar(s:CalendarData,from:string,to:string,today:string):CalendarDay[]{
  const logged=until(s.periods,today).filter(p=>valid(p.date)).sort((a,b)=>a.date.localeCompare(b.date)),st=cycleStats(logged),starts=st.starts,last=starts[starts.length-1];
  const period=new Map<string,{period:'logged'|'predicted';periodDay:number;flow?:string}>(),projected:string[]=[];
+ // Atraso de um ciclo inteiro ou mais: a projeção deixa de ser significativa (e é quando a gravidez é a pergunta), então só resta o aviso de atraso.
+ const p1=last?shiftDate(last,st.cycleLength):'',late=last&&p1<today?dayDiff(p1,today):0,stopped=late>=st.cycleLength;
  if(last){
   // Registrada até o fim informado (ou a duração média), parando na véspera do início seguinte; o que passa de hoje no último registro é previsão.
   for(const p of logged){const next=starts.find(x=>x>p.date),len=valid(p.endDate)&&p.endDate>=p.date?dayDiff(p.date,p.endDate)+1:st.periodLength;
    for(let i=0;i<len;i++){const date=shiftDate(p.date,i);if(next&&date>=next)break;
-    if(date<=today)period.set(date,{period:'logged',periodDay:i+1,...(p.flow?{flow:p.flow}:{})});else if(p.date===last)period.set(date,{period:'predicted',periodDay:i+1});}}
+    if(date<=today)period.set(date,{period:'logged',periodDay:i+1,...(p.flow?{flow:p.flow}:{})});else if(p.date===last&&!stopped)period.set(date,{period:'predicted',periodDay:i+1});}}
   // Inícios projetados até 60 dias depois do fim: a ovulação dos últimos dias visíveis depende do início seguinte.
-  for(let start=shiftDate(last,st.cycleLength),end=shiftDate(to,60);start<=end;start=shiftDate(start,st.cycleLength))projected.push(start);
+  for(let start=p1,end=shiftDate(to,60);!stopped&&start<=end;start=shiftDate(start,st.cycleLength))projected.push(start);
   // Início projetado antes de hoje é atraso: não pinta, mas o ciclo seguinte continua a partir dele.
   for(const start of projected){if(start<today)continue;for(let i=0;i<st.periodLength;i++){const date=shiftDate(start,i);if(!period.has(date))period.set(date,{period:'predicted',periodDay:i+1});}}}
  // Ovulação 14 dias antes do início seguinte; janela fértil de 5 dias antes a 1 depois. Os ciclos atrasados entram na sequência.
  const seq=[...starts,...projected],ahead=[...starts,...projected.filter(x=>x>=today)],ovulations=new Set<string>(),fertile=new Set<string>();
  for(let i=1;i<seq.length;i++){if(dayDiff(seq[i-1],seq[i])<15)continue;const ov=shiftDate(seq[i],-14);ovulations.add(ov);for(const k of [-5,-4,-3,-2,-1,1])fertile.add(shiftDate(ov,k));}
- const late=projected[0]&&projected[0]<today?dayDiff(projected[0],today):0;
  const sym=byDate(s.symptoms),journal=byDate(s.journal),rel=byDate(s.intimacy),doses=s.contraceptiveDoses||[],methods=(s.contraceptives||[]).filter(m=>m.status==='active'&&valid(m.startDate));
  const out:CalendarDay[]=[];
  for(let date=from;date<=to;date=shiftDate(date,1)){
   // Antes de hoje, o ciclo é o dos inícios registrados; de hoje em diante, entram os inícios previstos.
   const start=latest(date<today?starts:ahead,date),next=start?seq.find(x=>x>start):undefined,ov=next?shiftDate(next,-14):undefined,p=period.get(date),marked=!!last&&date>=starts[0];
-  const phase:Phase|null=!start?null:p?'menstrual':marked&&[-1,0,1].some(k=>ovulations.has(shiftDate(date,k)))?'ovulatória':ov&&date<ov?'folicular':'lútea';
+  const phase:Phase|null=!start?null:p?'menstrual':marked&&[-1,0,1].some(k=>ovulations.has(shiftDate(date,k)))?'ovulatória':!next?null:ov&&date<ov?'folicular':'lútea';
   const sr=sym.get(date),jr=journal.get(date),r=rel.get(date),mood=typeof sr?.mood==='number'?sr.mood:typeof jr?.mood==='number'?jr.mood:undefined,ms:CalendarMethod[]=[];
   for(const m of methods){const took=taken(m,doses,date);if(date<m.startDate){if(took&&m.method==='daily')ms.push({id:m.id,title:m.title,method:'daily',taken:true,active:false});else if(took&&m.method==='injection')ms.push({id:m.id,title:m.title,method:'injection',taken:true,due:false});continue;}
    if(m.method==='daily'){const ds=dailyStatus(m,date);ms.push({id:m.id,title:m.title,method:'daily',taken:took,active:ds.active,...(ds.active?{packDay:ds.packDay}:{}),...(ds.pauseUntil?{pauseUntil:ds.pauseUntil}:{})});}

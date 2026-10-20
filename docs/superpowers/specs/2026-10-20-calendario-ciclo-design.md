@@ -147,7 +147,8 @@ As médias vêm de `cycleStats(menstruações com início ≤ today)`: `cycleLen
 5. **Menstruação prevista:**
    - cada início projetado `Pk` em `today` ou depois pinta `periodLength` dias como `predicted`, com `periodDay`. Prevista para hoje, ela pinta a partir de hoje;
    - um início projetado antes de `today` (atraso) não pinta nada, nem no passado nem no futuro, e o ciclo seguinte continua a partir dele;
-   - em `today`, `late = today − P1` quando `P1 < today`. É o mesmo atraso da `cyclePrediction`.
+   - em `today`, `late = today − P1` quando `P1 < today`. É o mesmo atraso da `cyclePrediction`;
+   - **atraso de um ciclo inteiro ou mais** (`late ≥ cycleLength`): o calendário para de projetar. Não há menstruação prevista, ovulação nem janela fértil do último início registrado em diante, e a continuação prevista do último registro (regra 4) também não é pintada. Resta só o aviso de atraso. Nessa altura a previsão deixa de ser significativa, e é quando a gravidez é a pergunta. Abaixo de um ciclo de atraso, nada muda. O `cycleDay` continua contando do último início registrado.
 6. **Dia do ciclo:**
    - antes de `today`, conta a partir do início registrado mais recente ≤ a data (`data − início + 1`);
    - de `today` em diante, conta a partir do mais recente ≤ a data entre os inícios registrados e os projetados em `today` ou depois. Prevista para hoje, hoje é o dia 1;
@@ -161,6 +162,7 @@ As médias vêm de `cycleStats(menstruações com início ≤ today)`: `cycleLen
 8. **Fase**, só quando `cycleDay` não é `null`:
    - `menstrual` quando `period` não é nulo;
    - senão, `ovulatória` a até 1 dia de uma ovulação marcada pela regra 7;
+   - senão, `null` quando o ciclo do dia não tem início seguinte (caso do atraso de um ciclo inteiro, regra 5);
    - senão, `folicular` antes da ovulação e `lútea` depois.
 9. **Humor:** o `mood` do registro de sintomas da data; sem ele, o do Diário (`journal`) da mesma data. `symptoms` e `notes` vêm do registro de sintomas.
 10. **Métodos** (só os ativos):
