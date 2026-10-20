@@ -180,3 +180,10 @@ test('prazo do DIU em anos, meses ou dias',()=>{assert.deepEqual([730,365,364,60
 test('mês do calendário começa na segunda-feira e atravessa anos',()=>{const oct=calendarMonth('2026-10');assert.deepEqual([oct.lead,oct.days.length,oct.days[0],oct.days[30]],[3,31,'2026-10-01','2026-10-31']);
  assert.deepEqual([calendarMonth('2026-02').lead,calendarMonth('2026-02').days.length,calendarMonth('2028-02').days.length],[6,28,29]);
  assert.deepEqual([shiftMonth('2026-12',1),shiftMonth('2027-01',-1),shiftMonth('2026-10',-12)],['2027-01','2026-12','2025-10']);});
+test('calendário: no atraso a fase ovulatória acompanha a ovulação marcada',()=>{const days=cal({periods:[per('2026-08-20','2026-08-24'),per('2026-09-17','2026-09-21')]},'2026-10-10','2026-11-05');
+ assert.deepEqual(['2026-10-27','2026-10-28','2026-10-29','2026-10-30','2026-10-31'].map(d=>at(days,d).phase),['lútea','ovulatória','ovulatória','ovulatória','lútea']);});
+test('calendário: inícios a menos de 15 dias não marcam ovulação nem janela fértil',()=>{const days=cal({periods:[per('2026-08-01','2026-08-05'),per('2026-09-01','2026-09-05'),per('2026-09-08')]},'2026-08-10','2026-09-05');
+ assert.equal(at(days,'2026-08-18').ovulation,true);assert.equal(at(days,'2026-08-19').fertile,true);assert.equal(at(days,'2026-08-25').ovulation,false);assert.equal(at(days,'2026-08-22').fertile,false);});
+test('calendário: uso e injeção registrados antes do início do método continuam aparecendo',()=>{const s={contraceptives:[pill,inj],contraceptiveDoses:[{id:'x1',title:'Tomei',date:'2026-09-30',methodId:'m1'},{id:'x2',title:'Injeção',date:'2026-07-20',methodId:'i1'}]};
+ const m=(date,id)=>cal(s,date,date)[0].methods.find(x=>x.id===id);
+ assert.deepEqual(m('2026-09-30','m1'),{id:'m1',title:'Yasmin',method:'daily',taken:true,active:false});assert.deepEqual(m('2026-07-20','i1'),{id:'i1',title:'Depo',method:'injection',taken:true,due:false});assert.equal(m('2026-09-29','m1'),undefined);});

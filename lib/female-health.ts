@@ -56,18 +56,18 @@ export function cycleCalendar(s:CalendarData,from:string,to:string,today:string)
   for(const start of projected){if(start<today)continue;for(let i=0;i<st.periodLength;i++){const date=shiftDate(start,i);if(!period.has(date))period.set(date,{period:'predicted',periodDay:i+1});}}}
  // Ovulação 14 dias antes do início seguinte; janela fértil de 5 dias antes a 1 depois. Os ciclos atrasados entram na sequência.
  const seq=[...starts,...projected],ahead=[...starts,...projected.filter(x=>x>=today)],ovulations=new Set<string>(),fertile=new Set<string>();
- for(let i=1;i<seq.length;i++){const ov=shiftDate(seq[i],-14);ovulations.add(ov);for(const k of [-5,-4,-3,-2,-1,1])fertile.add(shiftDate(ov,k));}
+ for(let i=1;i<seq.length;i++){if(dayDiff(seq[i-1],seq[i])<15)continue;const ov=shiftDate(seq[i],-14);ovulations.add(ov);for(const k of [-5,-4,-3,-2,-1,1])fertile.add(shiftDate(ov,k));}
  const late=projected[0]&&projected[0]<today?dayDiff(projected[0],today):0;
  const sym=byDate(s.symptoms),journal=byDate(s.journal),rel=byDate(s.intimacy),doses=s.contraceptiveDoses||[],methods=(s.contraceptives||[]).filter(m=>m.status==='active'&&valid(m.startDate));
  const out:CalendarDay[]=[];
  for(let date=from;date<=to;date=shiftDate(date,1)){
   // Antes de hoje, o ciclo é o dos inícios registrados; de hoje em diante, entram os inícios previstos.
   const start=latest(date<today?starts:ahead,date),next=start?seq.find(x=>x>start):undefined,ov=next?shiftDate(next,-14):undefined,p=period.get(date),marked=!!last&&date>=starts[0];
-  const phase:Phase|null=!start?null:p?'menstrual':ov&&Math.abs(dayDiff(ov,date))<=1?'ovulatória':ov&&date<ov?'folicular':'lútea';
+  const phase:Phase|null=!start?null:p?'menstrual':marked&&[-1,0,1].some(k=>ovulations.has(shiftDate(date,k)))?'ovulatória':ov&&date<ov?'folicular':'lútea';
   const sr=sym.get(date),jr=journal.get(date),r=rel.get(date),mood=typeof sr?.mood==='number'?sr.mood:typeof jr?.mood==='number'?jr.mood:undefined,ms:CalendarMethod[]=[];
-  for(const m of methods){if(date<m.startDate)continue;const taken=doses.some(d=>d.methodId===m.id&&d.date===date);
-   if(m.method==='daily'){const ds=dailyStatus(m,date);ms.push({id:m.id,title:m.title,method:'daily',taken,active:ds.active,...(ds.active?{packDay:ds.packDay}:{}),...(ds.pauseUntil?{pauseUntil:ds.pauseUntil}:{})});}
-   else if(m.method==='injection'){const due=!taken&&injectionNext(m,doses,date)===date;if(taken||due)ms.push({id:m.id,title:m.title,method:'injection',taken,due});}
+  for(const m of methods){const took=taken(m,doses,date);if(date<m.startDate){if(took&&m.method==='daily')ms.push({id:m.id,title:m.title,method:'daily',taken:true,active:false});else if(took&&m.method==='injection')ms.push({id:m.id,title:m.title,method:'injection',taken:true,due:false});continue;}
+   if(m.method==='daily'){const ds=dailyStatus(m,date);ms.push({id:m.id,title:m.title,method:'daily',taken:took,active:ds.active,...(ds.active?{packDay:ds.packDay}:{}),...(ds.pauseUntil?{pauseUntil:ds.pauseUntil}:{})});}
+   else if(m.method==='injection'){const due=!took&&injectionNext(m,doses,date)===date;if(took||due)ms.push({id:m.id,title:m.title,method:'injection',taken:took,due});}
    else if(m.method==='iud'&&valid(m.changeDate))ms.push({id:m.id,title:m.title,method:'iud',daysLeft:dayDiff(date,m.changeDate),change:date===m.changeDate});}
   out.push({date,cycleDay:start?dayDiff(start,date)+1:null,period:p?.period||null,...(p?{periodDay:p.periodDay}:{}),...(p?.flow?{flow:p.flow}:{}),
    fertile:marked&&fertile.has(date)&&!ovulations.has(date),ovulation:marked&&ovulations.has(date),phase,...(date===today&&late>0?{late}:{}),...(mood!==undefined?{mood}:{}),

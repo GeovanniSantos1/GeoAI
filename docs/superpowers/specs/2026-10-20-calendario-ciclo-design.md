@@ -156,15 +156,16 @@ As médias vêm de `cycleStats(menstruações com início ≤ today)`: `cycleLen
    - a sequência de ciclos é a dos inícios registrados seguida de todos os projetados, incluindo os que ficaram no passado por atraso;
    - para cada início `S` com um início seguinte `N` nessa sequência, a ovulação é `N − 14` e a janela fértil vai de `N − 19` a `N − 13` (`fertile` não inclui o dia da ovulação);
    - nos ciclos passados, `N` é o início registrado de fato;
+   - pares de inícios a menos de 15 dias um do outro (registro duplicado ou sangramento fora do período, o mesmo limite de `cycleStats`) não marcam ovulação nem janela fértil;
    - não há marcação antes do primeiro início registrado.
 8. **Fase**, só quando `cycleDay` não é `null`:
    - `menstrual` quando `period` não é nulo;
-   - senão, `ovulatória` a até 1 dia da ovulação do ciclo daquele dia;
+   - senão, `ovulatória` a até 1 dia de uma ovulação marcada pela regra 7;
    - senão, `folicular` antes da ovulação e `lútea` depois.
 9. **Humor:** o `mood` do registro de sintomas da data; sem ele, o do Diário (`journal`) da mesma data. `symptoms` e `notes` vêm do registro de sintomas.
 10. **Métodos** (só os ativos):
-    - **pílula:** `dailyStatus(m, data)` dá `active`, `packDay` e `pauseUntil`; `taken` diz se há registro de uso no dia;
-    - **injeção:** `taken` diz se há aplicação no dia; `due` diz se a data é `injectionNext(m, doses, data)` e não houve aplicação;
+    - **pílula:** `dailyStatus(m, data)` dá `active`, `packDay` e `pauseUntil`; `taken` diz se há registro de uso no dia; antes de `startDate` aparece só quando há uso registrado, para que trocar de cartela não apague o histórico;
+    - **injeção:** `taken` diz se há aplicação no dia; `due` diz se a data é `injectionNext(m, doses, data)` e não houve aplicação; antes de `startDate` aparece só quando há aplicação registrada;
     - **DIU:** aparece só a partir da data de colocação; `daysLeft = changeDate − data` e `change = data === changeDate`.
 11. **Relação:** o registro de `intimacy` da data.
 
