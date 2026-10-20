@@ -41,7 +41,7 @@ Sucesso:
 - **Topo:**
   - `‹` e `›` (rótulos "Mês anterior" e "Próximo mês") e o título "Outubro de 2026";
   - o alternador **Mês | Ano**;
-  - o botão **Hoje**, que só aparece quando o mês mostrado ou o dia selecionado não é o atual;
+  - o botão **Hoje**, que só aparece quando a visão não é o mês, o mês mostrado não é o atual ou o dia selecionado não é hoje (também aparece na visão do ano);
   - o botão **?**, que mostra e esconde a legenda.
 - **Grade:** começa na segunda-feira, com cabeçalho S T Q Q S S D. Os dias de fora do mês ficam como espaços vazios.
 - **Cada dia é um botão** com:
@@ -57,7 +57,7 @@ Sucesso:
   - **janela fértil estimada:** verde claro (`--green-soft`, borda `--green`);
   - **ovulação estimada:** verde forte (`--green`);
   - **hoje:** contorno dourado (`--gold`);
-  - **dia selecionado:** fundo escuro (`--text`) e texto claro (`--surface`), por cima das cores acima.
+  - **dia selecionado:** anel interno escuro (`--text`) por cima da cor do próprio dia, que se mantém;
 - **Legenda** (com o **?**): menstruação, menstruação prevista, janela fértil, ovulação, humor ou sintomas, anticoncepcional e relação.
 - **Acessibilidade:** cada dia tem `aria-label` com a data por extenso e o que há nele (ex.: "19 de outubro, dia do ciclo 24, menstruação registrada, humor Bem, relação"). O selecionado tem `aria-pressed`.
 
@@ -79,7 +79,7 @@ Sucesso:
     - pílula: "tomada", "não registrada" (até hoje, em dia de uso sem registro), "dia N da cartela" (dia futuro de uso) ou "pausa até 25/10";
     - injeção: "aplicada" ou "prevista";
     - DIU ou implante: "troca em 4 anos" (ou "troca prevista para hoje", "troca atrasada"), e no dia da troca "troca prevista".
-  - **Relação:** "Com proteção", "Sem proteção" ou "Relação", e as anotações.
+  - **Relação:** "Relação com proteção", "Relação sem proteção" ou "Relação", e as anotações.
 - **Botões**, só para hoje e dias passados:
   - **Editar menstruação:** abre a menstruação que contém o dia. Se o dia não está numa menstruação registrada, o botão vira **Menstruação começou** e abre o formulário com a data do dia, título "Menstruação" e fluxo moderado.
   - **Anotações:** abre o registro de sintomas do dia, ou cria um com a data do dia e o título "Sintomas do dia".

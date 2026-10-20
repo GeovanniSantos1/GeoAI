@@ -66,5 +66,5 @@ function Legend(){return <ul className="cc-legend">{[['period','Menstruação'],
 
 function YearView({year,days,today,onMonth}:{year:string;days:CalendarDay[];today:string;onMonth:(m:string)=>void}){const map=new Map(days.map(d=>[d.date,d]));
  return <div className="cc-year">{Array.from({length:12},(_,i)=>{const m=year+'-'+String(i+1).padStart(2,'0'),{lead,days:dates}=calendarMonth(m);
-  return <button key={m} className="cc-mini" aria-label={'Abrir '+monthTitle(m)} onClick={()=>onMonth(m)}><h3>{cap(fmt(m+'-01',{month:'long'}))}</h3>
+  return <button key={m} className="cc-mini" aria-label={'Abrir '+monthTitle(m)} onClick={()=>onMonth(m)}><span className="cc-mini-title">{cap(fmt(m+'-01',{month:'long'}))}</span>
    <div className="cc-mini-grid">{Array.from({length:lead},(_,k)=><i key={'b'+k} className="blank"/>)}{dates.map(date=>{const d=map.get(date);return <i key={date} className={[d?tone(d):'',date===today?'today':''].filter(Boolean).join(' ')}/>;})}</div></button>;})}</div>;}
