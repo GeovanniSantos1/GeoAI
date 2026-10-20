@@ -193,8 +193,9 @@ Todas recebem o workspace (ou as listas) e o mês `AAAA-MM`. Um lançamento é d
   - **Pagamento:** o rótulo da forma de pagamento. Com cartão, "Crédito (nome do cartão)".
   - **Escape:** campos com vírgula, aspas ou quebra de linha vão entre aspas, com as aspas internas dobradas.
   - **Quebras de linha:** `\r\n`.
-- **`budgetAlerts(s, itens, hoje)`:** o aviso dado ao confirmar sugestões.
-  - Recebe os itens de `confirmPlan` (`{collection, item}`) e considera os da coleção `transactions` com `direction==='expense'` e `amount`.
+- **`budgetAlerts(s, itens)`:** o aviso dado ao confirmar sugestões.
+  - Recebe os itens de `confirmPlan` (`{collection, item}`) e considera os da coleção `transactions` com `direction==='expense'`, `amount` e `date`.
+  - Os itens chegam validados por `checkProposals`, que sempre preenche a data (padrão: hoje). Por isso a função não precisa de `hoje`, e item sem data não entra.
   - Para cada mês envolvido (o da data do item), soma ao gasto já registrado.
   - Devolve os textos das categorias com teto que passam para `near` ou `over`, e do teto do mês se ele passar para `near` ou `over`:
     - "⚠️ Alimentação: R$ 650,00 de R$ 600,00, passou do teto.";
