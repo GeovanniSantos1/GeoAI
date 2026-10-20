@@ -18,3 +18,7 @@ test('Adicionar confirma o grupo e tira só ele das pendências',()=>{const r=re
  assert.equal(resolveChoice('add:g2',space(),pending,NOON).reply,'✅ 1 item adicionado ao seu GeoAI.');});
 test('Descartar não salva nada',()=>{const r=resolveChoice('drop:g2',space(),pending,NOON);assert.equal(r.command,undefined);assert.equal(r.reply,'Sugestões descartadas.');assert.equal(r.ack,'Descartado.');assert.deepEqual(Object.keys(r.pending),['g1']);});
 test('sugestões vencidas ou escolha desconhecida',()=>{for(const data of ['add:nao','drop:','xyz','add:constructor','drop:__proto__','add:toString']){const r=resolveChoice(data,space(),pending,NOON);assert.equal(r.expired,true);assert.equal(r.command,undefined);assert.equal(r.reply,'Essas sugestões não estão mais disponíveis.');}});
+test('confirmar uma despesa avisa quando passa do teto',()=>{const s=space();s.profile.categoryBudgets={Alimentação:10000};s.transactions=[{id:'t1',title:'Feira',amount:8000,direction:'expense',date:'2026-10-10',category:'Alimentação'}];
+ const p={g:{items:[{collection:'transactions',item:{title:'Almoço',amount:3000,direction:'expense',date:'2026-10-16',category:'Alimentação'}}],createdAt:'2026-10-16T12:00:00Z'}};
+ assert.equal(resolveChoice('add:g',s,p,NOON).reply,'✅ 1 item adicionado ao seu GeoAI.\n⚠️ Alimentação: R$ 110,00 de R$ 100,00, passou do teto.');
+ assert.equal(resolveChoice('add:g1',space(),pending,NOON).reply,'✅ 2 itens adicionados ao seu GeoAI.');});

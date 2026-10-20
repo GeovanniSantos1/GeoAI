@@ -1,4 +1,4 @@
-import {todayInZone} from './core.ts';import {parseTrtCallback,trtCallbackAction} from './trt-reminders.ts';import {parseFemaleCallback,femaleCallbackAction,hourInZone} from './female-reminders.ts';import type {Pending} from './telegram.ts';import type {Workspace,Command} from './types.ts';
+import {todayInZone} from './core.ts';import {parseTrtCallback,trtCallbackAction} from './trt-reminders.ts';import {parseFemaleCallback,femaleCallbackAction,hourInZone} from './female-reminders.ts';import {budgetAlerts} from './finance.ts';import type {Pending} from './telegram.ts';import type {Workspace,Command} from './types.ts';
 // Uma escolha (botão do Telegram ou resposta "1/2" do WhatsApp) resolvida sem efeitos: quem chama grava o comando e envia a resposta.
 export type ChoiceResult={command?:Command;reply:string;ack:string;pending?:Pending;expired?:true};
 const EXPIRED='Essas sugestões não estão mais disponíveis.';
@@ -10,4 +10,4 @@ export function resolveChoice(data:string,state:Workspace,pending:Pending,now?:D
  if(!group||(action!=='add'&&action!=='drop'))return {reply:EXPIRED,ack:EXPIRED,expired:true};
  const rest={...pending};delete rest[id];const n=group.items.length;
  if(action==='drop')return {reply:'Sugestões descartadas.',ack:'Descartado.',pending:rest};
- return {command:{type:'confirmPlan',items:group.items},reply:'✅ '+(n===1?'1 item adicionado':n+' itens adicionados')+' ao seu GeoAI.',ack:'Adicionado!',pending:rest};}
+ return {command:{type:'confirmPlan',items:group.items},reply:['✅ '+(n===1?'1 item adicionado':n+' itens adicionados')+' ao seu GeoAI.',...budgetAlerts(state,group.items)].join('\n'),ack:'Adicionado!',pending:rest};}

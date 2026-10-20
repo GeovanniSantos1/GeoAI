@@ -31,3 +31,11 @@ test('sugestão de aplicação num dia já registrado vira erro',()=>{const trt=
 test('agenda inclui compromissos do Outlook e do Google como só leitura',()=>{const external=[{id:'m1',provider:'microsoft',title:'Daily',allDay:false,start:'2026-10-16T12:00:00Z',end:'2026-10-16T12:30:00Z'},{id:'g1',provider:'google',title:'Feriado',allDay:true,start:'2026-10-16',end:'2026-10-17'}];
  const [day]=agendaRange(workspace(),'2026-10-16','2026-10-16',external);
  assert.deepEqual(day.items,[{title:'Feriado',type:'google',readOnly:true},{title:'Correr',time:'07:00',type:'habit',done:true},{title:'Daily',time:'09:00',endTime:'09:30',type:'outlook',readOnly:true}]);});
+test('relatório financeiro traz o teto do mês e os tetos por categoria',()=>{const s=workspace();s.profile.categoryBudgets={Alimentação:10000};const r=financeReport(s,'2026-10');
+ assert.deepEqual(r.tetoDoMes,{teto:formatMoney(200000),gasto:formatMoney(15640),situacao:'dentro'});
+ assert.deepEqual(r.tetosPorCategoria,[{categoria:'Alimentação',teto:formatMoney(10000),gasto:formatMoney(15640),restante:formatMoney(-5640),situacao:'estourado'}]);
+ const none=emptyWorkspace('Geo');const r2=financeReport(none,'2026-10');assert.deepEqual([r2.tetoDoMes,r2.tetosPorCategoria],[{teto:'não definido',gasto:formatMoney(0),situacao:'sem teto'},[]]);});
+test('sugestão de lançamento: categoria fora da lista salva, forma de pagamento opcional e validada',()=>{const s=emptyWorkspace('Geo');
+ const a=checkProposals([{collection:'transactions',title:'Presente',amount:5000,direction:'expense',category:'Viagem'}],'2026-10-18',s);assert.deepEqual([a.errors,a.valid[0].item.category,a.valid[0].item.payment],[[],'Viagem',undefined]);
+ const b=checkProposals([{collection:'transactions',title:'Uber',amount:2500,direction:'expense',category:'Transporte',payment:'pix'}],'2026-10-18',s);assert.equal(b.valid[0].item.payment,'pix');
+ const c=checkProposals([{collection:'transactions',title:'Uber',amount:2500,direction:'expense',payment:'boleto'}],'2026-10-18',s);assert.equal(c.valid.length,0);assert.match(c.errors[0],/Forma de pagamento inválida/);});
