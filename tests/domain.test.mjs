@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { moneyToCents, allocateInstallments, occursOn, consecutiveDays, sleepDuration, emptyWorkspace, applyCommand, planFromText, validateWorkspace } from '../lib/core.ts';
 
 test('reais brasileiros viram centavos sem erro de ponto flutuante',()=>{assert.equal(moneyToCents('1.234,56'),123456);assert.equal(moneyToCents('19,90'),1990);assert.throws(()=>moneyToCents('abc'));assert.throws(()=>moneyToCents('-5'));});
+test('ponto sem vírgula separa milhares só quando forma grupos de três',()=>{assert.equal(moneyToCents('1.000'),100000);assert.equal(moneyToCents('12.345.678'),1234567800);assert.equal(moneyToCents('1.5'),150);assert.equal(moneyToCents('1.000,50'),100050);assert.equal(moneyToCents('0.500'),50);});
 test('parcelas preservam centavos e fim de mês',()=>{const rows=allocateInstallments(10000,3,'2026-01-31');assert.deepEqual(rows.map(x=>x.amount),[3334,3333,3333]);assert.deepEqual(rows.map(x=>x.date),['2026-01-31','2026-02-28','2026-03-31']);});
 test('recorrência respeita início, dias úteis e término',()=>{const t={date:'2026-10-16',repeat:'weekdays',repeatUntil:'2026-10-20'};assert.equal(occursOn(t,'2026-10-15'),false);assert.equal(occursOn(t,'2026-10-17'),false);assert.equal(occursOn(t,'2026-10-19'),true);assert.equal(occursOn(t,'2026-10-21'),false);});
 test('recorrência mensal ajusta dia 31',()=>assert.equal(occursOn({date:'2026-01-31',repeat:'monthly'},'2026-02-28'),true));

@@ -11,7 +11,7 @@ import {NAV} from './catalog';
 import {byGender,hiddenSections} from '@/lib/gender';
 import {TestosteroneView} from './testosterone';
 import {FemaleHealthView} from './female-health';import {MusicView,MiniPlayer} from './music';import {SoundProvider} from './sound-player';
-import {Context,type CalendarResult} from './context';
+import {Context,useApp,type CalendarResult} from './context';import {budgetAlerts} from '@/lib/finance';
 import {Modal,Editor} from './primitives';
 import Avatar from './Avatar';
 import {HomeView,AgendaView,GoalsView,TrackerView,FocusView} from './planning';
@@ -67,8 +67,8 @@ const assistantTransport=new DefaultChatTransport<AgentMessage>({api:'/api/assis
 const TOOL_STATUS:Record<string,string>={'tool-agenda':'Consultando sua agenda…','tool-financas':'Olhando suas finanças…','tool-buscar':'Buscando nos seus registros…','tool-propor_acoes':'Preparando sugestões…','tool-saude_feminina':'Olhando sua saúde…'};
 function chatError(error:Error){try{return JSON.parse(error.message).error||'Tente novamente.';}catch{return error.message&&error.message.length<200?error.message:'Não foi possível falar com o assistente. Tente novamente.';}}
 function Proposals({items,onSave,toast}:{items:Proposal[];onSave:(c:Command)=>Promise<boolean>;toast:(m:string,e?:boolean)=>void}){
- const [chosen,setChosen]=useState(()=>new Set(items.map((_,i)=>i))),[status,setStatus]=useState<'idle'|'saving'|'saved'>('idle');
- async function add(){setStatus('saving');const selected=items.filter((_,i)=>chosen.has(i));if(await onSave({type:'confirmPlan',items:selected})){setStatus('saved');toast(selected.length+(selected.length===1?' item adicionado':' itens adicionados')+' ao seu espaço.');}else setStatus('idle');}
+ const a=useApp(),[chosen,setChosen]=useState(()=>new Set(items.map((_,i)=>i))),[status,setStatus]=useState<'idle'|'saving'|'saved'>('idle');
+ async function add(){setStatus('saving');const selected=items.filter((_,i)=>chosen.has(i)),alerts=budgetAlerts(a.state,selected);if(await onSave({type:'confirmPlan',items:selected})){setStatus('saved');toast([selected.length+(selected.length===1?' item adicionado':' itens adicionados')+' ao seu espaço.',...alerts].join(' '));}else setStatus('idle');}
  return <div className="assistant-proposals">{items.map((p,i)=><label className="proposal" key={i}><input type="checkbox" disabled={status!=='idle'} checked={chosen.has(i)} onChange={()=>setChosen(prev=>{const next=new Set(prev);if(next.has(i))next.delete(i);else next.add(i);return next;})}/><span><strong>{p.item.title}</strong><small>{describeProposal(p)}</small></span></label>)}{status==='saved'?<p className="chat-saved"><Check size={15}/>Adicionado ao seu espaço</p>:<button className="button primary full-width" disabled={status==='saving'||chosen.size===0} onClick={add}>{status==='saving'?<LoaderCircle size={17} className="spin"/>:<Check size={17}/>}Adicionar {chosen.size} {chosen.size===1?'item':'itens'}</button>}</div>;
 }
 function Assistant({onClose,onSave,toast}:{onClose:()=>void;onSave:(c:Command)=>Promise<boolean>;toast:(m:string,e?:boolean)=>void}){

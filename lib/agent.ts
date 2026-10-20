@@ -7,6 +7,7 @@ import { cyclePrediction, dailyStatus, injectionNext, iudStatus, preventiveStatu
 import { protocolStatus, punctuality, finalOverall, classifyMarker, rangeText, valueText, STATUS_LABEL, OVERALL_LABEL } from './testosterone.ts';
 import type { Marker } from './exam-schema.ts';
 import { agendaItems, agendaOrder, type ExternalEvent } from './external-calendar.ts';
+import { budgetView } from './finance.ts';
 
 // Consultas e validações usadas pelas ferramentas do assistente. Puras: recebem o espaço já carregado do usuário.
 export type AgentMessage = UIMessage<unknown,{proposals:{items:Proposal[]}}>;
@@ -28,11 +29,13 @@ export function agendaRange(s:Workspace,start:string,end:string,external:Externa
  return days;
 }
 
+const SITUACAO:Record<string,string>={none:'sem teto',ok:'dentro',near:'perto',over:'estourado'};
 export function financeReport(s:Workspace,month:string){
  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error('Mês inválido, use AAAA-MM');
  const sum=financeSummary(s,month),groups=new Map<string,{total:number;count:number}>();
  for(const x of s.transactions.filter(x=>x.date?.startsWith(month)&&x.direction==='expense')){const g=groups.get(x.category||'Outros')||{total:0,count:0};g.total+=x.amount;g.count++;groups.set(x.category||'Outros',g);}
- return {mes:month,receitas:formatMoney(sum.income),despesas:formatMoney(sum.expense),saldo:formatMoney(sum.balance),orcamento:s.profile.budget?formatMoney(s.profile.budget):'não definido',...(s.profile.budget?{orcamentoRestante:formatMoney(sum.remaining)}:{}),despesasPorCategoria:[...groups].sort((a,b)=>b[1].total-a[1].total).map(([categoria,g])=>({categoria,total:formatMoney(g.total),lancamentos:g.count}))};
+ const b=budgetView(s,month);
+ return {mes:month,receitas:formatMoney(sum.income),despesas:formatMoney(sum.expense),saldo:formatMoney(sum.balance),orcamento:s.profile.budget?formatMoney(s.profile.budget):'não definido',...(s.profile.budget?{orcamentoRestante:formatMoney(sum.remaining)}:{}),despesasPorCategoria:[...groups].sort((a,b)=>b[1].total-a[1].total).map(([categoria,g])=>({categoria,total:formatMoney(g.total),lancamentos:g.count})),tetoDoMes:{teto:b.month.cap?formatMoney(b.month.cap):'não definido',gasto:formatMoney(b.month.spent),situacao:SITUACAO[b.month.state]},tetosPorCategoria:b.categories.filter(c=>c.cap).map(c=>({categoria:c.name,teto:formatMoney(c.cap),gasto:formatMoney(c.spent),restante:formatMoney(c.cap-c.spent),situacao:SITUACAO[c.state]}))};
 }
 
 export function searchRecords(s:Workspace,{collection,text,limit=20}:{collection?:string;text?:string;limit?:number}){

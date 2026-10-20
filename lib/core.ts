@@ -3,6 +3,7 @@ import type { Workspace, Item, Collection, Command, Proposal } from './types.ts'
 import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
 import { HAIR_STYLES, hiddenSections } from './gender.ts';
 import { SYMPTOMS, FLOWS, METHODS, femaleAgenda } from './female-health.ts';
+import { formatMoney, PAYMENTS, EXPENSE_CATEGORIES, CATEGORIES } from './finance.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -26,21 +27,25 @@ VALID_KEYS.add('appliedPages');NUMBERS.add('appliedPages');
 for(const key of ['lab','markers','file','review','createdOn','dose','intervalDays','doctor','remind','remindedOn','snoozedUntil','protocolId','site'])VALID_KEYS.add(key);NUMBERS.add('dose');NUMBERS.add('intervalDays');for(const key of ['createdOn','remindedOn','snoozedUntil'])DATES.add(key);
 // Menu Saúde feminina.
 for(const key of ['endDate','flow','symptoms','method','activeDays','pauseDays','changeDate','methodId','intervalMonths','lastDate','snoozeHour','protection'])VALID_KEYS.add(key);for(const key of ['activeDays','pauseDays','intervalMonths','snoozeHour'])NUMBERS.add(key);for(const key of ['endDate','changeDate','lastDate'])DATES.add(key);
+// Finanças: forma de pagamento do lançamento.
+VALID_KEYS.add('payment');
 // Coleções criadas depois do lançamento: espaços e backups antigos ganham a lista vazia.
 const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy'];
 // Perfis de antes da versão feminina eram todos tratados no masculino; o avatar ganha penteado e brincos padrão.
 // Copia o perfil em vez de alterá-lo, porque validateWorkspace só copia o primeiro nível do backup.
 export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];
- if(s.profile&&typeof s.profile==='object'){const p={...s.profile};if(p.gender===undefined)p.gender='male';if(p.avatar&&typeof p.avatar==='object')p.avatar={style:'longo',earrings:true,...p.avatar};s.profile=p;}}return raw;}
+ for(const key of ['transactions','bills'])if(Array.isArray(s[key]))s[key]=s[key].map((x:any)=>x&&x.category==='Casa'?{...x,category:'Moradia'}:x);
+ if(s.profile&&typeof s.profile==='object'){const p={...s.profile};if(p.gender===undefined)p.gender='male';if(p.avatar&&typeof p.avatar==='object')p.avatar={style:'longo',earrings:true,...p.avatar};
+ if(!p.categoryBudgets||typeof p.categoryBudgets!=='object'||Array.isArray(p.categoryBudgets))p.categoryBudgets={};s.profile=p;}}return raw;}
 export function emptyWorkspace(name=''): Workspace {
- const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,gender:'',avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c',style:'longo',earrings:true},unlockedMoments:[]},completions:{},rewarded:[]};
+ const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,categoryBudgets:{},sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,gender:'',avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c',style:'longo',earrings:true},unlockedMoments:[]},completions:{},rewarded:[]};
  for(const key of COLLECTIONS)result[key]=[];return result;
 }
 export function validDate(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(value+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;}
 export function addDays(value:string,days:number){if(!validDate(value))throw new Error('Data inválida');const d=new Date(value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
 export function todayInZone(zone='America/Sao_Paulo',now=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
-export function moneyToCents(input:string|number){const raw=String(input).trim().replace(/R\$\s*/g,'');const value=raw.includes(',')?Number(raw.replace(/\./g,'').replace(',','.')):Number(raw);if(!raw||!Number.isFinite(value)||value<0||value>1e9)throw new Error('Informe um valor válido');return Math.round((value+Number.EPSILON)*100);}
-export function formatMoney(cents:number){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cents/100);}
+export function moneyToCents(input:string|number){const raw=String(input).trim().replace(/R\$\s*/g,'');const value=raw.includes(',')||/^[1-9]\d{0,2}(\.\d{3})+$/.test(raw)?Number(raw.replace(/\./g,'').replace(',','.')):Number(raw);if(!raw||!Number.isFinite(value)||value<0||value>1e9)throw new Error('Informe um valor válido');return Math.round((value+Number.EPSILON)*100);}
+export {formatMoney};
 export function allocateInstallments(total:number,count:number,date:string){if(!Number.isSafeInteger(total)||total<=0||!Number.isInteger(count)||count<1||count>120||!validDate(date))throw new Error('Parcelamento inválido');const [y,m,d]=date.split('-').map(Number);return Array.from({length:count},(_,i)=>{const anchor=new Date(Date.UTC(y,m-1+i,1,12));const last=new Date(Date.UTC(anchor.getUTCFullYear(),anchor.getUTCMonth()+1,0)).getUTCDate();return {amount:Math.floor(total/count)+(i<total%count?1:0),date:anchor.toISOString().slice(0,8)+String(Math.min(d,last)).padStart(2,'0')};});}
 export function occursOn(task:any,date:string){if(!validDate(date))return false;const start=task.date||task.startDate;if(start&&!validDate(start))return false;if(start&&date<start)return false;if(task.repeatUntil&&date>task.repeatUntil)return false;const repeat=task.repeat||'none';if(repeat==='none')return !start||date===start;const day=new Date(date+'T12:00:00Z').getUTCDay();if(repeat==='daily')return true;if(repeat==='weekdays')return day>0&&day<6;if(repeat==='weekly'){if(Array.isArray(task.weekdays)&&task.weekdays.length)return task.weekdays.includes(day);return !!start&&day===new Date(start+'T12:00:00Z').getUTCDay();}if(repeat==='monthly'){if(!start)return false;const last=new Date(Date.UTC(Number(date.slice(0,4)),Number(date.slice(5,7)),0)).getUTCDate();return Number(date.slice(8))===Math.min(Number(start.slice(8)),last);}return false;}
 export function consecutiveDays(dates:string[],today:string){const unique=new Set(dates.filter(validDate));let cursor=unique.has(today)?today:addDays(today,-1);let n=0;while(unique.has(cursor)){n++;cursor=addDays(cursor,-1);}return n;}
@@ -72,6 +77,8 @@ export function validateItem(collection:string,raw:any):Item{
  if(collection==='vices'&&!item.startDate)throw new Error('Informe o início do acompanhamento');
  if(['focusSessions','sessions'].includes(collection)&&(!Number.isFinite(item.duration)||item.duration<1||item.duration>1440))throw new Error('Informe a duração em minutos');
  if(collection==='transactions'&&!['income','expense'].includes(item.direction))throw new Error('Tipo de transação inválido');
+ if(['transactions','bills'].includes(collection)&&typeof item.category==='string'){const fold=(x:string)=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),hit=CATEGORIES.find(k=>fold(k.name)===fold(item.category));if(hit)item.category=hit.name;}
+ if(collection==='transactions'){if(item.cardId)item.payment='credit';else if(item.payment!==undefined&&!PAYMENTS.some(([id])=>id===item.payment))throw new Error('Forma de pagamento inválida');}
  if(collection==='journal'&&(!Number.isInteger(item.mood)||item.mood<1||item.mood>5))throw new Error('Humor inválido');
  if(collection==='sleep'&&(!Number.isInteger(item.quality)||item.quality<1||item.quality>5))throw new Error('Informe a qualidade da noite');
  if(collection==='sleep'){if(!item.date||!item.bedtime||!item.waketime)throw new Error('Preencha a noite e os horários');item.duration=sleepDuration(item.bedtime,item.waketime);}
@@ -113,6 +120,9 @@ function cleanProfile(raw:any,previous:Workspace['profile']){
  for(const key of ['bedtime','waketime'] as const)if(raw[key]){sleepDuration(raw[key],raw[key]);p[key]=raw[key];}
  if(raw.avatar){const a=raw.avatar;for(const key of ['skin','hair','shirt'] as const)if(typeof a[key]==='string'&&/^#[0-9a-f]{6}$/i.test(a[key]))p.avatar[key]=a[key];if(typeof a.beard==='boolean')p.avatar.beard=a.beard;if(HAIR_STYLES.some(([id])=>id===a.style))p.avatar.style=a.style;if(typeof a.earrings==='boolean')p.avatar.earrings=a.earrings;}
  if(raw.gender==='male'||raw.gender==='female')p.gender=raw.gender;
+ // Tetos por categoria: mescla com os atuais; 0 remove a categoria; só categorias de despesa da lista.
+ if(raw.categoryBudgets!==undefined){const c=raw.categoryBudgets;if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Configuração inválida');const next:Record<string,number>={...(p.categoryBudgets||{})};
+  for(const [k,v] of Object.entries(c)){if(!EXPENSE_CATEGORIES.includes(k)||!Number.isSafeInteger(v)||(v as number)<0||(v as number)>1e12)throw new Error('Configuração inválida');if(v===0)delete next[k];else next[k]=v as number;}p.categoryBudgets=next;}
  return p;
 }
 function reward(s:Workspace,key:string,points:number){if(s.rewarded.includes(key))return;s.rewarded.push(key);s.profile.xp+=points;s.profile.points+=points;}
