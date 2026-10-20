@@ -143,7 +143,7 @@ As médias vêm de `cycleStats(menstruações com início ≤ today)`: `cycleLen
    - o trecho é cortado na véspera do início registrado seguinte;
    - dias depois de `today` nunca são `logged`;
    - em cada dia, `periodDay` é a posição do dia na menstruação e `flow` é o fluxo do registro.
-4. **Continuação prevista:** se o último registro não tem fim e os `periodLength` dias dele passam de hoje, os dias depois de hoje são `predicted`, continuando o `periodDay`.
+4. **Continuação prevista:** se os dias do último registro passam de hoje, os dias depois de hoje são `predicted`, continuando o `periodDay`. Os dias vão até o fim registrado ou, sem fim, completam a duração média.
 5. **Menstruação prevista:**
    - cada início projetado `Pk` em `today` ou depois pinta `periodLength` dias como `predicted`, com `periodDay`. Prevista para hoje, ela pinta a partir de hoje;
    - um início projetado antes de `today` (atraso) não pinta nada, nem no passado nem no futuro, e o ciclo seguinte continua a partir dele;
@@ -188,7 +188,7 @@ Sai, junto com a faixa de 35 dias e os testes dela. Nenhum outro lugar usa.
 
 ## Código
 
-- `lib/female-health.ts`: `cycleCalendar`, `durationLabel` e os tipos `CalendarDay` e `CalendarMethod`; remove `forecastDays`.
+- `lib/female-health.ts`: `cycleCalendar`, `durationLabel` e os tipos `CalendarDay` e `CalendarMethod`; remove `forecastDays`. Também entram `calendarMonth(mês)` (espaços antes do dia 1 numa grade que começa na segunda-feira, e as datas do mês) e `shiftMonth(mês, n)`, para a navegação, testados na virada do ano e em fevereiro bissexto. A `cycleCalendar` aceita workspace sem as listas opcionais.
 - `lib/types.ts`: `intimacy` em `COLLECTIONS`.
 - `lib/core.ts`:
   - `intimacy` nas coleções adicionadas na atualização;
