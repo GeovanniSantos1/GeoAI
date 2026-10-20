@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';import {Plus,Droplet,CalendarDays,ShieldCheck,Pill,Syringe,FlaskConical,Stethoscope,Pencil,Trash2,Check,Sparkles,Utensils,Moon,Dumbbell,Heart,HeartPulse,Leaf} from 'lucide-react';
 import {useApp,type AppContext} from './context';import {PageHeading,Tabs,Stat,Empty} from './primitives';import {Records} from './records';import {ExamsPanel,OVERALL_PILL} from './exams';import {FEMALE_TIPS} from './female-health-tips';
-import {cyclePrediction,forecastDays,dailyStatus,injectionNext,iudStatus,sortPreventives,takeId,dayDiff,FLOW_LABEL,METHOD_SHORT,PREVENTIVE_LABEL,PREVENTIVE_SUGGESTIONS,type PreventiveState} from '@/lib/female-health';import {finalOverall,OVERALL_LABEL} from '@/lib/testosterone';import type {Item} from '@/lib/types';
+import {cyclePrediction,dailyStatus,injectionNext,iudStatus,sortPreventives,takeId,dayDiff,FLOW_LABEL,METHOD_SHORT,PREVENTIVE_LABEL,PREVENTIVE_SUGGESTIONS,type PreventiveState} from '@/lib/female-health';import {finalOverall,OVERALL_LABEL} from '@/lib/testosterone';import type {Item} from '@/lib/types';
 const ICONS={utensils:Utensils,heart:Heart,moon:Moon,dumbbell:Dumbbell,droplet:Droplet,stethoscope:Stethoscope};
 const PREVENTIVE_PILL:Record<PreventiveState,string>={none:'pill',late:'pill danger',soon:'pill warn',ok:'pill green'};
 const dayLabel=(d:string)=>d?d.split('-').reverse().join('/'):'';
@@ -43,7 +43,7 @@ function Summary({onTab}:{onTab:(t:string)=>void}){const a=useApp();const c=cycl
   {overall&&points.length>0&&<section className="panel"><header className="section-heading"><h2>Pontos de atenção do último exame</h2><span className={OVERALL_PILL[overall]}>{OVERALL_LABEL[overall]}</span></header><ul className="review-list">{points.map((p,i)=><li key={i}><b>{p.marker}:</b> {p.text}</li>)}</ul></section>}
  </>;}
 
-function CyclePanel(){const a=useApp();const c=cyclePrediction(a.state.periods,a.today);const days=forecastDays(a.state.periods,a.today,35);const periods=a.state.periods.slice().sort((x,y)=>x.date.localeCompare(y.date));const symptoms=a.state.symptoms.slice().sort((x,y)=>x.date.localeCompare(y.date));
+function CyclePanel(){const a=useApp();const c=cyclePrediction(a.state.periods,a.today);const days:{date:string;kind:string|null}[]=[];const periods=a.state.periods.slice().sort((x,y)=>x.date.localeCompare(y.date));const symptoms=a.state.symptoms.slice().sort((x,y)=>x.date.localeCompare(y.date));
  return <>
   <div className="button-group spaced"><button className="button primary" onClick={()=>newPeriod(a)}><Droplet size={16}/>Menstruação começou</button><button className="button outline" onClick={()=>newSymptoms(a)}><HeartPulse size={16}/>Registrar sintomas</button></div>
   {c?<><div className="stats-grid three female-stats"><Stat label="Duração média do ciclo" value={c.cycleLength+' dias'} foot={c.cycles?'Com base em '+c.cycles+(c.cycles===1?' ciclo':' ciclos'):'Padrão de 28 dias até registrar mais ciclos'}/><Stat label="Duração média da menstruação" value={c.periodLength+' dias'} foot="Registre o fim para melhorar a média"/><Stat label="Próxima menstruação" value={dayLabel(c.next)} foot={c.late?'Atrasada há '+plural(c.late):'Em '+plural(c.daysToNext)} accent={c.late>0}/></div>

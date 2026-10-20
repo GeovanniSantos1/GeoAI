@@ -13,7 +13,6 @@ export const dayDiff=(from:string,to:string)=>Math.round((Date.parse(to+'T12:00:
 const average=(xs:number[],fallback:number)=>xs.length?Math.round(xs.reduce((a,b)=>a+b,0)/xs.length):fallback;
 const until=(periods:Item[],date:string)=>periods.filter(p=>typeof p.date==='string'&&p.date<=date);
 export type Phase='menstrual'|'folicular'|'ovulatória'|'lútea';
-export type ForecastKind='period'|'fertile'|'ovulation';
 
 // Média dos últimos 6 ciclos; intervalos fora de 15 a 60 dias (registro esquecido ou duplicado) não entram.
 export function cycleStats(periods:Item[]){
@@ -34,13 +33,52 @@ export function cyclePhase(periods:Item[],date:string):Phase|null{
  const day=dayDiff(last,date)+1,ovulationDay=st.cycleLength-13;
  if(day<=st.periodLength)return 'menstrual';if(Math.abs(day-ovulationDay)<=1)return 'ovulatória';return day<ovulationDay?'folicular':'lútea';
 }
-// Calendário: menstruação (em curso e previstas), janela fértil e ovulação de cada ciclo dentro do período.
-export function forecastDays(periods:Item[],from:string,days:number){
- const st=cycleStats(until(periods,from)),last=st.starts[st.starts.length-1],marks=new Map<string,ForecastKind>();
- if(last){const end=shiftDate(from,days-1);for(let start=last;start<=end;start=shiftDate(start,st.cycleLength)){const ov=shiftDate(start,st.cycleLength-14);
-  for(let i=-5;i<=1;i++)marks.set(shiftDate(ov,i),'fertile');marks.set(ov,'ovulation');for(let i=0;i<st.periodLength;i++)marks.set(shiftDate(start,i),'period');}}
- return Array.from({length:days},(_,i)=>{const date=shiftDate(from,i);return {date,kind:marks.get(date)||null};});
-}
+// Calendário do ciclo: para cada data, menstruação registrada ou prevista, janela fértil, ovulação, dia do ciclo, fase e os registros do dia.
+export type CalendarMethod=
+ |{id:string;title:string;method:'daily';taken:boolean;active:boolean;packDay?:number;pauseUntil?:string}
+ |{id:string;title:string;method:'injection';taken:boolean;due:boolean}
+ |{id:string;title:string;method:'iud';daysLeft:number;change:boolean};
+export type CalendarDay={date:string;cycleDay:number|null;period:'logged'|'predicted'|null;periodDay?:number;flow?:string;fertile:boolean;ovulation:boolean;phase:Phase|null;late?:number;mood?:number;symptoms:string[];notes?:string;methods:CalendarMethod[];intimacy?:{protection?:'com'|'sem';notes?:string}};
+export type CalendarData={periods:Item[];symptoms?:Item[];journal?:Item[];contraceptives?:Item[];contraceptiveDoses?:Item[];intimacy?:Item[]};
+const byDate=(list:Item[]|undefined)=>new Map((list||[]).filter(x=>valid(x.date)).map(x=>[x.date as string,x]));
+const latest=(list:string[],date:string)=>{let found:string|undefined;for(const x of list)if(x<=date)found=x;return found;};
+export function cycleCalendar(s:CalendarData,from:string,to:string,today:string):CalendarDay[]{
+ const logged=until(s.periods,today).filter(p=>valid(p.date)).sort((a,b)=>a.date.localeCompare(b.date)),st=cycleStats(logged),starts=st.starts,last=starts[starts.length-1];
+ const period=new Map<string,{period:'logged'|'predicted';periodDay:number;flow?:string}>(),projected:string[]=[];
+ if(last){
+  // Registrada até o fim informado (ou a duração média), parando na véspera do início seguinte; o que passa de hoje no último registro é previsão.
+  for(const p of logged){const next=starts.find(x=>x>p.date),len=valid(p.endDate)&&p.endDate>=p.date?dayDiff(p.date,p.endDate)+1:st.periodLength;
+   for(let i=0;i<len;i++){const date=shiftDate(p.date,i);if(next&&date>=next)break;
+    if(date<=today)period.set(date,{period:'logged',periodDay:i+1,...(p.flow?{flow:p.flow}:{})});else if(p.date===last)period.set(date,{period:'predicted',periodDay:i+1});}}
+  // Inícios projetados até 60 dias depois do fim: a ovulação dos últimos dias visíveis depende do início seguinte.
+  for(let start=shiftDate(last,st.cycleLength),end=shiftDate(to,60);start<=end;start=shiftDate(start,st.cycleLength))projected.push(start);
+  // Início projetado antes de hoje é atraso: não pinta, mas o ciclo seguinte continua a partir dele.
+  for(const start of projected){if(start<today)continue;for(let i=0;i<st.periodLength;i++){const date=shiftDate(start,i);if(!period.has(date))period.set(date,{period:'predicted',periodDay:i+1});}}}
+ // Ovulação 14 dias antes do início seguinte; janela fértil de 5 dias antes a 1 depois. Os ciclos atrasados entram na sequência.
+ const seq=[...starts,...projected],ahead=[...starts,...projected.filter(x=>x>=today)],ovulations=new Set<string>(),fertile=new Set<string>();
+ for(let i=1;i<seq.length;i++){const ov=shiftDate(seq[i],-14);ovulations.add(ov);for(const k of [-5,-4,-3,-2,-1,1])fertile.add(shiftDate(ov,k));}
+ const late=projected[0]&&projected[0]<today?dayDiff(projected[0],today):0;
+ const sym=byDate(s.symptoms),journal=byDate(s.journal),rel=byDate(s.intimacy),doses=s.contraceptiveDoses||[],methods=(s.contraceptives||[]).filter(m=>m.status==='active'&&valid(m.startDate));
+ const out:CalendarDay[]=[];
+ for(let date=from;date<=to;date=shiftDate(date,1)){
+  // Antes de hoje, o ciclo é o dos inícios registrados; de hoje em diante, entram os inícios previstos.
+  const start=latest(date<today?starts:ahead,date),next=start?seq.find(x=>x>start):undefined,ov=next?shiftDate(next,-14):undefined,p=period.get(date),marked=!!last&&date>=starts[0];
+  const phase:Phase|null=!start?null:p?'menstrual':ov&&Math.abs(dayDiff(ov,date))<=1?'ovulatória':ov&&date<ov?'folicular':'lútea';
+  const sr=sym.get(date),jr=journal.get(date),r=rel.get(date),mood=typeof sr?.mood==='number'?sr.mood:typeof jr?.mood==='number'?jr.mood:undefined,ms:CalendarMethod[]=[];
+  for(const m of methods){if(date<m.startDate)continue;const taken=doses.some(d=>d.methodId===m.id&&d.date===date);
+   if(m.method==='daily'){const ds=dailyStatus(m,date);ms.push({id:m.id,title:m.title,method:'daily',taken,active:ds.active,...(ds.active?{packDay:ds.packDay}:{}),...(ds.pauseUntil?{pauseUntil:ds.pauseUntil}:{})});}
+   else if(m.method==='injection'){const due=!taken&&injectionNext(m,doses,date)===date;if(taken||due)ms.push({id:m.id,title:m.title,method:'injection',taken,due});}
+   else if(m.method==='iud'&&valid(m.changeDate))ms.push({id:m.id,title:m.title,method:'iud',daysLeft:dayDiff(date,m.changeDate),change:date===m.changeDate});}
+  out.push({date,cycleDay:start?dayDiff(start,date)+1:null,period:p?.period||null,...(p?{periodDay:p.periodDay}:{}),...(p?.flow?{flow:p.flow}:{}),
+   fertile:marked&&fertile.has(date)&&!ovulations.has(date),ovulation:marked&&ovulations.has(date),phase,...(date===today&&late>0?{late}:{}),...(mood!==undefined?{mood}:{}),
+   symptoms:Array.isArray(sr?.symptoms)?sr.symptoms:[],...(sr?.notes?{notes:sr.notes}:{}),methods:ms,
+   ...(r?{intimacy:{...(r.protection==='com'||r.protection==='sem'?{protection:r.protection}:{}),...(r.notes?{notes:r.notes}:{})}}:{})});}
+ return out;}
+// Prazo do DIU no painel do dia: anos, depois meses, depois dias.
+export function durationLabel(days:number){if(days>=365){const n=Math.floor(days/365);return n+(n===1?' ano':' anos');}if(days>=60)return Math.floor(days/30)+' meses';return days===0?'hoje':days===1?'1 dia':days+' dias';}
+// Mês do calendário (AAAA-MM): espaços antes do dia 1 numa grade que começa na segunda-feira e as datas do mês.
+export function calendarMonth(month:string){const first=month+'-01',lead=(new Date(first+'T12:00:00Z').getUTCDay()+6)%7,days:string[]=[];for(let d=first;d.startsWith(month);d=shiftDate(d,1))days.push(d);return {lead,days};}
+export const shiftMonth=(month:string,n:number)=>addMonths(month+'-01',n).slice(0,7);
 export function nextPeriodStart(periods:Item[]){const st=cycleStats(periods),last=st.starts[st.starts.length-1];return last?shiftDate(last,st.cycleLength):null;}
 export const takeId=(methodId:string,date:string)=>'take-'+methodId+'-'+date;
 export const PREVENTIVE_SUGGESTIONS=[['Ginecologista',12],['Papanicolau',12],['Mamografia',12],['Ultrassom transvaginal',12],['Densitometria óssea',24]] as const;
