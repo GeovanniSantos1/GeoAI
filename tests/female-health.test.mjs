@@ -124,3 +124,18 @@ test('assistente propõe menstruação e uso do método',()=>{const s=emptyWorks
  s.contraceptiveDoses=[{id:'take-m1-2026-10-18',title:'Tomei',methodId:'m1',date:'2026-10-18'}];assert.match(checkProposals([{collection:'contraceptiveDoses',title:'Tomei'}],'2026-10-18',s).errors[0],/já existe/);});
 test('preventivos: atrasados primeiro, depois vencendo, em dia e sem registro por último',()=>{const list=[{id:'a',title:'Ginecologista',intervalMonths:12},{id:'b',title:'Papanicolau',intervalMonths:12,lastDate:'2025-10-01'},{id:'c',title:'Mamografia',intervalMonths:12,lastDate:'2026-03-01'},{id:'d',title:'Ultrassom',intervalMonths:12,lastDate:'2025-11-10'},{id:'e',title:'Dentista',intervalMonths:6,lastDate:'2026-02-01'}];
  assert.deepEqual(sortPreventives(list,'2026-10-18').map(x=>x.p.title),['Dentista','Papanicolau','Ultrassom','Mamografia','Ginecologista']);});
+test('relação: proteção válida, data obrigatória e um registro por dia',()=>{
+ assert.equal(validateItem('intimacy',{title:'Relação',date:T,protection:'sem',notes:'Viagem'}).protection,'sem');
+ assert.equal(validateItem('intimacy',{title:'Relação',date:T,protection:''}).protection,undefined);
+ assert.throws(()=>validateItem('intimacy',{title:'Relação',date:T,protection:'talvez'}),/Proteção inválida/);
+ assert.throws(()=>validateItem('intimacy',{title:'Relação'}),/data do registro/);
+ const s=up(emptyWorkspace('Ana'),'intimacy',{id:'r1',title:'Relação',date:T});assert.equal(s.intimacy.length,1);
+ assert.throws(()=>up(s,'intimacy',{id:'r2',title:'Relação',date:T}),/Já existe um registro para esta data/);
+ const old=emptyWorkspace('Ana');delete old.intimacy;assert.deepEqual(upgradeWorkspace({...old}).intimacy,[]);assert.doesNotThrow(()=>validateWorkspace(old));});
+test('assistente sugere registrar relação, com proteção, uma vez por dia',()=>{
+ const {valid,errors}=checkProposals([{collection:'intimacy',protection:'com'}],T,emptyWorkspace('Ana'));assert.deepEqual(errors,[]);
+ assert.deepEqual([valid[0].collection,valid[0].item.title,valid[0].item.date,valid[0].item.protection],['intimacy','Relação',T,'com']);
+ assert.equal(describeProposal(valid[0]),'Relação · com proteção · '+T);
+ assert.equal(describeProposal({collection:'intimacy',item:{title:'Relação',date:T}}),'Relação · '+T);
+ const s=up(emptyWorkspace('Ana'),'intimacy',{id:'r1',title:'Relação',date:T});const again=checkProposals([{collection:'intimacy'}],T,s);
+ assert.equal(again.valid.length,0);assert.match(again.errors[0],/registro desse dia já existe/);});

@@ -10,8 +10,8 @@ import { agendaItems, agendaOrder, type ExternalEvent } from './external-calenda
 
 // Consultas e validações usadas pelas ferramentas do assistente. Puras: recebem o espaço já carregado do usuário.
 export type AgentMessage = UIMessage<unknown,{proposals:{items:Proposal[]}}>;
-export const PROPOSABLE = ['tasks','transactions','notes','trtDoses','periods','contraceptiveDoses'] as const;
-const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',trtDoses:'Aplicação',periods:'Menstruação',contraceptiveDoses:'Uso do método'};
+export const PROPOSABLE = ['tasks','transactions','notes','trtDoses','periods','contraceptiveDoses','intimacy'] as const;
+const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',trtDoses:'Aplicação',periods:'Menstruação',contraceptiveDoses:'Uso do método',intimacy:'Relação'};
 const FIELDS = ['title','date','time','endTime','repeat','type','category','status','priority','amount','direction','costPerDay','content','notes','bedtime','waketime','duration','quality','mood','target','current','unit','deadline','pages','pagesRead','day','startDate','dueDate','checked','weight','dose','intervalDays','site','lab'];
 const clip = (value:string,max=300) => value.length>max?value.slice(0,max)+'…':value;
 const norm = (value:unknown) => String(value??'').toLocaleLowerCase('pt-BR');
@@ -55,6 +55,7 @@ function proposalDefaults(collection:unknown,fields:Record<string,unknown>,today
   if((s?.trtDoses||[]).some(d=>d.protocolId===p.id&&d.date===day))throw new Error('a aplicação desse dia já está registrada');
   return {date:today,title:'Aplicação: '+p.title,protocolId:p.id,...(p.dose?{dose:p.dose}:{})};}
  if(collection==='periods')return {date:today,title:'Menstruação'};
+ if(collection==='intimacy'){const day=typeof fields.date==='string'?fields.date:today;if((s?.intimacy||[]).some(r=>r.date===day))throw new Error('o registro desse dia já existe');return {date:today,title:'Relação'};}
  if(collection==='contraceptiveDoses'){const methods=s?.contraceptives||[],active=methods.filter(m=>m.status==='active'&&m.method!=='iud');
   const m=fields.methodId?methods.find(x=>x.id===fields.methodId):active.length===1?active[0]:undefined;
   if(!m)throw new Error('cadastre ou escolha o método no menu Saúde feminina');
@@ -69,7 +70,7 @@ export function checkProposals(raw:unknown,today:string,s?:Workspace){
   // O id é descartado: confirmPlan faz upsert, e um id vindo do modelo poderia sobrescrever um registro existente.
   const {collection,...fields}=(entry&&typeof entry==='object'?entry:{}) as Record<string,unknown>;delete fields.id;
   try{
-   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, aplicações, início da menstruação e uso do método');
+   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, aplicações, início da menstruação, uso do método e relação');
    valid.push({collection:collection as Collection,item:validateItem(collection as Collection,{...proposalDefaults(collection,fields,today,s),...fields})});
   }catch(e){errors.push(String(fields.title||'Item').slice(0,80)+': '+(e instanceof Error?e.message:'inválido'));}
  }
@@ -82,7 +83,7 @@ export function assistantBrief(s:Workspace,today:string){
  return ['Usuário: '+p.name,genderBrief(p.gender),'Hoje:'+today+' ('+weekday+')','Fuso horário: '+p.timezone,'Ações por dia que cabem na rotina: '+p.dailyTarget,'Orçamento mensal: '+(p.budget?formatMoney(p.budget):'não definido'),'Meta de sono: '+p.sleepGoal/60+'h','Registros salvos: '+counts].join('\n');
 }
 
-export function describeProposal(p:Proposal){return [p.collection==='periods'?'Início da menstruação'+(p.item.flow?' · fluxo '+p.item.flow:''):p.collection==='contraceptiveDoses'?'Uso do método':p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
+export function describeProposal(p:Proposal){return [p.collection==='intimacy'?'Relação'+(p.item.protection==='com'?' · com proteção':p.item.protection==='sem'?' · sem proteção':''):p.collection==='periods'?'Início da menstruação'+(p.item.flow?' · fluxo '+p.item.flow:''):p.collection==='contraceptiveDoses'?'Uso do método':p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
 
 export function proposalsText(items:unknown){
  const lines=(Array.isArray(items)?items:[]).slice(0,15).map(entry=>{const p=(entry||{}) as {collection?:string;item?:Record<string,unknown>},i=p.item||{};return '- ['+(LABELS[p.collection||'']||'Registro')+'] '+String(i.title||'').slice(0,200)+(typeof i.amount==='number'?' · '+formatMoney(i.amount)+(i.direction==='income'?' (receita)':' (despesa)'):'')+(i.date?' · '+String(i.date):'')+(i.time?' '+String(i.time):'');});

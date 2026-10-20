@@ -25,9 +25,9 @@ const TIMES=new Set(['time','endTime','bedtime','waketime','startTime']);
 VALID_KEYS.add('appliedPages');NUMBERS.add('appliedPages');
 for(const key of ['lab','markers','file','review','createdOn','dose','intervalDays','doctor','remind','remindedOn','snoozedUntil','protocolId','site'])VALID_KEYS.add(key);NUMBERS.add('dose');NUMBERS.add('intervalDays');for(const key of ['createdOn','remindedOn','snoozedUntil'])DATES.add(key);
 // Menu Saúde feminina.
-for(const key of ['endDate','flow','symptoms','method','activeDays','pauseDays','changeDate','methodId','intervalMonths','lastDate','snoozeHour'])VALID_KEYS.add(key);for(const key of ['activeDays','pauseDays','intervalMonths','snoozeHour'])NUMBERS.add(key);for(const key of ['endDate','changeDate','lastDate'])DATES.add(key);
+for(const key of ['endDate','flow','symptoms','method','activeDays','pauseDays','changeDate','methodId','intervalMonths','lastDate','snoozeHour','protection'])VALID_KEYS.add(key);for(const key of ['activeDays','pauseDays','intervalMonths','snoozeHour'])NUMBERS.add(key);for(const key of ['endDate','changeDate','lastDate'])DATES.add(key);
 // Coleções criadas depois do lançamento: espaços e backups antigos ganham a lista vazia.
-const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives'];
+const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy'];
 // Perfis de antes da versão feminina eram todos tratados no masculino; o avatar ganha penteado e brincos padrão.
 // Copia o perfil em vez de alterá-lo, porque validateWorkspace só copia o primeiro nível do backup.
 export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];
@@ -64,7 +64,7 @@ export function validateItem(collection:string,raw:any):Item{
   else throw new Error('Tipo inválido para '+key);
  }
  if(item.repeat&&!['none','daily','weekdays','weekly','monthly'].includes(item.repeat))throw new Error('Repetição inválida');
- if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses','periods','symptoms','contraceptiveDoses'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
+ if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses','periods','symptoms','contraceptiveDoses','intimacy'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
  if(['transactions','bills'].includes(collection)&&(!Number.isSafeInteger(item.amount)||item.amount<=0))throw new Error('Informe um valor maior que zero');
  if(collection==='bills'&&(!Number.isInteger(item.day)||item.day<1||item.day>31))throw new Error('Informe um dia entre 1 e 31');
  if(['books','readingLogs'].includes(collection)&&(!Number.isInteger(item.pages)||item.pages<1))throw new Error('Informe a quantidade de páginas');
@@ -80,6 +80,7 @@ export function validateItem(collection:string,raw:any):Item{
  if(collection==='trtDoses'){if(typeof item.protocolId!=='string'||!/^[\w-]{1,100}$/.test(item.protocolId))throw new Error('Escolha o protocolo');if(item.dose!==undefined&&!(item.dose>0))throw new Error('Dose inválida');}
  if(collection==='periods'){if(item.flow&&!FLOWS.some(([id])=>id===item.flow))throw new Error('Fluxo inválido');if(item.endDate&&(item.endDate<item.date||(Date.parse(item.endDate+'T12:00:00Z')-Date.parse(item.date+'T12:00:00Z'))/86400000>15))throw new Error('O fim deve ficar entre o início e até 15 dias depois');}
  if(collection==='symptoms'){if(item.mood!==undefined&&(!Number.isInteger(item.mood)||item.mood<1||item.mood>5))throw new Error('Humor inválido');if((item.symptoms||[]).some((x:string)=>!(SYMPTOMS as readonly string[]).includes(x)))throw new Error('Sintoma inválido');}
+ if(collection==='intimacy'&&item.protection!==undefined&&!['com','sem'].includes(item.protection))throw new Error('Proteção inválida');
  if(collection==='contraceptives'){item.method??='daily';if(!METHODS.some(([id])=>id===item.method))throw new Error('Método inválido');if(!item.startDate)throw new Error('Informe a data de início');item.status??='active';if(!['active','paused'].includes(item.status))throw new Error('Situação inválida');
   if(item.method==='daily'){item.activeDays??=21;item.pauseDays??=7;if(!Number.isInteger(item.activeDays)||item.activeDays<1||item.activeDays>90||!Number.isInteger(item.pauseDays)||item.pauseDays>30)throw new Error('Informe dias de uso (1 a 90) e de pausa (0 a 30)');}
   if(item.method==='injection'&&(!Number.isInteger(item.intervalDays)||item.intervalDays<1||item.intervalDays>120))throw new Error('Informe o intervalo entre 1 e 120 dias');
@@ -122,7 +123,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   const col=command.collection as Collection;const item=validateItem(col,command.item);const index=s[col].findIndex(x=>x.id===item.id);
   if(index>=0&&command.item?._rev!==undefined&&command.item._rev!==(s[col][index]._rev||0))throw new Error('Este registro foi atualizado em outra aba. Feche o formulário e abra novamente.');
   item._rev=(index>=0?s[col][index]._rev||0:0)+1;
-  if(['journal','sleep','symptoms'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
+  if(['journal','sleep','symptoms','intimacy'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
   if(col==='trtDoses'&&s.trtDoses.some(x=>x.protocolId===item.protocolId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma aplicação deste protocolo nesta data. Edite o registro existente.');
   if(col==='periods'&&s.periods.some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma menstruação com este início. Edite o registro existente.');
   if(col==='contraceptiveDoses'&&s.contraceptiveDoses.some(x=>x.methodId===item.methodId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro deste método nesta data. Edite o registro existente.');
