@@ -64,15 +64,6 @@
 .check-chip{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer}
 .check-chip input{accent-color:var(--green)}
 .suggestion-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.cycle-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted)}
-.cycle-legend span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.cycle-legend .period::before{background:#e0a9a3}.cycle-legend .fertile::before{background:var(--green-soft);border:1px solid var(--green)}.cycle-legend .ovulation::before{background:var(--green)}
-.cycle-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
-.cycle-day{border:1px solid var(--border);border-radius:10px;padding:6px 4px;text-align:center;display:grid;gap:2px}
-.cycle-day small{font-size:9px;color:var(--muted);text-transform:uppercase}.cycle-day strong{font-size:13px}
-.cycle-day.period{background:#f3d9d6;border-color:#e0a9a3}.cycle-day.fertile{background:var(--green-soft);border-color:var(--green)}.cycle-day.ovulation{background:var(--green);border-color:var(--green);color:var(--surface)}.cycle-day.ovulation small{color:var(--surface)}
-.cycle-day.today{outline:2px solid var(--gold);outline-offset:1px}
-:root[data-theme=dark] .cycle-day.period{background:#4a2a28;border-color:#7a4540}
 .button-group.spaced{margin-bottom:22px}
 @media(max-width:580px){.stats-grid.three.female-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .task-check.external-mark{border-style:dashed;color:var(--muted)}
@@ -91,3 +82,17 @@
 .music-mixer label{display:grid;gap:4px}.music-mixer input[type=range]{width:100%}.music-mixer .music-check{display:flex;align-items:center;gap:8px}
 .music-credits{margin-bottom:16px;font-size:12px;color:var(--muted)}.music-credits p{margin:0;overflow-wrap:anywhere}.music-credits a{color:var(--green);text-decoration:underline}
 .sleep-sounds{display:flex;align-items:center;gap:16px;padding:20px 24px;color:var(--green)}.sleep-sounds>div{flex:1;min-width:0}.sleep-sounds h2{font-size:16px;font-weight:500;color:var(--text)}.sleep-sounds p{font-size:12px;color:var(--muted);margin-top:4px}@media(max-width:580px){.sleep-sounds{flex-wrap:wrap;padding:18px}}
+.cc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}.cc-nav{display:flex;align-items:center;gap:4px}.cc-nav h2{margin:0;font-size:17px;min-width:150px;text-align:center}.cc-tools{display:flex;align-items:center;gap:6px}
+.cc-switch{display:inline-flex;padding:3px;border-radius:999px;background:var(--surface-2)}.cc-switch button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:5px 12px;border-radius:999px;cursor:pointer}.cc-switch button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.cc-hint{margin:0 0 10px;font-size:13px;color:var(--muted)}
+.cc-week,.cc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.cc-week span{font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding-bottom:4px}.cc-blank{min-height:48px}
+.cc-day{position:relative;min-width:0;min-height:48px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;padding:6px 2px 4px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:2px;cursor:pointer}
+.cc-day strong{font-size:15px;line-height:1}.cc-day small{position:absolute;top:3px;right:4px;font-size:9px;line-height:1;color:var(--muted)}.cc-marks{display:flex;align-items:center;justify-content:center;gap:2px;min-height:11px}.cc-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.cc-day.period{background:#f3d9d6;border-color:#e0a9a3}.cc-day.predicted{border:2px dashed #e0a9a3}.cc-day.fertile{background:var(--green-soft);border-color:var(--green)}.cc-day.ovulation{background:var(--green);border-color:var(--green);color:var(--surface)}.cc-day.ovulation small{color:var(--surface)}
+.cc-day.today{outline:2px solid var(--gold);outline-offset:1px}.cc-day.selected{background:var(--text);border-color:var(--text);color:var(--surface)}.cc-day.selected small{color:var(--surface)}
+:root[data-theme=dark] .cc-day.period{background:#4a2a28;border-color:#7a4540}:root[data-theme=dark] .cc-day.predicted{border-color:#7a4540}
+.cc-legend{list-style:none;display:flex;flex-wrap:wrap;gap:8px 14px;margin:0 0 12px;padding:0;font-size:12px;color:var(--muted)}.cc-legend li{display:flex;align-items:center;gap:6px}.cc-swatch{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--border)}.cc-swatch.period{background:#f3d9d6;border-color:#e0a9a3}.cc-swatch.predicted{border:2px dashed #e0a9a3}.cc-swatch.fertile{background:var(--green-soft);border-color:var(--green)}.cc-swatch.ovulation{background:var(--green);border-color:var(--green)}
+.cc-panel{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}.cc-panel header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}.cc-panel h3{margin:0;font-size:16px}.cc-pills{display:flex;gap:6px;flex-wrap:wrap}.cc-panel ul{margin:0 0 12px;padding-left:18px;display:grid;gap:4px;font-size:14px}.cc-empty{margin:0 0 12px;color:var(--muted);font-size:14px}
+.cc-year{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cc-mini{min-width:0;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;text-align:left;padding:10px;cursor:pointer}.cc-mini h3{margin:0 0 6px;font-size:13px}
+.cc-mini-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}.cc-mini-grid i{aspect-ratio:1;border-radius:3px;background:var(--surface-2)}.cc-mini-grid i.blank{visibility:hidden}.cc-mini-grid i.period{background:#e0a9a3}.cc-mini-grid i.predicted{background:transparent;box-shadow:inset 0 0 0 1px #e0a9a3}.cc-mini-grid i.fertile{background:var(--green-soft)}.cc-mini-grid i.ovulation{background:var(--green)}.cc-mini-grid i.today{outline:1.5px solid var(--gold)}
+@media(min-width:900px){.cc-year{grid-template-columns:repeat(4,minmax(0,1fr))}.cc-day{min-height:62px}.cc-blank{min-height:62px}.cc-day strong{font-size:17px}}

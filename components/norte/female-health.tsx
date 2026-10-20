@@ -1,13 +1,12 @@
 'use client';
 import {useState} from 'react';import {Plus,Droplet,CalendarDays,ShieldCheck,Pill,Syringe,FlaskConical,Stethoscope,Pencil,Trash2,Check,Sparkles,Utensils,Moon,Dumbbell,Heart,HeartPulse,Leaf} from 'lucide-react';
-import {useApp,type AppContext} from './context';import {PageHeading,Tabs,Stat,Empty} from './primitives';import {Records} from './records';import {ExamsPanel,OVERALL_PILL} from './exams';import {FEMALE_TIPS} from './female-health-tips';
+import {useApp,type AppContext} from './context';import {PageHeading,Tabs,Stat,Empty} from './primitives';import {Records} from './records';import {ExamsPanel,OVERALL_PILL} from './exams';import {FEMALE_TIPS} from './female-health-tips';import {CycleCalendar} from './cycle-calendar';
 import {cyclePrediction,dailyStatus,injectionNext,iudStatus,sortPreventives,takeId,dayDiff,FLOW_LABEL,METHOD_SHORT,PREVENTIVE_LABEL,PREVENTIVE_SUGGESTIONS,type PreventiveState} from '@/lib/female-health';import {finalOverall,OVERALL_LABEL} from '@/lib/testosterone';import type {Item} from '@/lib/types';
 const ICONS={utensils:Utensils,heart:Heart,moon:Moon,dumbbell:Dumbbell,droplet:Droplet,stethoscope:Stethoscope};
 const PREVENTIVE_PILL:Record<PreventiveState,string>={none:'pill',late:'pill danger',soon:'pill warn',ok:'pill green'};
 const dayLabel=(d:string)=>d?d.split('-').reverse().join('/'):'';
 const shortDay=(d:string)=>dayLabel(d).slice(0,5);
 const plural=(n:number)=>n+(n===1?' dia':' dias');
-const weekday=(d:string)=>new Intl.DateTimeFormat('pt-BR',{weekday:'narrow',timeZone:'UTC'}).format(new Date(d+'T12:00:00Z'));
 const takenToday=(a:AppContext,m:Item)=>a.state.contraceptiveDoses.some(d=>d.methodId===m.id&&d.date===a.today);
 const newPeriod=(a:AppContext)=>a.edit('periods',undefined,{date:a.today,title:'Menstruação',flow:'moderado'});
 // Um registro de sintomas por dia: se o de hoje existe, abre para editar.
@@ -43,12 +42,11 @@ function Summary({onTab}:{onTab:(t:string)=>void}){const a=useApp();const c=cycl
   {overall&&points.length>0&&<section className="panel"><header className="section-heading"><h2>Pontos de atenção do último exame</h2><span className={OVERALL_PILL[overall]}>{OVERALL_LABEL[overall]}</span></header><ul className="review-list">{points.map((p,i)=><li key={i}><b>{p.marker}:</b> {p.text}</li>)}</ul></section>}
  </>;}
 
-function CyclePanel(){const a=useApp();const c=cyclePrediction(a.state.periods,a.today);const days:{date:string;kind:string|null}[]=[];const periods=a.state.periods.slice().sort((x,y)=>x.date.localeCompare(y.date));const symptoms=a.state.symptoms.slice().sort((x,y)=>x.date.localeCompare(y.date));
+function CyclePanel(){const a=useApp();const c=cyclePrediction(a.state.periods,a.today);const periods=a.state.periods.slice().sort((x,y)=>x.date.localeCompare(y.date));const symptoms=a.state.symptoms.slice().sort((x,y)=>x.date.localeCompare(y.date));
  return <>
   <div className="button-group spaced"><button className="button primary" onClick={()=>newPeriod(a)}><Droplet size={16}/>Menstruação começou</button><button className="button outline" onClick={()=>newSymptoms(a)}><HeartPulse size={16}/>Registrar sintomas</button></div>
-  {c?<><div className="stats-grid three female-stats"><Stat label="Duração média do ciclo" value={c.cycleLength+' dias'} foot={c.cycles?'Com base em '+c.cycles+(c.cycles===1?' ciclo':' ciclos'):'Padrão de 28 dias até registrar mais ciclos'}/><Stat label="Duração média da menstruação" value={c.periodLength+' dias'} foot="Registre o fim para melhorar a média"/><Stat label="Próxima menstruação" value={dayLabel(c.next)} foot={c.late?'Atrasada há '+plural(c.late):'Em '+plural(c.daysToNext)} accent={c.late>0}/></div>
-   <section className="panel"><header className="section-heading"><h2>Próximos 35 dias</h2><div className="cycle-legend"><span className="period">Menstruação</span><span className="fertile">Janela fértil</span><span className="ovulation">Ovulação</span></div></header><div className="cycle-calendar">{days.map(d=><div key={d.date} className={'cycle-day '+(d.kind||'')+(d.date===a.today?' today':'')} title={dayLabel(d.date)}><small>{weekday(d.date)}</small><strong>{Number(d.date.slice(8))}</strong></div>)}</div></section></>
-  :<section className="panel"><Empty icon={Droplet} title="Nenhuma menstruação registrada" description="Registre o início da última menstruação para ver a previsão do próximo ciclo." action="Registrar menstruação" onAction={()=>newPeriod(a)}/></section>}
+  {c&&<div className="stats-grid three female-stats"><Stat label="Duração média do ciclo" value={c.cycleLength+' dias'} foot={c.cycles?'Com base em '+c.cycles+(c.cycles===1?' ciclo':' ciclos'):'Padrão de 28 dias até registrar mais ciclos'}/><Stat label="Duração média da menstruação" value={c.periodLength+' dias'} foot="Registre o fim para melhorar a média"/><Stat label="Próxima menstruação" value={dayLabel(c.next)} foot={c.late?'Atrasada há '+plural(c.late):'Em '+plural(c.daysToNext)} accent={c.late>0}/></div>}
+  <CycleCalendar/>
   <div className="section-action"><h2>Menstruações</h2></div>
   <Records collection="periods" items={periods} compact renderExtra={p=><p className="record-content">{[p.endDate?'Até '+dayLabel(p.endDate):'Sem data de fim',FLOW_LABEL[p.flow]||''].filter(Boolean).join(' · ')}</p>} emptyTitle="Nenhuma menstruação registrada" emptyText="Cada registro melhora a previsão do ciclo."/>
   <div className="section-action"><h2>Sintomas</h2></div>
