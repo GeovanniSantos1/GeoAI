@@ -1,5 +1,5 @@
 import {todayInZone,addDays} from './core.ts';
-import {BoardError,newCard,updateCard,createdEvent,summarize,cleanFields,planAction,searchCards,parseCode,reviveCard,reviveEvent,reviveAudit,codeOf,CARD_LIMIT,LIMITS,type Card,type CardFilters,type AuditEntry,type BoardEvent,type Actor,type ChangeSet} from './board.ts';
+import {BoardError,newCard,updateCard,createdEvent,summarize,cleanFields,planAction,searchCards,parseCode,reviveCard,reviveEvent,reviveAudit,codeOf,CARD_LIMIT,LIMITS,type Card,type CardFilters,type AuditEntry,type BoardEvent,type Actor,type ChangeSet,storeProposal,decideProposal,parseArea,parsePriority,STALE_PROPOSAL} from './board.ts';
 import {buildDayPlan,cleanPlan,emptyPlan,type DayPlan} from './day-plan.ts';
 import {focusReport} from './focus-report.ts';
 import {FOCUS_BUSY} from './focus.ts';
@@ -77,3 +77,24 @@ export async function importBoard(d:BoardDeps,input:unknown){const raw=rec(input
  if(raw.replace!==true&&(await d.store.cards(d.userId)).length+cards.length>LIMITS.cards)throw new BoardError(CARD_LIMIT);
  try{await d.store.restore(d.userId,{cards,events,audit,plans},raw.replace===true);}catch(e){if(e instanceof StoreConflict)throw new BoardError('Backup do quadro inválido.');throw e;}return {ok:true as const,cards:cards.length};}
 export async function clearBoard(d:BoardDeps){await d.store.clear(d.userId);return {ok:true as const};}
+// IA no card: a cota é gasta antes de chamar o modelo; a proposta guarda a revisão que a IA viu (baseRev).
+export async function generateProposal(d:BoardDeps,id:string,raw:unknown){const body=rec(raw),action=body.action;if(action!=='refine'&&action!=='tests')throw new BoardError('Ação de IA inválida.');
+ const instruction=typeof body.instruction==='string'?body.instruction.trim().slice(0,LIMITS.instruction):'';if(!d.ai)throw new BoardError(AI_OFF,503);
+ const card=await mustCard(d,id);const {today}=await context(d);if(!await d.quota('board_ai',today))throw new BoardError(AI_QUOTA,429);
+ let out:unknown;try{out=await (action==='refine'?d.ai.refine({card,instruction}):d.ai.tests({card,instruction}));}catch{throw new BoardError(AI_FAILED,502);}
+ const proposal=storeProposal(card,action,out,instruction,clock(d).toISOString()).proposals[action];
+ const fresh=await mustCard(d,id),proposals={...fresh.proposals,[action]:proposal};await d.store.setProposals(d.userId,id,proposals);return {card:{...fresh,proposals}};}
+export async function decideCardProposal(d:BoardDeps,id:string,raw:unknown){const body=rec(raw),action=body.action,decision=body.decision;
+ if((action!=='refine'&&action!=='tests')||(decision!=='accept'&&decision!=='reject'))throw new BoardError('Decisão inválida.');
+ const card=await mustCard(d,id),r=decideProposal(card,action,decision,Array.isArray(body.selected)?body.selected:undefined,clock(d).toISOString());
+ if(decision==='reject'){await d.store.setProposals(d.userId,id,r.card.proposals);return {card:r.card};}
+ try{await d.store.save(d.userId,{updated:[r.card],events:r.events,audit:r.audit});}catch(e){if(e instanceof StoreConflict)throw new BoardError(STALE_PROPOSAL,409);throw e;}return {card:r.card};}
+// Triagem: a validação e a cota vêm antes da resposta em streaming, para os erros voltarem com o status certo.
+export async function prepareTriage(d:BoardDeps,raw:unknown){if(!d.ai)throw new BoardError(AI_OFF,503);const body=rec(raw);
+ const ids:string[]=Array.isArray(body.cardIds)?[...new Set<string>(body.cardIds.filter((x:unknown):x is string=>typeof x==='string'))]:[];if(!ids.length||ids.length>LIMITS.perAction)throw new BoardError('Trie de 1 a 20 cards por vez.');
+ const cards=(await d.store.cards(d.userId)).filter(c=>ids.includes(c.id)&&c.status==='backlog'&&c.estimate===0);if(!cards.length)throw new BoardError('Nenhum card novo para triar.');
+ const {today}=await context(d);if(!await d.quota('board_ai',today))throw new BoardError(AI_QUOTA,429);return cards;}
+// Sugestões de outros cards, repetidas ou com valores inválidos são ignoradas; a estimativa fica entre 1 e 12.
+export async function runTriage(d:BoardDeps,cards:Card[],onItem:(s:TriageSuggestion)=>void){if(!d.ai)throw new BoardError(AI_OFF,503);const pending=new Set(cards.map(c=>c.id));
+ await d.ai.triage({cards},s=>{if(!s||!pending.has(s.cardId))return;const area=parseArea(s.area),priority=parsePriority(s.priority);if(!area||!priority||!Number.isFinite(s.estimate))return;
+  pending.delete(s.cardId);onItem({cardId:s.cardId,area,priority,estimate:Math.min(12,Math.max(1,Math.round(s.estimate)))});});}

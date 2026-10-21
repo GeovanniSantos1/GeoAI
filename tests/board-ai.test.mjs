@@ -1,0 +1,43 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {emptyWorkspace,applyCommand} from '../lib/core.ts';
+import {memoryBoardStore} from '../lib/board-store.ts';
+import {STALE_PROPOSAL,NO_PROPOSAL} from '../lib/board.ts';
+import {createCards,patchCard,cardDetail,generateProposal,decideCardProposal,prepareTriage,runTriage,applyAction,listAudit,AI_OFF,AI_QUOTA,AI_FAILED} from '../lib/board-service.ts';
+const REFINE={description:'Descrição clara',acceptance:['Dado um CEP válido, quando calculo, então vejo o frete','b','c'],subtasks:['Teste','Código','Revisão']};
+const TESTS={cases:[{title:'CEP válido',kind:'positive',precondition:'',steps:['Informar CEP'],expected:'Frete'},{title:'CEP vazio',kind:'negative',precondition:'',steps:['Calcular'],expected:'Erro'}]};
+const AI={refine:async()=>REFINE,tests:async()=>TESTS,triage:async()=>{}};
+function harness({ai=AI,quota=()=>true}={}){const box={state:emptyWorkspace('Geo'),used:[]};
+ const deps={userId:'u1',store:memoryBoardStore(),ai,now:()=>new Date('2026-10-20T13:00:00Z'),quota:async(kind,day)=>{box.used.push(kind+':'+day);return quota();},load:async()=>({state:box.state,version:1}),mutate:async c=>{box.state=applyCommand(box.state,c,'2026-10-20');return {state:box.state,version:2};}};
+ return {deps,box};}
+
+test('refinar guarda a proposta sem subir a revisão e gasta a cota',async()=>{const seen=[];const {deps,box}=harness({ai:{...AI,refine:async i=>{seen.push(i);return REFINE;}}});
+ const [c]=(await createCards(deps,[{title:'Frete',description:'antes'}])).cards;const r=await generateProposal(deps,c.id,{action:'refine',instruction:'  foque em CEP  '});
+ assert.deepEqual([r.card.rev,r.card.proposals.refine.baseRev,r.card.proposals.refine.description,r.card.proposals.refine.instruction],[1,1,'Descrição clara','foque em CEP']);
+ assert.deepEqual(box.used,['board_ai:2026-10-20']);assert.deepEqual([seen[0].card.id,seen[0].instruction],[c.id,'foque em CEP']);
+ assert.equal((await cardDetail(deps,c.id)).card.proposals.refine.description,'Descrição clara');});
+test('sem IA, sem cota ou com falha: erros claros',async()=>{
+ const off=harness({ai:null});const [c]=(await createCards(off.deps,[{title:'A'}])).cards;await assert.rejects(generateProposal(off.deps,c.id,{action:'refine'}),{message:AI_OFF,status:503});assert.deepEqual(off.box.used,[]);
+ const q=harness({quota:()=>false});const [d]=(await createCards(q.deps,[{title:'A'}])).cards;await assert.rejects(generateProposal(q.deps,d.id,{action:'tests'}),{message:AI_QUOTA,status:429});
+ const f=harness({ai:{...AI,refine:async()=>{throw new Error('timeout');},tests:async()=>({cases:[]})}});const [e]=(await createCards(f.deps,[{title:'A'}])).cards;
+ await assert.rejects(generateProposal(f.deps,e.id,{action:'refine'}),{message:AI_FAILED,status:502});await assert.rejects(generateProposal(f.deps,e.id,{action:'tests'}),{message:NO_PROPOSAL});
+ await assert.rejects(generateProposal(f.deps,e.id,{action:'resumir'}),/Ação de IA inválida/);await assert.rejects(generateProposal(f.deps,'nada',{action:'refine'}),{status:404});});
+test('aceitar o refino grava, registra histórico e auditoria; editar antes deixa a proposta velha',async()=>{const {deps}=harness();const [c]=(await createCards(deps,[{title:'Frete',description:'antes'}])).cards;
+ await generateProposal(deps,c.id,{action:'refine'});const ok=await decideCardProposal(deps,c.id,{action:'refine',decision:'accept'});
+ assert.deepEqual([ok.card.description,ok.card.rev,ok.card.acceptance.length,ok.card.proposals.refine],['Descrição clara',2,3,undefined]);
+ assert.deepEqual((await listAudit(deps)).entries.map(x=>x.tool),['refino']);assert.ok((await cardDetail(deps,c.id)).events.some(e=>e.kind==='refine'));
+ await generateProposal(deps,c.id,{action:'refine'});await patchCard(deps,c.id,{rev:2,title:'Frete novo'});
+ await assert.rejects(decideCardProposal(deps,c.id,{action:'refine',decision:'accept'}),{message:STALE_PROPOSAL,status:409});assert.ok((await cardDetail(deps,c.id)).card.proposals.refine);
+ const no=await decideCardProposal(deps,c.id,{action:'refine',decision:'reject'});assert.equal(no.card.proposals.refine,undefined);assert.equal((await cardDetail(deps,c.id)).card.proposals.refine,undefined);assert.equal((await listAudit(deps)).entries.length,1);});
+test('casos de teste: aceita só os escolhidos',async()=>{const {deps}=harness();const [c]=(await createCards(deps,[{title:'Frete'}])).cards;await generateProposal(deps,c.id,{action:'tests'});
+ const r=await decideCardProposal(deps,c.id,{action:'tests',decision:'accept',selected:[1]});assert.deepEqual(r.card.tests.map(t=>[t.code,t.title]),[['CT-01','CEP vazio']]);
+ await assert.rejects(decideCardProposal(deps,c.id,{action:'tests',decision:'accept'}),/Não há proposta/);await assert.rejects(decideCardProposal(deps,c.id,{action:'tests',decision:'talvez'}),/Decisão inválida/);});
+test('triagem: só cards novos, cota antes, sugestões filtradas e aplicação com auditoria',async()=>{const sent=[];
+ const {deps,box}=harness({ai:{...AI,triage:async({cards},on)=>{sent.push(cards.map(c=>c.number));on({cardId:cards[0].id,area:'trabalho',priority:'high',estimate:30});on({cardId:cards[0].id,area:'casa',priority:'low',estimate:2});on({cardId:'outro',area:'casa',priority:'low',estimate:2});on({cardId:cards[1].id,area:'lua',priority:'low',estimate:2});}}});
+ const [a,b,c]=(await createCards(deps,[{title:'A'},{title:'B'},{title:'C',estimate:2}])).cards;
+ const cards=await prepareTriage(deps,{cardIds:[a.id,b.id,c.id,a.id]});assert.deepEqual(cards.map(x=>x.number),[1,2]);assert.deepEqual(box.used,['board_ai:2026-10-20']);
+ const got=[];await runTriage(deps,cards,s=>got.push(s));assert.deepEqual(got,[{cardId:a.id,area:'trabalho',priority:'high',estimate:12}]);assert.deepEqual(sent,[[1,2]]);
+ await assert.rejects(prepareTriage(deps,{cardIds:[c.id]}),/Nenhum card novo/);await assert.rejects(prepareTriage(deps,{cardIds:[]}),/1 a 20/);
+ await assert.rejects(prepareTriage(harness({ai:null}).deps,{cardIds:[a.id]}),{message:AI_OFF});
+ const r=await applyAction(deps,'aplicar_triagem',{itens:[{cardId:a.id,area:'trabalho',prioridade:'high',estimativa:12},{cardId:b.id,area:'casa',prioridade:'low',estimativa:1}]},'you');
+ assert.equal(r.set.changes.filter(x=>x.field==='status').length,2);assert.deepEqual((await listAudit(deps)).entries.map(x=>x.tool),['aplicar_triagem']);});
