@@ -1,4 +1,4 @@
-import {proposalsText} from '@/lib/agent';import {config} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,telegramFile,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';
+import {proposalsText} from '@/lib/agent';import {config} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,telegramFile,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace} from '@/lib/workspace-server';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';
 // Webhook público do bot. Só aceita chamadas com o segredo registrado no setWebhook e só responde a chats vinculados a uma conta.
 type Api=ReturnType<typeof telegramApi>;
 // Áudio soma o download e a transcrição à rodada da IA (até 45 s).
@@ -39,7 +39,7 @@ async function onCallback(api:Api,e:Extract<TelegramEvent,{kind:'callback'}>){co
  const clearButtons=()=>api('editMessageReplyMarkup',{chat_id:e.chatId,message_id:e.messageId,reply_markup:{inline_keyboard:[]}}).catch(()=>{});
  const {state}=await loadWorkspace(link.userId,'');const r=resolveChoice(e.data,state,link.pending);
  if(r.expired){await clearButtons();return answer(r.ack);}
- if(r.command){try{await mutateWorkspace(link.userId,'',r.command);}catch(err){console.error('telegram choice',err);return answer('Não foi possível salvar agora. Tente de novo.');}}
+ if(r.command){try{await confirmCommand(link.userId,r.command);}catch(err){console.error('telegram choice',err);return answer('Não foi possível salvar agora. Tente de novo.');}}
  await clearButtons();
  if(r.pending)await saveConversation(e.chatId,pushHistory(link.history,[{role:'assistant',text:r.reply}]),r.pending);
  await answer(r.ack);await sendText(api,e.chatId,r.reply);}

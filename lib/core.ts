@@ -4,6 +4,7 @@ import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
 import { HAIR_STYLES, hiddenSections } from './gender.ts';
 import { SYMPTOMS, FLOWS, METHODS, femaleAgenda } from './female-health.ts';
 import { formatMoney, PAYMENTS, EXPENSE_CATEGORIES, CATEGORIES } from './finance.ts';
+import { focusStep, cleanFocusSettings, upgradeFocusSettings, FOCUS_DEFAULTS, type FocusCommand } from './focus.ts';
 import { INVEST_KINDS, FIXED_INCOME, INDEXERS, MOVES, MOVE_TITLE, moveProblem, modeOf, position, formatQty } from './invest.ts';
 
 export const MOMENTS = [
@@ -30,6 +31,8 @@ for(const key of ['lab','markers','file','review','createdOn','dose','intervalDa
 for(const key of ['endDate','flow','symptoms','method','activeDays','pauseDays','changeDate','methodId','intervalMonths','lastDate','snoozeHour','protection'])VALID_KEYS.add(key);for(const key of ['activeDays','pauseDays','intervalMonths','snoozeHour'])NUMBERS.add(key);for(const key of ['endDate','changeDate','lastDate'])DATES.add(key);
 // Finanças: forma de pagamento do lançamento.
 VALID_KEYS.add('payment');
+// Foco: sessões ligadas ao card do quadro (boardCardId, porque cardId é o cartão de crédito do lançamento).
+for(const key of ['kind','startedAt','endedAt','reason','boardCardId'])VALID_KEYS.add(key);
 // Investimentos: ativo (tipo, código, corretora, indexador e taxa) e movimento (ativo, tipo de movimento, cotação e o ativo novo que pode vir junto).
 for(const key of ['kind','ticker','broker','indexer','rate','assetId','move','price','newAsset'])VALID_KEYS.add(key);for(const key of ['rate','price'])NUMBERS.add(key);
 // Limites por coleção (lançamentos têm mais espaço por causa da importação de faturas) e do espaço inteiro, em caracteres de JSON.
@@ -38,12 +41,12 @@ const LIMITS:Record<string,number>={transactions:5000};const limitOf=(c:string)=
 const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy','investments','investmentEvents'];
 // Perfis de antes da versão feminina eram todos tratados no masculino; o avatar ganha penteado e brincos padrão.
 // Copia o perfil em vez de alterá-lo, porque validateWorkspace só copia o primeiro nível do backup.
-export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];
+export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];if(s.focusTimer===undefined)s.focusTimer=null;
  for(const key of ['transactions','bills'])if(Array.isArray(s[key]))s[key]=s[key].map((x:any)=>x&&x.category==='Casa'?{...x,category:'Moradia'}:x);
  if(s.profile&&typeof s.profile==='object'){const p={...s.profile};if(p.gender===undefined)p.gender='male';if(p.avatar&&typeof p.avatar==='object')p.avatar={style:'longo',earrings:true,...p.avatar};
- if(!p.categoryBudgets||typeof p.categoryBudgets!=='object'||Array.isArray(p.categoryBudgets))p.categoryBudgets={};s.profile=p;}}return raw;}
+ if(!p.categoryBudgets||typeof p.categoryBudgets!=='object'||Array.isArray(p.categoryBudgets))p.categoryBudgets={};p.focus=upgradeFocusSettings(p.focus);s.profile=p;}}return raw;}
 export function emptyWorkspace(name=''): Workspace {
- const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,categoryBudgets:{},sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,gender:'',avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c',style:'longo',earrings:true},unlockedMoments:[]},completions:{},rewarded:[]};
+ const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,categoryBudgets:{},focus:{...FOCUS_DEFAULTS},sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,gender:'',avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c',style:'longo',earrings:true},unlockedMoments:[]},completions:{},rewarded:[],focusTimer:null};
  for(const key of COLLECTIONS)result[key]=[];return result;
 }
 export function validDate(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(value+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;}
@@ -103,6 +106,7 @@ export function validateItem(collection:string,raw:any):Item{
   if(item.method!=='iud'&&item.remind&&!item.time)throw new Error('Informe o horário do lembrete');}
  if(collection==='contraceptiveDoses'&&(typeof item.methodId!=='string'||!/^[\w-]{1,100}$/.test(item.methodId)))throw new Error('Escolha o método');
  if(collection==='preventives'&&(!Number.isInteger(item.intervalMonths)||item.intervalMonths<1||item.intervalMonths>120))throw new Error('Informe o intervalo entre 1 e 120 meses');
+ if(collection==='focusSessions'){if((item.kind!==undefined&&item.kind!=='focus')||(item.status!==undefined&&!['completed','interrupted'].includes(item.status)))throw new Error('Situação da sessão inválida');if(item.reason!==undefined&&item.reason.length>200)throw new Error('Motivo muito longo');}
  if(collection==='investments'){if(!INVEST_KINDS.some(k=>k.id===item.kind))throw new Error('Tipo de investimento inválido');
   if(item.ticker!==undefined){item.ticker=item.ticker.toUpperCase().replace(/\s+/g,'');if(item.ticker.length>16)throw new Error('Use um código de até 16 caracteres');if(!item.ticker)delete item.ticker;}
   if(item.broker!==undefined&&item.broker.length>40)throw new Error('Use um nome de corretora de até 40 caracteres');
@@ -151,10 +155,11 @@ function cleanProfile(raw:any,previous:Workspace['profile']){
  // Tetos por categoria: mescla com os atuais; 0 remove a categoria; só categorias de despesa da lista.
  if(raw.categoryBudgets!==undefined){const c=raw.categoryBudgets;if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Configuração inválida');const next:Record<string,number>={...(p.categoryBudgets||{})};
   for(const [k,v] of Object.entries(c)){if(!EXPENSE_CATEGORIES.includes(k)||!Number.isSafeInteger(v)||(v as number)<0||(v as number)>1e12)throw new Error('Configuração inválida');if(v===0)delete next[k];else next[k]=v as number;}p.categoryBudgets=next;}
+ if(raw.focus!==undefined)p.focus=cleanFocusSettings(raw.focus,p.focus||FOCUS_DEFAULTS);
  return p;
 }
 function reward(s:Workspace,key:string,points:number){if(s.rewarded.includes(key))return;s.rewarded.push(key);s.profile.xp+=points;s.profile.points+=points;}
-export function applyCommand(state:Workspace,command:Command,today:string):Workspace{
+export function applyCommand(state:Workspace,command:Command,today:string,now=new Date()):Workspace{
  if(!validDate(today)||!command||typeof command.type!=='string')throw new Error('Comando inválido');const s=structuredClone(state);
  const get=(collection:Collection,id?:string)=>{const item=s[collection].find(x=>x.id===id);if(!item)throw new Error('Registro não encontrado');return item;};
  if(command.type==='upsert'){
@@ -171,7 +176,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   if(index<0&&s[col].length>=limitOf(col))throw new Error('Limite da coleção atingido');if(index<0)s[col].push(item);else s[col][index]=item;
   if(col==='journal')reward(s,'journal:'+item.date,15);
   if(col==='sleep')reward(s,'sleep:'+item.date,10);
-  if(col==='focusSessions')reward(s,'focus:'+item.id,20);
+  if(col==='focusSessions'&&item.status!=='interrupted')reward(s,'focus:'+item.id,20);
   if(col==='sessions')reward(s,'workout:'+item.id,25);
  }else if(command.type==='delete'){
   const col=command.collection as Collection;if(!(COLLECTIONS as readonly string[]).includes(col))throw new Error('Coleção inválida');get(col,command.id);
@@ -200,6 +205,12 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   const raw=command.item;if(!raw?.title)throw new Error('Informe a compra');const group=raw.id||crypto.randomUUID();const rows=allocateInstallments(raw.amount,raw.installmentCount,raw.date);
   if(s.transactions.length+rows.length>limitOf('transactions'))throw new Error('Limite de registros excedido');
   rows.forEach((r,i)=>{const id=group+'-part-'+(i+1);if(!s.transactions.some(x=>x.id===id))s.transactions.push(validateItem('transactions',{...raw,...r,id,title:raw.title+' ('+(i+1)+'/'+rows.length+')',direction:'expense',installmentGroup:group,installmentIndex:i+1,installmentCount:rows.length}));});
+ }else if(command.type==='focus'){
+  const r=focusStep(s.focusTimer??null,s.profile.focus||FOCUS_DEFAULTS,command as FocusCommand,now,d=>todayInZone(s.profile.timezone,d));s.focusTimer=r.timer;
+  // O fim do pomodoro nunca pode falhar por limite: com 2000 sessões, a mais antiga sai para a nova entrar.
+  for(const raw of r.sessions){const item=validateItem('focusSessions',raw);const i=s.focusSessions.findIndex(x=>x.id===item.id);item._rev=(i>=0?s.focusSessions[i]._rev||0:0)+1;
+   if(i>=0)s.focusSessions[i]=item;else{if(s.focusSessions.length>=2000){const oldest=s.focusSessions.reduce((m,x,k,arr)=>String(x.date)<String(arr[m].date)?k:m,0);s.focusSessions.splice(oldest,1);}s.focusSessions.push(item);}}
+  for(const key of r.rewards)reward(s,key,20);
  }else if(command.type==='importTransactions'){
   // Fatura importada: cada linha ganha um id novo e tudo é validado antes de gravar (tudo ou nada).
   if(!Array.isArray(command.items)||!command.items.length||command.items.length>250)throw new Error('Importação inválida');
