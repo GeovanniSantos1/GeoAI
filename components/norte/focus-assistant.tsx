@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';import {useChat} from '@ai-sdk/react';import {DefaultChatTransport,type UIMessage} from 'ai';
-import {Sparkles,Send,X,LoaderCircle,Check,TriangleAlert,RefreshCw,Square} from 'lucide-react';
+import {Sparkles,Send,X,LoaderCircle,Check,TriangleAlert,RefreshCw,Square,ShieldCheck} from 'lucide-react';
 import {useApp} from './context';import {useFoco} from './focus-context';import {ChangesTable} from './focus-ui';import {foco,ApiError} from './focus-api';import {useRemaining} from './focus-mini-timer';
 import {AUDIT_LABEL,sortCards,codeOf,type ChangeSet} from '@/lib/board';import {APPROVAL_TOOLS} from '@/lib/foco-agent';
 // Painel do assistente do Foco: as ferramentas de mudança só mostram a prévia; gravar é com o Aprovar daqui.
@@ -36,12 +36,12 @@ export function FocusAssistant({open,onClose,onQueue}:{open:boolean;onClose:()=>
  const loading=status==='submitted'||status==='streaming',todo=sortCards(f.cards.filter(c=>c.status==='todo'))[0];
  const suggestions=['O que está atrasado?',...(todo?['Vamos começar o '+codeOf(todo)]:[]),'Quantos pomodoros fiz esta semana?','Move para Concluída o que está em revisão há mais de 3 dias','Monta meu dia com 8 pomodoros'];
  const send=(value:string)=>{const v=value.trim();if(!v||loading)return;sendMessage({text:v});setText('');};
- const state=error?'Erro':loading?'Respondendo':pending.length?'Aguardando você':'Pronto';
- return <aside className="fo-panel" aria-label="Assistente do Foco" hidden={!open}>
-  <header className="fo-panel-head"><span className="fo-orb"><Sparkles size={17}/></span><div><b>Assistente do Foco</b><small>{state}</small></div><button className="icon-button" aria-label="Fechar o assistente" onClick={onClose}><X size={18}/></button></header>
+ const state=error?'Erro':loading?'Respondendo':pending.length?'Aguardando você':'Pronto',tone=error?'err':loading?'busy':pending.length?'wait':'ok';
+ return <aside className="fo-panel" aria-label="Assistente do Foco" hidden={!open}><span className="fo-grabber" aria-hidden="true"/>
+  <header className="fo-panel-head"><span className={'fo-orb'+(loading?' busy':'')}><Sparkles size={17}/></span><div><b>Assistente do Foco</b><small className={'fo-state '+tone}><i aria-hidden="true"/>{state}</small></div><button className="icon-button" aria-label="Fechar o assistente" onClick={onClose}><X size={18}/></button></header>
   <div className="fo-thread" ref={thread} aria-live="polite">
    {mode==='guided'?<p className="quiet-copy">O assistente precisa da IA configurada. O quadro e o pomodoro funcionam sem ela.</p>
-    :!messages.length&&!quiet&&<div className="fo-suggest">{suggestions.map(s=><button key={s} className="fo-chip" onClick={()=>send(s)}>{s}</button>)}</div>}
+    :!messages.length&&!quiet&&<div className="fo-suggest">{suggestions.map(s=><button key={s} className="fo-chip" onClick={()=>send(s)}><Sparkles size={13}/>{s}</button>)}</div>}
    {messages.map(m=><div key={m.id} className={'chat-msg '+m.role}>{m.parts.map((p,i)=>{if(p.type==='text')return p.text?<p key={i}>{p.text}</p>:null;if(!p.type.startsWith('tool-'))return null;const tp=p as unknown as ToolPartData;
     return <ToolView key={i} part={tp} decision={decisions[tp.toolCallId]} busy={applying.includes(tp.toolCallId)} collapsed={quiet&&!decisions[tp.toolCallId]&&!shown.includes(tp.toolCallId)} onShow={()=>setShown(s=>[...s,tp.toolCallId])} onDecide={d=>decide(tp,d)}/>;})}</div>)}
    {status==='submitted'&&<div className="chat-msg assistant"><small className="chat-status"><LoaderCircle size={13} className="spin"/>Pensando…</small></div>}
@@ -60,7 +60,7 @@ function ToolView({part,decision,busy,collapsed,onShow,onDecide}:{part:ToolPartD
  if(name==='montar_plano')return <small className="chat-status"><Check size={13}/>Plano de hoje: {String(out.planejados)} pomodoros em {String(out.itens)} cards.</small>;
  if(!isApproval(part))return null;const set=out as unknown as ChangeSet;
  if(collapsed)return <div className="fo-approval queued"><span>Na fila do modo foco: aparece quando o pomodoro acabar.</span><button className="button ghost small" onClick={onShow}>Ver agora</button></div>;
- return <div className="fo-approval"><b>{AUDIT_LABEL[set.tool]||name}</b><p className="quiet-copy">O assistente quer {ACTION[name]}. Nada muda sem a sua aprovação.</p>
+ return <div className="fo-approval"><b className="fo-approval-title"><ShieldCheck size={15}/>{AUDIT_LABEL[set.tool]||name}</b><p className="quiet-copy">O assistente quer {ACTION[name]}. Nada muda sem a sua aprovação.</p>
   {set.changes?.length>0&&<ChangesTable changes={set.changes} onOpen={id=>{if(f.cards.some(c=>c.id===id))f.open(id);}}/>}
   {set.notes?.map(n=><small key={n} className="fo-note">ℹ️ {n}</small>)}{set.errors?.map(e=><small key={e} className="fo-tool-error">{e}</small>)}
   {decision?<p className={'fo-decided '+decision}>{decision==='approved'?'Aprovado ✓':'Rejeitado: nada foi alterado'}</p>

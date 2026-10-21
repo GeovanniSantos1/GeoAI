@@ -20,19 +20,21 @@ export function FocusBoard(){const a=useApp(),f=useFoco();const {toast}=a;
    <button className="button ghost small" onClick={()=>setArchived(true)}><Archive size={15}/>Arquivados ({f.archivedCount})</button>
    <button className="button primary" onClick={()=>setCreating(true)}><Plus size={17}/>Novo card</button></div>
   {!f.loading&&!f.cards.length?<Empty title="Seu quadro está vazio" description="Crie um card para começar." action="Novo card" onAction={()=>setCreating(true)}/>:<>
-   <div className="fo-colpick" role="tablist" aria-label="Coluna">{COLUMNS.map(s=><button key={s} role="tab" aria-selected={col===s} className={col===s?'active':''} onClick={()=>setCol(s)}>{STATUS_LABEL[s]}<span>{counts[s]}</span></button>)}</div>
-   <div className="fo-columns">{COLUMNS.map(s=><section key={s} className={'fo-col'+(col===s?' active':'')+(over===s?' over':'')} aria-label={STATUS_LABEL[s]}
+   <div className="fo-colpick" role="tablist" aria-label="Coluna">{COLUMNS.map(s=><button key={s} role="tab" aria-selected={col===s} className={'st-'+s+(col===s?' active':'')} onClick={()=>setCol(s)}><i className="fo-col-dot" aria-hidden="true"/>{STATUS_LABEL[s]}<span>{counts[s]}</span></button>)}</div>
+   <div className="fo-columns">{COLUMNS.map(s=><section key={s} className={'fo-col st-'+s+(col===s?' active':'')+(over===s?' over':'')} aria-label={STATUS_LABEL[s]}
      onDragOver={e=>{e.preventDefault();if(over!==s)setOver(s);}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setOver(null);}} onDrop={e=>{e.preventDefault();setOver(null);const id=e.dataTransfer.getData('text/plain');if(id)move(id,s);}}>
-    <header><h3>{STATUS_LABEL[s]}</h3><span>{counts[s]}</span></header>
+    <header><i className="fo-col-dot" aria-hidden="true"/><h3>{STATUS_LABEL[s]}</h3><span className="fo-col-count">{counts[s]}</span></header>
     <div className="fo-col-body">{sortCards(visible.filter(c=>c.status===s)).map(c=><BoardCard key={c.id} c={c} onMove={move}/>)}</div></section>)}</div></>}
   {creating&&<NewCardModal onClose={()=>setCreating(false)}/>}{archived&&<ArchivedModal onClose={()=>setArchived(false)}/>}</>;}
-function BoardCard({c,onMove}:{c:CardSummary;onMove:(id:string,s:CardStatus)=>void}){const a=useApp(),f=useFoco();const done=donePomodoros(a.state.focusSessions,c.id),client=c.clientId?f.clientName(c.clientId):'',late=isOverdue(c,a.today),t=c.tests;
- return <article className={'fo-card prio-'+c.priority} draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',c.id);e.dataTransfer.effectAllowed='move';}} tabIndex={0} role="button" aria-label={codeOf(c)+' '+c.title}
+function BoardCard({c,onMove}:{c:CardSummary;onMove:(id:string,s:CardStatus)=>void}){const a=useApp(),f=useFoco();const [dragging,setDragging]=useState(false),raf=useRef(0);const done=donePomodoros(a.state.focusSessions,c.id),client=c.clientId?f.clientName(c.clientId):'',late=isOverdue(c,a.today),t=c.tests;
+ const ft=a.state.focusTimer,live=!!ft&&ft.kind==='focus'&&ft.boardCardId===c.id,paused=!!ft&&live&&ft.pausedLeft!==undefined;
+ // O esmaecido entra no quadro seguinte: a imagem do arraste é tirada logo após o dragstart e ficaria apagada.
+ return <article className={'fo-card prio-'+c.priority+(c.status==='done'?' done':'')+(live?' live':'')+(dragging?' dragging':'')} draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',c.id);e.dataTransfer.effectAllowed='move';raf.current=requestAnimationFrame(()=>setDragging(true));}} onDragEnd={()=>{cancelAnimationFrame(raf.current);setDragging(false);}} tabIndex={0} role="button" aria-label={codeOf(c)+' '+c.title}
   onClick={()=>f.open(c.id)} onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==='Enter'||e.key===' ')){e.preventDefault();f.open(c.id);}}}>
-  <header><span className="fo-code">{codeOf(c)}</span><PriorityBadge p={c.priority}/></header><h4>{c.title}</h4>
+  <header><span className="fo-code">{codeOf(c)}</span>{live&&<span className={'fo-card-live'+(paused?' paused':'')}><i className="fo-card-pulse" aria-hidden="true"/>{paused?'pausado':'em foco'}</span>}<PriorityBadge p={c.priority}/></header><h4>{c.title}</h4>
   <p className="fo-meta">{AREA_LABEL[c.area]}{client&&' · '+client}</p>
   <footer>{c.dueDate&&<span className={'fo-due'+(late?' late':'')}><CalendarDays size={13}/>{ddmm(c.dueDate)}</span>}{c.hasProposal&&<span className="fo-ai-tag"><Sparkles size={12}/>IA para revisar</span>}
-   {t.passed+t.failed+t.pending>0&&<span className="fo-tests-mini" title="Casos de teste: passou, falhou, pendente">✓{t.passed} ✗{t.failed} ○{t.pending}</span>}
+   {t.passed+t.failed+t.pending>0&&<span className="fo-tests-mini" title="Casos de teste: passou, falhou, pendente"><span className="pass">✓{t.passed}</span> <span className="fail">✗{t.failed}</span> <span>○{t.pending}</span></span>}
    {c.status!=='done'&&<button className="icon-button fo-start" aria-label={'Iniciar '+codeOf(c)} title="Iniciar" onClick={e=>{e.stopPropagation();f.start(c.id);}}><Play size={15} fill="currentColor"/></button>}</footer>
   {c.estimate>0&&<div className={'fo-pomos'+(done>c.estimate?' over':'')}><span><i style={{width:Math.min(100,done/c.estimate*100)+'%'}}/></span><small>🍅 {done}/{c.estimate}</small></div>}
   <select className="fo-move" aria-label={'Mover '+codeOf(c)+' para'} value="" onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} onChange={e=>{const v=e.target.value as CardStatus;if(v)onMove(c.id,v);}}><option value="">Mover para…</option>{COLUMNS.filter(s=>s!==c.status).map(s=><option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select></article>;}
