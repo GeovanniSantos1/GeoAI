@@ -517,7 +517,7 @@ O comando `{type:'focus', action, …}` entra no `applyCommand`, que passa a rec
 
 ## Rotas
 
-Todas as rotas exigem a sessão do Clerk e a mesma origem nas escritas, validam o corpo com zod, limitam o corpo a 256 KB e filtram tudo por `user_id`.
+Todas as rotas exigem a sessão do Clerk e a mesma origem nas escritas, validam o corpo pelas regras de `lib/board.ts` (puras e testadas), limitam o corpo a 256 KB e filtram tudo por `user_id`.
 
 | Rota | O que faz |
 |---|---|
