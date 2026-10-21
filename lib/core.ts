@@ -199,6 +199,11 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   const raw=command.item;if(!raw?.title)throw new Error('Informe a compra');const group=raw.id||crypto.randomUUID();const rows=allocateInstallments(raw.amount,raw.installmentCount,raw.date);
   if(s.transactions.length+rows.length>limitOf('transactions'))throw new Error('Limite de registros excedido');
   rows.forEach((r,i)=>{const id=group+'-part-'+(i+1);if(!s.transactions.some(x=>x.id===id))s.transactions.push(validateItem('transactions',{...raw,...r,id,title:raw.title+' ('+(i+1)+'/'+rows.length+')',direction:'expense',installmentGroup:group,installmentIndex:i+1,installmentCount:rows.length}));});
+ }else if(command.type==='importTransactions'){
+  // Fatura importada: cada linha ganha um id novo e tudo é validado antes de gravar (tudo ou nada).
+  if(!Array.isArray(command.items)||!command.items.length||command.items.length>250)throw new Error('Importação inválida');
+  const rows=command.items.map(raw=>{if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Importação inválida');const item=validateItem('transactions',{...raw,id:crypto.randomUUID()});item._rev=1;return item;});
+  if(s.transactions.length+rows.length>limitOf('transactions'))throw new Error('Limite de registros excedido');s.transactions.push(...rows);
  }else if(command.type==='confirmPlan'){
   if(!Array.isArray(command.items)||command.items.length>30)throw new Error('Plano inválido');
   let result=s;for(const p of command.items)result=applyCommand(result,{type:'upsert',collection:p.collection,item:p.item},today);return result;

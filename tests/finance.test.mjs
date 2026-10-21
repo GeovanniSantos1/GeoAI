@@ -126,3 +126,14 @@ test('limites: 5.000 lançamentos, 2.000 nas outras coleções e espaço de 2,5 
  assert.equal(validateWorkspace(big).notes.length,170);
  big.notes=many(290,i=>({id:'n'+i,title:'x',content:'a'.repeat(9000)}));
  assert.throws(()=>validateWorkspace(big),/Backup muito grande/);});
+test('importar fatura: tudo ou nada, até 250 por vez e dentro do limite',()=>{const s=emptyWorkspace('Geo');s.cards=[{id:'c1',title:'Nubank'}];
+ const items=[{id:'fixo',title:'Uber',amount:2390,direction:'expense',category:'Transporte',date:'2026-09-05',cardId:'c1'},{title:'Estorno X',amount:500,direction:'income',category:'Outras receitas',date:'2026-10-01',payment:'credit'}];
+ const r=applyCommand(s,{type:'importTransactions',items},T);
+ assert.equal(r.transactions.length,2);assert.deepEqual(r.transactions.map(x=>x.payment),['credit','credit']);
+ assert.ok(r.transactions.every(x=>x._rev===1&&x.id!=='fixo'));assert.equal(new Set(r.transactions.map(x=>x.id)).size,2);
+ assert.throws(()=>applyCommand(s,{type:'importTransactions',items:[...items,{title:'ruim',amount:0,direction:'expense',date:T}]},T),/Informe um valor maior que zero/);
+ assert.equal(s.transactions.length,0);
+ for(const bad of [[],Array.from({length:251},()=>items[1]),'x',[null]])assert.throws(()=>applyCommand(s,{type:'importTransactions',items:bad},T),/Importação inválida/);
+ const full=emptyWorkspace('Geo');full.transactions=Array.from({length:4999},(_,i)=>({id:'t'+i,title:'x',amount:100,direction:'expense',date:T}));
+ assert.equal(applyCommand(full,{type:'importTransactions',items:[items[1]]},T).transactions.length,5000);
+ assert.throws(()=>applyCommand(full,{type:'importTransactions',items},T),/Limite de registros excedido/);});
