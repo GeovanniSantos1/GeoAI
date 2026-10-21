@@ -362,7 +362,7 @@ Excluir um ativo exclui os movimentos dele.
   - `PROPOSABLE` ganha `investmentEvents`;
   - o esquema aceita `assetId`, `move`, `quantity`, `price`, `amount` e `newAsset {title, kind, ticker, broker}`;
   - **validação:** `checkProposals` exige `assetId` de ativo existente ou `newAsset` válido, com as mesmas regras do core;
-  - **texto da confirmação:** "Compra · PETR4 · 10 un. · R$ 380,00", "Provento · MXRF11 · R$ 12,40" e "Cotação · BTC · R$ 350.000,00".
+  - **texto da confirmação:** o título é "movimento · código" e a descrição traz quantidade, valor e data, como "Compra · PETR4" com "10 un. · R$ 380,00 · 2026-10-18", "Dividendo · MXRF11" com "R$ 12,40 · …" e "Cotação · BTC" com "R$ 350.000,00 · …".
 - **Regra nas instruções:**
   - "Investimentos: consulte financas antes de falar da carteira.";
   - "Explique os números, mas nunca recomende comprar, vender ou escolher ativos; as cotações são as informadas pela pessoa.";
