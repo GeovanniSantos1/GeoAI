@@ -8,8 +8,8 @@ export function FocusToday(){const a=useApp(),f=useFoco();const {toast}=a;const 
  const fail=useCallback((e:unknown)=>toast(e instanceof Error?e.message:'Não foi possível abrir o plano.',true),[toast]);
  useEffect(()=>{const load=()=>{foco.plan().then(r=>{if(!pending.current)show(r);}).catch(fail);};load();window.addEventListener('geoai:foco-refresh',load);return()=>window.removeEventListener('geoai:foco-refresh',load);},[show,fail]);
  if(!plan)return <p className="quiet-copy"><LoaderCircle size={15} className="spin"/> Carregando o plano…</p>;
-// Com gravações na fila, a leitura do servidor é ignorada; se uma falhar, o plano é relido quando a fila esvazia.
- const save=(next:DayPlan)=>{setPlan(next);pending.current++;const run=queue.current.then(()=>foco.putPlan(date,next));queue.current=run.catch(()=>{});run.then(()=>{pending.current--;},e=>{pending.current--;toast(e instanceof Error?e.message:'Não foi possível salvar o plano.',true);if(!pending.current)foco.plan().then(show).catch(fail);});};
+ // Com gravações na fila, a leitura do servidor é ignorada; se uma falhar, o plano é relido quando a fila esvazia.
+ const save=(next:DayPlan)=>{setPlan(next);pending.current++;const run=queue.current.then(()=>foco.putPlan(date,next));queue.current=run.catch(()=>{});run.then(()=>{pending.current--;},e=>{pending.current--;toast(e instanceof Error?e.message:'Não foi possível salvar o plano.',true);if(!pending.current)foco.plan().then(r=>{if(!pending.current)show(r);}).catch(fail);});};
  const byId=new Map(f.cards.map(c=>[c.id,c])),progress=planProgress(plan,a.state.focusSessions,a.today),planned=plan.items.reduce((s,i)=>s+i.pomodoros,0);
  const build=()=>save(buildDayPlan(f.cards,a.state.focusSessions,plan,available,a.today));
  const move=(i:number,d:number)=>{const items=[...plan.items],j=i+d;if(j<0||j>=items.length)return;[items[i],items[j]]=[items[j],items[i]];save({...plan,items});};
