@@ -1,4 +1,4 @@
-import {getUserId,getUserProfile} from '@/lib/auth';import {loadWorkspace,mutateWorkspace,jsonError,sameOrigin} from '@/lib/workspace-server';import {guardStateCommand,examPrefix} from '@/lib/testosterone';import {examFiles} from '@/lib/exam-files';import {feedStore} from '@/lib/calendar-server';import {guardFocusCommand} from '@/lib/focus';
+import {getUserId,getUserProfile} from '@/lib/auth';import {loadWorkspace,mutateWorkspace,jsonError,sameOrigin} from '@/lib/workspace-server';import {guardStateCommand,examPrefix} from '@/lib/testosterone';import {examFiles} from '@/lib/exam-files';import {feedStore} from '@/lib/calendar-server';import {guardFocusCommand} from '@/lib/focus';import {dbBoardStore} from '@/lib/board-db';
 export const dynamic='force-dynamic';
 export async function GET(){const user=await getUserProfile();if(!user)return jsonError('Entre na sua conta para continuar',401);try{return Response.json({...await loadWorkspace(user.userId,user.name),user:{name:user.name,email:user.email}},{headers:{'Cache-Control':'no-store'}});}catch(error){console.error('workspace:load',error instanceof Error?error.message:'unknown');return jsonError('Não foi possível carregar seus dados. Tente novamente.',503);}}
 // Sem user na resposta: o app mantém o perfil recebido no GET, evitando uma consulta ao Clerk a cada gravação.
@@ -6,4 +6,5 @@ export async function POST(request:Request){const userId=await getUserId();if(!u
  // "Apagar meus dados" também remove os arquivos dos exames e as agendas conectadas; uma falha aqui não desfaz a limpeza dos registros.
  if(command.type==='reset')await examFiles()?.removePrefix(examPrefix(userId)).catch(e=>console.error('exam files:reset',e instanceof Error?e.message:'erro'));
  if(command.type==='reset')await feedStore.remove(userId).catch(e=>console.error('calendar:reset',e instanceof Error?e.message:'erro'));
+ if(command.type==='reset')await dbBoardStore.clear(userId).catch(e=>console.error('foco:reset',e instanceof Error?e.message:'erro'));
  return Response.json(result,{headers:{'Cache-Control':'no-store'}});}catch(error){const message=error instanceof Error?error.message:'Não foi possível salvar';return jsonError(message,/outra aba/.test(message)?409:400);}}
