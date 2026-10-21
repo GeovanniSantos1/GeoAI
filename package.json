@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test": "node --experimental-strip-types --test tests/domain.test.mjs tests/calendar.test.mjs tests/agent.test.mjs tests/telegram.test.mjs tests/testosterone.test.mjs tests/exams.test.mjs tests/trt-reminders.test.mjs tests/external-calendar.test.mjs tests/calendar-providers.test.mjs tests/calendar-sync.test.mjs tests/gender.test.mjs tests/female-health.test.mjs tests/female-reminders.test.mjs tests/sounds.test.mjs tests/whatsapp.test.mjs tests/chat-actions.test.mjs tests/voice.test.mjs tests/finance.test.mjs tests/focus.test.mjs",
+    "test": "node --experimental-strip-types --test tests/domain.test.mjs tests/calendar.test.mjs tests/agent.test.mjs tests/telegram.test.mjs tests/testosterone.test.mjs tests/exams.test.mjs tests/trt-reminders.test.mjs tests/external-calendar.test.mjs tests/calendar-providers.test.mjs tests/calendar-sync.test.mjs tests/gender.test.mjs tests/female-health.test.mjs tests/female-reminders.test.mjs tests/sounds.test.mjs tests/whatsapp.test.mjs tests/chat-actions.test.mjs tests/voice.test.mjs tests/finance.test.mjs tests/focus.test.mjs tests/board.test.mjs",
     "typecheck": "tsc --noEmit --pretty false",
     "test:e2e": "node tests/e2e.mjs",
     "db:migrate": "drizzle-kit migrate"
