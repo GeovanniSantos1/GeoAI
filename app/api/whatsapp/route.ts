@@ -1,4 +1,4 @@
-import {after} from 'next/server';import {timingSafeEqual} from 'node:crypto';import {parseEvolutionEvent,linkCodeOf,waCommand,choiceIndex,choicesOf,waSecret,type WaMessage} from '@/lib/whatsapp';import {waContext,ownerJidCached,sayWa,knownUnlinked,rememberUnlinked,forgetUnlinked} from '@/lib/whatsapp-server';import {consumeWaCode,linkWhatsapp,getWaLinkByJid,claimWaMessage,unlinkWaJid,saveWaConversation,swapWaChoices} from '@/lib/whatsapp-store';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {proposalList,pushHistory,addPending,newCode,type Pending} from '@/lib/telegram';import {proposalsText} from '@/lib/agent';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';
+import {after} from 'next/server';import {timingSafeEqual} from 'node:crypto';import {parseEvolutionEvent,linkCodeOf,waCommand,choiceIndex,choicesOf,waSecret,type WaMessage} from '@/lib/whatsapp';import {waContext,ownerJidCached,sayWa,knownUnlinked,rememberUnlinked,forgetUnlinked} from '@/lib/whatsapp-server';import {consumeWaCode,linkWhatsapp,getWaLinkByJid,claimWaMessage,unlinkWaJid,saveWaConversation,swapWaChoices} from '@/lib/whatsapp-store';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {proposalList,pushHistory,addPending,newCode,type Pending} from '@/lib/telegram';import {proposalsText} from '@/lib/agent';import {loadWorkspace} from '@/lib/workspace-server';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';
 // Webhook público da Evolution API. Só aceita o segredo registrado no webhook; responde 200 na hora e processa depois,
 // para a Evolution não reenviar por demora. Número pessoal: conversas não ligadas e grupos ficam em silêncio.
 export const maxDuration=120;
@@ -26,7 +26,7 @@ async function onMessage(ctx:Ctx,m:WaMessage){const say=(text:string)=>sayWa(ctx
   const fail=async(err:unknown)=>{console.error('whatsapp choice',err);await swapWaChoices(link.jid,'[]',link.choices).catch(()=>false);return say('Não foi possível salvar agora. Tente de novo.');};
   let state;try{({state}=await loadWorkspace(link.userId,''));}catch(err){return fail(err);}
   const r=resolveChoice(choice,state,link.pending);
-  if(r.command){try{await mutateWorkspace(link.userId,'',r.command);}catch(err){return fail(err);}}
+  if(r.command){try{await confirmCommand(link.userId,r.command);}catch(err){return fail(err);}}
   if(r.pending)await saveWaConversation(link.jid,pushHistory(link.history,[{role:'assistant',text:r.reply}]),r.pending);
   return say(r.reply);}
  // Qualquer outra mensagem apaga as escolhas antes da IA; um lembrete que chegar durante a chamada grava escolhas novas depois e continua valendo.

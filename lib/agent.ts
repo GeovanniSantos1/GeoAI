@@ -8,11 +8,12 @@ import { protocolStatus, punctuality, finalOverall, classifyMarker, rangeText, v
 import type { Marker } from './exam-schema.ts';
 import { agendaItems, agendaOrder, type ExternalEvent } from './external-calendar.ts';
 import { budgetView } from './finance.ts';
+import { cleanCardProposal, describeCardProposal, STATUS_LABEL as CARD_STATUS, PRIORITY_LABEL, AREA_LABEL, type CardSummary } from './board.ts';
 
 // Consultas e validações usadas pelas ferramentas do assistente. Puras: recebem o espaço já carregado do usuário.
 export type AgentMessage = UIMessage<unknown,{proposals:{items:Proposal[]}}>;
-export const PROPOSABLE = ['tasks','transactions','notes','trtDoses','periods','contraceptiveDoses','intimacy'] as const;
-const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',trtDoses:'Aplicação',periods:'Menstruação',contraceptiveDoses:'Uso do método',intimacy:'Relação'};
+export const PROPOSABLE = ['tasks','transactions','notes','boardCards','trtDoses','periods','contraceptiveDoses','intimacy'] as const;
+const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',boardCards:'Card',trtDoses:'Aplicação',periods:'Menstruação',contraceptiveDoses:'Uso do método',intimacy:'Relação'};
 const FIELDS = ['title','date','time','endTime','repeat','type','category','status','priority','amount','direction','costPerDay','content','notes','bedtime','waketime','duration','quality','mood','target','current','unit','deadline','pages','pagesRead','day','startDate','dueDate','checked','weight','dose','intervalDays','site','lab','protection'];
 const clip = (value:string,max=300) => value.length>max?value.slice(0,max)+'…':value;
 const norm = (value:unknown) => String(value??'').toLocaleLowerCase('pt-BR');
@@ -38,14 +39,18 @@ export function financeReport(s:Workspace,month:string){
  return {mes:month,receitas:formatMoney(sum.income),despesas:formatMoney(sum.expense),saldo:formatMoney(sum.balance),orcamento:s.profile.budget?formatMoney(s.profile.budget):'não definido',...(s.profile.budget?{orcamentoRestante:formatMoney(sum.remaining)}:{}),despesasPorCategoria:[...groups].sort((a,b)=>b[1].total-a[1].total).map(([categoria,g])=>({categoria,total:formatMoney(g.total),lancamentos:g.count})),tetoDoMes:{teto:b.month.cap?formatMoney(b.month.cap):'não definido',gasto:formatMoney(b.month.spent),situacao:SITUACAO[b.month.state]},tetosPorCategoria:b.categories.filter(c=>c.cap).map(c=>({categoria:c.name,teto:formatMoney(c.cap),gasto:formatMoney(c.spent),restante:formatMoney(c.cap-c.spent),situacao:SITUACAO[c.state]}))};
 }
 
-export function searchRecords(s:Workspace,{collection,text,limit=20}:{collection?:string;text?:string;limit?:number}){
- if(collection&&!(COLLECTIONS as readonly string[]).includes(collection))throw new Error('Coleção desconhecida');
+export function searchRecords(s:Workspace,{collection,text,limit=20}:{collection?:string;text?:string;limit?:number},board:CardSummary[]=[]){
+ if(collection&&collection!=='quadro'&&!(COLLECTIONS as readonly string[]).includes(collection))throw new Error('Coleção desconhecida');
  const term=norm(text).trim(),max=Math.min(Math.max(Math.floor(limit)||20,1),50);
+ // Cards do quadro do Foco vêm de tabela própria; entram como a coleção "quadro".
+ const cards=!collection||collection==='quadro'?board.filter(c=>!term||[c.title,c.excerpt].some(v=>norm(v).includes(term))).map(c=>({collection:'quadro',codigo:'#'+c.number,title:c.title,status:CARD_STATUS[c.status],prioridade:PRIORITY_LABEL[c.priority],area:AREA_LABEL[c.area],...(c.dueDate?{prazo:c.dueDate}:{})})):[];
+ if(collection==='quadro')return cards.slice(0,max);
  const rows=(collection?[collection]:[...COLLECTIONS]).flatMap(c=>(s[c as keyof Workspace] as Item[]).map(item=>({collection:c,item})));
- return rows.filter(({item})=>!term||[item.title,item.content,item.notes,item.category].some(v=>norm(v).includes(term)))
+ const records=rows.filter(({item})=>!term||[item.title,item.content,item.notes,item.category].some(v=>norm(v).includes(term)))
   .sort((a,b)=>String(b.item.date||'').localeCompare(String(a.item.date||'')))
   .slice(0,max)
   .map(({collection,item})=>{const out:Record<string,unknown>={collection};for(const key of FIELDS){const v=item[key];if(v===undefined||v===null||v==='')continue;out[key]=['amount','costPerDay'].includes(key)&&typeof v==='number'?formatMoney(v):typeof v==='string'?clip(v):v;}return out;});
+ return [...records,...cards].slice(0,max);
 }
 
 function proposalDefaults(collection:unknown,fields:Record<string,unknown>,today:string,s?:Workspace){
@@ -73,10 +78,13 @@ export function checkProposals(raw:unknown,today:string,s?:Workspace){
   // O id é descartado: confirmPlan faz upsert, e um id vindo do modelo poderia sobrescrever um registro existente.
   const {collection,...fields}=(entry&&typeof entry==='object'?entry:{}) as Record<string,unknown>;delete fields.id;
   try{
-   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, aplicações, início da menstruação, uso do método e relação');
+   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, cards do quadro, aplicações, início da menstruação, uso do método e relação');
    if(s){const hidden=hiddenSections(s.profile.gender);
     if(['periods','contraceptiveDoses','intimacy'].includes(collection as string)&&hidden.includes('saude-feminina'))throw new Error('esse registro fica no menu Saúde feminina, que não aparece no seu perfil');
     if(collection==='trtDoses'&&hidden.includes('testosterona'))throw new Error('esse registro fica no menu Testosterona, que não aparece no seu perfil');}
+   // Card do quadro: validado pelas regras do quadro; prioridade, área e prazo só valem para ele.
+   if(collection==='boardCards'){valid.push({collection:'boardCards',item:cleanCardProposal(fields) as Partial<Item>});continue;}
+   delete fields.area;delete fields.priority;delete fields.dueDate;
    valid.push({collection:collection as Collection,item:validateItem(collection as Collection,{...proposalDefaults(collection,fields,today,s),...fields})});
   }catch(e){errors.push(String(fields.title||'Item').slice(0,80)+': '+(e instanceof Error?e.message:'inválido'));}
  }
@@ -89,7 +97,7 @@ export function assistantBrief(s:Workspace,today:string){
  return ['Usuário: '+p.name,genderBrief(p.gender),'Hoje:'+today+' ('+weekday+')','Fuso horário: '+p.timezone,'Ações por dia que cabem na rotina: '+p.dailyTarget,'Orçamento mensal: '+(p.budget?formatMoney(p.budget):'não definido'),'Meta de sono: '+p.sleepGoal/60+'h','Registros salvos: '+counts].join('\n');
 }
 
-export function describeProposal(p:Proposal){return [p.collection==='intimacy'?'Relação'+(p.item.protection==='com'?' · com proteção':p.item.protection==='sem'?' · sem proteção':''):p.collection==='periods'?'Início da menstruação'+(p.item.flow?' · fluxo '+p.item.flow:''):p.collection==='contraceptiveDoses'?'Uso do método':p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
+export function describeProposal(p:Proposal){if(p.collection==='boardCards')return describeCardProposal(p.item);return [p.collection==='intimacy'?'Relação'+(p.item.protection==='com'?' · com proteção':p.item.protection==='sem'?' · sem proteção':''):p.collection==='periods'?'Início da menstruação'+(p.item.flow?' · fluxo '+p.item.flow:''):p.collection==='contraceptiveDoses'?'Uso do método':p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
 
 export function proposalsText(items:unknown){
  const lines=(Array.isArray(items)?items:[]).slice(0,15).map(entry=>{const p=(entry||{}) as {collection?:string;item?:Record<string,unknown>},i=p.item||{};return '- ['+(LABELS[p.collection||'']||'Registro')+'] '+String(i.title||'').slice(0,200)+(typeof i.amount==='number'?' · '+formatMoney(i.amount)+(i.direction==='income'?' (receita)':' (despesa)'):'')+(i.date?' · '+String(i.date):'')+(i.time?' '+String(i.time):'');});

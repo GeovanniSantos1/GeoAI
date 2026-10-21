@@ -1,0 +1,16 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {emptyWorkspace} from '../lib/core.ts';
+import {checkProposals,describeProposal,proposalsText,searchRecords,PROPOSABLE} from '../lib/agent.ts';
+import {newCard,summarize} from '../lib/board.ts';
+const T='2026-10-20';
+test('o assistente geral sugere cards do quadro',()=>{const {valid,errors}=checkProposals([{collection:'boardCards',title:' Trocar o filtro ',priority:'high',area:'casa',dueDate:'2026-10-25',id:'x'},{collection:'boardCards',title:''},{collection:'tasks',title:'Ligar',priority:'critical',area:'casa'}],T,emptyWorkspace('Geo'));
+ assert.ok(PROPOSABLE.includes('boardCards'));assert.equal(valid.length,2);
+ assert.deepEqual([valid[0].collection,valid[0].item.title,valid[0].item.priority,valid[0].item.area,valid[0].item.dueDate],['boardCards','Trocar o filtro','high','casa','2026-10-25']);assert.notEqual(valid[0].item.id,'x');
+ assert.deepEqual([valid[1].collection,valid[1].item.priority,valid[1].item.area],['tasks','normal',undefined]);assert.match(errors[0],/^Item: Informe o título/);
+ assert.equal(describeProposal(valid[0]),'Card no quadro · Casa · Alta · prazo 25/10');assert.match(proposalsText(valid),/- \[Card\] Trocar o filtro/);});
+test('buscar encontra cards do quadro',()=>{const board=[summarize(newCard({title:'Pagar boleto',priority:'high'},3,'2026-10-20T13:00:00.000Z'))];const s=emptyWorkspace('Geo');s.notes=[{id:'n1',title:'Boleto do condomínio',date:T}];
+ assert.deepEqual(searchRecords(s,{collection:'quadro'},board),[{collection:'quadro',codigo:'#3',title:'Pagar boleto',status:'Backlog',prioridade:'Alta',area:'Pessoal'}]);
+ assert.deepEqual(searchRecords(s,{text:'boleto'},board).map(r=>r.collection),['notes','quadro']);
+ assert.deepEqual(searchRecords(s,{collection:'notes'},board).map(r=>r.collection),['notes']);assert.deepEqual(searchRecords(s,{text:'boleto'}).map(r=>r.collection),['notes']);
+ assert.throws(()=>searchRecords(s,{collection:'xyz'},board),/Coleção desconhecida/);});
