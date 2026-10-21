@@ -215,3 +215,7 @@
 .fo-decided{font-size:12px;font-weight:600}.fo-decided.approved{color:var(--green)}.fo-decided.rejected{color:var(--muted)}
 .fo-error{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px;border-radius:10px;background:color-mix(in srgb,var(--danger) 9%,transparent);color:var(--danger);font-size:12px}
 @media(max-width:1100px){.fo-panel{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;height:min(82dvh,720px);border-radius:18px 18px 0 0;box-shadow:0 -12px 40px #0003}}
+/* Menu Foco: moldura */
+.fo-shell.with-panel{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}.fo-main{min-width:0}
+.fo-panel-toggle{gap:8px}.assistant-fab .fo-badge{margin-left:2px}
+@media(max-width:1100px){.fo-shell.with-panel{display:block}}

@@ -55,6 +55,16 @@ Os scripts de navegador (`npm run test:e2e` e `tests/smoke-ui.mjs`) foram escrit
 - Lembrete diário: a tarefa agendada do `vercel.json` (`0 11 * * *`) chama `/api/cron/trt-reminders`. Cadastre o segredo `CRON_SECRET` na Vercel; sem o cabeçalho `Authorization: Bearer <CRON_SECRET>` a rota responde 401.
 - Desenvolvimento local: use `EXAM_FILES=memory` no `.env.local` para guardar os arquivos na memória do servidor, sem Blob. Eles se perdem ao reiniciar.
 
+## Menu Foco
+
+- Quadro de cards para qualquer tarefa (trabalho ou vida pessoal), com as colunas Backlog, A fazer, Em andamento, Em revisão e Concluída. Arrastar no computador; no celular, um seletor de coluna e "Mover para…".
+- Pomodoro no servidor: iniciar um card começa o foco e leva o card para Em andamento. O timer continua certo depois de um refresh e aparece igual em outra aba e no celular; um mini-timer fica no topo do app. Pausas curta e longa (a cada 4 focos) e durações nos ajustes.
+- IA no card: "Refinar com IA" reescreve a descrição e propõe critérios de aceite e subtarefas; "Gerar casos de teste" propõe casos com passos e resultado esperado. Tudo aparece como diff para aceitar ou rejeitar. Os casos podem ser copiados em Markdown.
+- Assistente do Foco: um painel ao lado do quadro que busca cards, inicia pomodoros, monta o plano do dia e prepara ações em lote (mover, arquivar, alterar, criar), que só gravam com o Aprovar. Toda ação aprovada fica na aba Auditoria. Durante um foco, o modo foco segura as aprovações até a pausa.
+- Abas Hoje (plano do dia por regra, sem IA), Triagem (cards novos, com ou sem IA) e Relatório (pomodoros da semana).
+- Dados: tabelas `board_cards`, `board_events`, `board_audit` e `day_plans` (migração 0004). O backup e "Apagar meus dados" incluem o quadro.
+- Cota: 40 ações de IA no card ou na triagem por dia, por usuário. Limites: 5.000 cards por usuário e 20 cards por ação do assistente.
+
 ## Versão feminina
 
 - O perfil guarda como a pessoa quer ser tratada (`gender`: `male`, `female` ou vazio). Contas novas respondem no primeiro acesso; contas criadas antes desta versão seguem no masculino. Dá para trocar em Configurações e em Sua jornada.
