@@ -62,3 +62,5 @@ test('linhas marcadas viram itens para importar, com cartão ou como crédito',(
  assert.equal(withCard.length,10);
  assert.deepEqual(withCard[0],{title:'Uber',amount:2390,direction:'expense',category:'Transporte',date:'2026-09-05',notes:'Nubank',cardId:'c1'});
  assert.deepEqual([noCard[0].payment,noCard[0].cardId],['credit',undefined]);});
+test('loja só casa como palavra inteira: Uberlândia não vira Uber',()=>{const r=parseFaturaText(['Fechamento: 03/10/2026','05/09 UBERLANDIA SUPERMERCADO 20,00','06/09 AUTO POSTO COMPOSTO 50,00','07/09 FARMACIAS PACHECO 30,00'].join('\n'),ctx());
+ assert.deepEqual(r.rows.map(x=>[x.title,x.category]),[['Uberlandia Supermercado','Mercado'],['Auto Posto Composto','Transporte'],['Farmacias Pacheco','Saúde']]);});

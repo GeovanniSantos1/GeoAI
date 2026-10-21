@@ -38,8 +38,7 @@ export function readFatura(text:string,today:string):{meta:FaturaMeta;lines:Fatu
  return {meta,lines};}
 const SKIP=/pagamento (de|da) fatura|pagamento recebido|pagamento efetuado|fatura anterior|saldo anterior|subtotal|total (geral|da fatura|dos lancamentos|a pagar)|creditos e estornos|limite disponivel/;
 const CHARGE=/\b(encargos?|iof|juros|multa|anuidade)\b/;
-// Lojas conhecidas: a primeira que aparecer no título define categoria e nome. As palavras curtas só valem inteiras.
-const WORD=new Set(['99','max','tim','oi','bar','extra','metro','cafe','light']);
+// Lojas conhecidas: a primeira que aparecer no título, sempre como palavra inteira (aceita plural), define categoria e nome.
 const STORES:[string,string,string?][]=[
  ['amazon prime','Assinaturas','Amazon Prime'],['prime video','Assinaturas','Prime Video'],['99food','Alimentação','99Food'],['mercado livre','Compras','Mercado Livre'],['mercadolivre','Compras','Mercado Livre'],['mercado pago','Outros'],['mercadopago','Outros'],
  ['uber','Transporte','Uber'],['99','Transporte','99'],['cabify','Transporte','Cabify'],['posto','Transporte'],['shell','Transporte','Shell'],['ipiranga','Transporte','Ipiranga'],['petrobras','Transporte','Petrobras'],['br mania','Transporte','BR Mania'],['estacionamento','Transporte'],['sem parar','Transporte','Sem Parar'],['conectcar','Transporte','ConectCar'],['veloe','Transporte','Veloe'],['bhbus','Transporte','BHBus'],['transfacil','Transporte','Transfácil'],['metro','Transporte'],
@@ -51,7 +50,7 @@ const STORES:[string,string,string?][]=[
  ['claro','Contas','Claro'],['vivo','Contas','Vivo'],['tim','Contas','TIM'],['oi','Contas','Oi'],['cemig','Contas','Cemig'],['enel','Contas','Enel'],['copel','Contas','Copel'],['sabesp','Contas','Sabesp'],['copasa','Contas','Copasa'],['light','Contas','Light'],['energia','Contas'],['internet','Contas'],['net virtua','Contas','NET'],
  ['cinema','Lazer'],['ingresso','Lazer'],['sympla','Lazer','Sympla'],['eventim','Lazer','Eventim'],['steam','Lazer','Steam'],['playstation','Lazer','PlayStation'],['xbox','Lazer','Xbox'],['nintendo','Lazer','Nintendo'],['bar','Lazer'],['festa','Lazer'],
  ['udemy','Educação','Udemy'],['alura','Educação','Alura'],['coursera','Educação','Coursera'],['escola','Educação'],['faculdade','Educação'],['curso','Educação'],['livraria','Educação']];
-function storeOf(t:string){for(const [term,category,name] of STORES){const hit=WORD.has(term)?new RegExp('(^|[^a-z0-9])'+term+'($|[^a-z0-9])').test(t):t.includes(term);if(hit)return {category,name};}return null;}
+function storeOf(t:string){for(const [term,category,name] of STORES)if(new RegExp('(^|[^a-z0-9])'+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'s?($|[^a-z0-9])').test(t))return {category,name};return null;}
 // Primeira palavra sempre com maiúscula; depois, só os conectivos ficam minúsculos ("Bar do Ze", "Estorno X").
 const CONNECTORS=new Set(['a','e','o','as','os','da','de','do','das','dos','em','na','no','nas','nos','com']);
 const titleCase=(s:string)=>s.toLowerCase().split(' ').filter(Boolean).map((w,i)=>i>0&&CONNECTORS.has(w)?w:w[0].toUpperCase()+w.slice(1)).join(' ');
