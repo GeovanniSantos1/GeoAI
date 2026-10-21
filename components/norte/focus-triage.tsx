@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';import {Sparkles,Check,Circle,LoaderCircle} from 'lucide-react';
+import {useState,type CSSProperties} from 'react';import {Sparkles,Check,Circle,LoaderCircle} from 'lucide-react';
 import {useApp} from './context';import {useFoco} from './focus-context';import {Empty} from './primitives';import {foco,triageStream,ApiError} from './focus-api';
 import {AREAS,AREA_LABEL,PRIORITIES,PRIORITY_LABEL,codeOf,donePomodoros} from '@/lib/board';
 // Triagem dos cards novos (Backlog sem estimativa): a IA sugere, a pessoa corrige e aplica tudo de uma vez.
@@ -22,11 +22,11 @@ export function FocusTriage(){const a=useApp(),f=useFoco();const {toast}=a;const
   catch(e){toast(e instanceof ApiError&&e.body.set?.errors?.length?e.body.set.errors.join(' '):e instanceof Error?e.message:'Não foi possível aplicar.',true);}finally{setApplying(false);}}
  if(!fresh.length)return <Empty title="Triagem em dia" description="Nenhum card novo para triar."/>;
  const load=f.cards.filter(c=>c.status==='todo'||c.status==='doing').reduce((s,c)=>s+Math.max(0,c.estimate-donePomodoros(a.state.focusSessions,c.id)),0),triaged=fresh.filter(c=>complete(row(c.id))).length;
- return <section className="panel fo-triage"><header className="section-heading"><div><h2>{triaged}/{fresh.length} cards triados</h2><p className="quiet-copy">Carga aberta: {load} 🍅</p></div>
+ return <section className="panel fo-triage"><header className="section-heading"><div><h2>{triaged}/{fresh.length} cards triados</h2><p className="quiet-copy">Carga aberta: {load} 🍅</p><span className="fo-triage-meter" aria-hidden><i style={{width:triaged/fresh.length*100+'%'}}/></span></div>
    <div className="fo-row-end">{f.ai&&<button className="button outline small fo-ai-btn" disabled={running||applying} onClick={runAi}>{running?<LoaderCircle size={15} className="spin"/>:<Sparkles size={15}/>}Triar com IA</button>}
     {triaged===fresh.length&&<button className="button primary small" disabled={applying||running} onClick={applyAll}>{applying?<LoaderCircle size={15} className="spin"/>:<Check size={15}/>}Aplicar a triagem</button>}</div></header>
-  <ul className="fo-triage-list">{fresh.map(c=>{const x=row(c.id);return <li key={c.id}><span className="fo-step" aria-label={x.step==='done'?'Pronto':x.step==='working'?'Trabalhando':'Pendente'}>{x.step==='done'?<Check size={16}/>:x.step==='working'?<LoaderCircle size={16} className="spin"/>:<Circle size={16}/>}</span>
+  <ul className="fo-triage-list">{fresh.map((c,i)=>{const x=row(c.id),ai=(k:Field)=>x[k]&&!x.edited.includes(k)?'ai':undefined;return <li key={c.id} className={'fo-tri-'+x.step} style={{'--i':Math.min(i,8)} as CSSProperties}><span className={'fo-step '+x.step} aria-label={x.step==='done'?'Pronto':x.step==='working'?'Trabalhando':'Pendente'}>{x.step==='done'?<Check size={15} strokeWidth={2.6}/>:x.step==='working'?<i className="fo-step-dot"/>:<Circle size={16}/>}</span>
     <div className="fo-triage-card"><button className="text-button" onClick={()=>f.open(c.id)}><b>{codeOf(c)}</b> {c.title}</button>{c.excerpt&&<small>{c.excerpt}</small>}</div>
-    <div className="fo-triage-fields"><select aria-label={'Área de '+codeOf(c)} value={x.area} onChange={e=>edit(c.id,'area',e.target.value)}><option value="">Área</option>{AREAS.map(v=><option key={v} value={v}>{AREA_LABEL[v]}</option>)}</select>
-     <select aria-label={'Prioridade de '+codeOf(c)} value={x.priority} onChange={e=>edit(c.id,'priority',e.target.value)}><option value="">Prioridade</option>{PRIORITIES.map(v=><option key={v} value={v}>{PRIORITY_LABEL[v]}</option>)}</select>
-     <input type="number" min={1} max={12} placeholder="🍅" aria-label={'Estimativa de '+codeOf(c)} value={x.estimate} onChange={e=>edit(c.id,'estimate',e.target.value)}/></div></li>;})}</ul></section>;}
+    <div className="fo-triage-fields"><select className={ai('area')} aria-label={'Área de '+codeOf(c)} value={x.area} onChange={e=>edit(c.id,'area',e.target.value)}><option value="">Área</option>{AREAS.map(v=><option key={v} value={v}>{AREA_LABEL[v]}</option>)}</select>
+     <select className={ai('priority')} aria-label={'Prioridade de '+codeOf(c)} value={x.priority} onChange={e=>edit(c.id,'priority',e.target.value)}><option value="">Prioridade</option>{PRIORITIES.map(v=><option key={v} value={v}>{PRIORITY_LABEL[v]}</option>)}</select>
+     <input className={ai('estimate')} type="number" min={1} max={12} placeholder="🍅" aria-label={'Estimativa de '+codeOf(c)} value={x.estimate} onChange={e=>edit(c.id,'estimate',e.target.value)}/></div></li>;})}</ul></section>;}
