@@ -18,16 +18,18 @@ type Ended={kind:FocusTimer['kind'];code?:string;cardId?:string};
 // Último card focado nesta aba do navegador: o fim da pausa oferece voltar para ele.
 let lastFocusCard:{id:string;code?:string}|null=null;
 export function FocusMiniTimer(){const a=useApp(),sound=useSound();const {mutate,navigate,toast,sync,state,today}=a;const t=state.focusTimer,left=useRemaining(t),paused=!!t&&t.pausedLeft!==undefined;
- const [ended,setEnded]=useState<Ended|null>(null);const completing=useRef(''),prev=useRef<{id:string;paused:boolean;focus:boolean}|null>(null);
+ const [ended,setEnded]=useState<Ended|null>(null);const completing=useRef(''),notified=useRef(''),prev=useRef<{id:string;paused:boolean;focus:boolean}|null>(null);
  // Quem conclui é o servidor; a tela pede quando vê o tempo zerar, inclusive ao abrir o app com o timer já vencido.
- useEffect(()=>{if(!t||t.pausedLeft!==undefined)return;const check=()=>{if(Date.now()<Date.parse(t.endsAt)-1000||completing.current===t.id)return;completing.current=t.id;sound.focusSession('end');beep();
-   setEnded(t.kind==='focus'?{kind:t.kind,code:t.code,cardId:t.boardCardId}:{kind:t.kind,code:lastFocusCard?.code,cardId:lastFocusCard?.id});
-   mutate({type:'focus',action:'complete'}).then(ok=>{if(!ok)setTimeout(()=>{completing.current='';},10000);});};
+ useEffect(()=>{if(!t||t.pausedLeft!==undefined)return;const check=()=>{if(Date.now()<Date.parse(t.endsAt)-1000||completing.current===t.id)return;completing.current=t.id;
+   // O aviso toca uma vez por timer; o pedido ao servidor é refeito se o relógio dele ainda não venceu.
+   if(notified.current!==t.id){notified.current=t.id;sound.focusSession('end');beep();
+    setEnded(t.kind==='focus'?{kind:t.kind,code:t.code,cardId:t.boardCardId}:{kind:t.kind,code:lastFocusCard?.code,cardId:lastFocusCard?.id});}
+   mutate({type:'focus',action:'complete'}).then(ok=>{setTimeout(()=>{completing.current='';},ok?3000:10000);});};
   check();const i=setInterval(check,500);return()=>clearInterval(i);},[t,mutate,sound]);
  // Ondas de foco do menu Músicas: começam com o foco e param na pausa ou na interrupção.
  useEffect(()=>{const cur=t?{id:t.id,paused:t.pausedLeft!==undefined,focus:t.kind==='focus'}:null,before=prev.current;prev.current=cur;if(t?.boardCardId)lastFocusCard={id:t.boardCardId,code:t.code};
   if(t&&cur?.focus&&!cur.paused&&(!before||before.id!==cur.id||before.paused))sound.focusSession('start',Date.parse(t.endsAt));
-  else if(before?.focus&&!before.paused&&(!cur||cur.id!==before.id||cur.paused)&&completing.current!==before.id)sound.focusSession('pause');},[t,sound]);
+  else if(before?.focus&&!before.paused&&(!cur||cur.id!==before.id||cur.paused)&&notified.current!==before.id)sound.focusSession('pause');},[t,sound]);
  useEffect(()=>{document.title=t?mmss(left)+' · '+(t.code||label(t))+' · GeoAI':TITLE;},[t,left]);
  useEffect(()=>()=>{document.title=TITLE;},[]);
  async function startBreak(){setEnded(null);await mutate({type:'focus',action:'start',kind:nextBreak(state.focusSessions,today)});}
