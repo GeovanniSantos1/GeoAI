@@ -1,0 +1,70 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {emptyWorkspace,applyCommand,validateWorkspace,upgradeWorkspace} from '../lib/core.ts';
+import {remaining,isExpired,nextBreak,guardFocusCommand,FOCUS_BUSY,FOCUS_DEFAULTS} from '../lib/focus.ts';
+const T='2026-10-20';const at=iso=>new Date(iso);
+const run=(s,c,iso)=>applyCommand(s,{type:'focus',...c},T,at(iso));
+const base=()=>emptyWorkspace('Geo');
+
+test('perfil novo traz os ajustes de foco e nenhum timer',()=>{const s=base();
+ assert.deepEqual(s.profile.focus,{focusMinutes:25,shortBreakMinutes:5,longBreakMinutes:15,focusMode:true});assert.deepEqual(FOCUS_DEFAULTS,s.profile.focus);assert.equal(s.focusTimer,null);});
+test('workspace antigo ganha ajustes e timer vazio',()=>{const old=base();delete old.profile.focus;delete old.focusTimer;old.profile.focus={focusMinutes:0,focusMode:false};
+ const up=upgradeWorkspace(structuredClone(old));assert.deepEqual(up.profile.focus,{...FOCUS_DEFAULTS,focusMode:false});assert.equal(up.focusTimer,null);});
+test('start cria o timer com o relógio do servidor',()=>{const t=run(base(),{action:'start',title:'  Ler   o capítulo '},'2026-10-20T13:00:00Z').focusTimer;
+ assert.deepEqual([t.kind,t.title,t.minutes,t.startedAt,t.endsAt,t.boardCardId],['focus','Ler o capítulo',25,'2026-10-20T13:00:00.000Z','2026-10-20T13:25:00.000Z',undefined]);assert.match(t.id,/^[\w-]{36}$/);});
+test('títulos e durações: foco livre, pausas, minutos informados e inválidos',()=>{
+ assert.equal(run(base(),{action:'start'},'2026-10-20T13:00:00Z').focusTimer.title,'Foco livre');
+ const p=run(base(),{action:'start',kind:'long'},'2026-10-20T13:00:00Z').focusTimer;assert.deepEqual([p.title,p.minutes],['Pausa longa',15]);
+ assert.equal(run(base(),{action:'start',minutes:50},'2026-10-20T13:00:00Z').focusTimer.minutes,50);
+ assert.throws(()=>run(base(),{action:'start',minutes:91},'2026-10-20T13:00:00Z'),/entre 1 e 90/);
+ assert.throws(()=>run(base(),{action:'start',kind:'nap'},'2026-10-20T13:00:00Z'),/Tipo de pomodoro inválido/);});
+test('um timer por vez: conflito, replace interrompe e vencido conclui antes',()=>{const s=run(base(),{action:'start'},'2026-10-20T13:00:00Z');
+ assert.throws(()=>run(s,{action:'start'},'2026-10-20T13:10:00Z'),{message:FOCUS_BUSY});
+ const r=run(s,{action:'start',replace:true,title:'Outro'},'2026-10-20T13:10:00Z');const x=r.focusSessions[0];
+ assert.equal(r.focusTimer.title,'Outro');assert.deepEqual([x.status,x.duration,x.reason,x.id],['interrupted',10,'Substituído por um novo pomodoro',s.focusTimer.id]);
+ const late=run(s,{action:'start',title:'Depois'},'2026-10-20T13:40:00Z');assert.equal(late.focusSessions[0].status,'completed');assert.equal(late.focusTimer.title,'Depois');assert.equal(late.profile.xp,20);});
+test('pause congela e resume refaz o fim',()=>{const s=run(base(),{action:'start'},'2026-10-20T13:00:00Z');const p=run(s,{action:'pause'},'2026-10-20T13:10:00Z');
+ assert.equal(p.focusTimer.pausedLeft,900);assert.equal(remaining(p.focusTimer,at('2026-10-20T15:00:00Z')),900);assert.equal(isExpired(p.focusTimer,at('2026-10-20T15:00:00Z')),false);
+ assert.throws(()=>run(p,{action:'pause'},'2026-10-20T13:11:00Z'),/Nenhum pomodoro rodando/);
+ const r=run(p,{action:'resume'},'2026-10-20T14:00:00Z');assert.equal(r.focusTimer.endsAt,'2026-10-20T14:15:00.000Z');assert.equal(r.focusTimer.pausedLeft,undefined);
+ assert.throws(()=>run(r,{action:'resume'},'2026-10-20T14:01:00Z'),/Nenhum pomodoro pausado/);});
+test('stop grava interrompida descontando a pausa; menos de 1 minuto e pausas não gravam',()=>{
+ const s=run(base(),{action:'start'},'2026-10-20T13:00:00Z');const r=run(run(s,{action:'pause'},'2026-10-20T13:10:30Z'),{action:'resume'},'2026-10-20T14:00:00Z');
+ const x=run(r,{action:'stop',reason:' Reunião '},'2026-10-20T14:05:00Z');const sess=x.focusSessions[0];
+ assert.equal(x.focusTimer,null);assert.deepEqual([sess.status,sess.duration,sess.reason,sess.date,sess.kind,sess.endedAt],['interrupted',15,'Reunião','2026-10-20','focus','2026-10-20T14:05:00.000Z']);assert.equal(x.profile.xp,0);
+ const quick=run(run(base(),{action:'start'},'2026-10-20T13:00:00Z'),{action:'stop'},'2026-10-20T13:00:50Z');assert.equal(quick.focusSessions.length,0);assert.equal(quick.focusTimer,null);
+ assert.equal(run(run(base(),{action:'start',kind:'short'},'2026-10-20T13:00:00Z'),{action:'stop'},'2026-10-20T13:04:00Z').focusSessions.length,0);
+ assert.throws(()=>run(base(),{action:'stop'},'2026-10-20T13:00:00Z'),/Nenhum pomodoro em andamento/);});
+test('complete: cedo é ignorado; conclui uma vez, com XP e data do fim no fuso',()=>{
+ const s=run(base(),{action:'start',title:'Tarde'},'2026-10-21T02:50:00Z');// 23:50 em São Paulo; termina 00:15 do dia 21
+ assert.equal(run(s,{action:'complete'},'2026-10-21T03:00:00Z').focusTimer.id,s.focusTimer.id);
+ const done=run(s,{action:'complete'},'2026-10-21T03:14:59.500Z');const x=done.focusSessions[0];
+ assert.equal(done.focusTimer,null);assert.deepEqual([x.status,x.duration,x.date,x.endedAt,x.id,x.title],['completed',25,'2026-10-21',s.focusTimer.endsAt,s.focusTimer.id,'Tarde']);assert.equal(done.profile.xp,20);
+ const again=run(done,{action:'complete'},'2026-10-21T04:00:00Z');assert.equal(again.focusSessions.length,1);assert.equal(again.profile.xp,20);
+ const paused=run(run(base(),{action:'start'},'2026-10-20T13:00:00Z'),{action:'pause'},'2026-10-20T13:01:00Z');assert.ok(run(paused,{action:'complete'},'2026-10-20T20:00:00Z').focusTimer);});
+test('nextBreak: longa a cada 4 focos concluídos no dia',()=>{const f=(n,extra={})=>Array.from({length:n},(_,i)=>({id:'s'+i,title:'x',date:T,duration:25,status:'completed',...extra}));
+ assert.deepEqual([nextBreak([],T),nextBreak(f(3),T),nextBreak(f(4),T),nextBreak(f(8),T)],['short','short','long','long']);
+ assert.equal(nextBreak([...f(3),{id:'i',title:'x',date:T,duration:5,status:'interrupted'}],T),'short');
+ assert.equal(nextBreak(f(4,{date:'2026-10-19'}),T),'short');assert.equal(nextBreak(f(4).map(({status,...x})=>x),T),'long');});
+test('remaining arredonda para cima e não fica negativo',()=>{const t={id:'a',kind:'focus',title:'x',minutes:25,startedAt:'2026-10-20T13:00:00.000Z',endsAt:'2026-10-20T13:25:00.000Z'};
+ assert.equal(remaining(t,at('2026-10-20T13:24:59.200Z')),1);assert.equal(remaining(t,at('2026-10-20T14:00:00Z')),0);assert.equal(remaining(null,at('2026-10-20T14:00:00Z')),0);
+ assert.equal(isExpired(t,at('2026-10-20T13:24:59Z')),true);assert.equal(isExpired(t,at('2026-10-20T13:24:58Z')),false);});
+test('o cliente não grava o timer nem inicia com card pela rota geral',()=>{
+ assert.throws(()=>guardFocusCommand({type:'focus',action:'start',boardCardId:'c1'}),/Inicie pelo card/);assert.throws(()=>guardFocusCommand({type:'focus',action:'start',code:'#1'}),/Inicie pelo card/);
+ assert.doesNotThrow(()=>guardFocusCommand({type:'focus',action:'start',title:'x'}));assert.doesNotThrow(()=>guardFocusCommand({type:'upsert'}));
+ const s=run(base(),{action:'start'},'2026-10-20T13:00:00Z');
+ assert.equal(applyCommand(s,{type:'profile',profile:{focusTimer:null,name:'Geo'}},T).focusTimer.id,s.focusTimer.id);
+ assert.equal(validateWorkspace(structuredClone(s)).focusTimer,null);
+ assert.throws(()=>applyCommand(s,{type:'upsert',collection:'focusTimer',item:{title:'x'}},T),/Registro inválido/);});
+test('ajustes do foco: faixas e mescla',()=>{let s=applyCommand(base(),{type:'profile',profile:{focus:{focusMinutes:50}}},T);
+ assert.deepEqual(s.profile.focus,{...FOCUS_DEFAULTS,focusMinutes:50});s=applyCommand(s,{type:'profile',profile:{focus:{focusMode:false}}},T);assert.deepEqual([s.profile.focus.focusMinutes,s.profile.focus.focusMode],[50,false]);
+ for(const bad of [{focusMinutes:0},{focusMinutes:91},{shortBreakMinutes:31},{longBreakMinutes:61},{focusMinutes:2.5},{focusMode:'sim'},'x'])assert.throws(()=>applyCommand(base(),{type:'profile',profile:{focus:bad}},T),/Configuração inválida/);
+ assert.equal(run(s,{action:'start'},'2026-10-20T13:00:00Z').focusTimer.minutes,50);});
+test('sessões: campos novos validados, XP só de concluídas e limite de 2000',()=>{const s=base();
+ assert.throws(()=>applyCommand(s,{type:'upsert',collection:'focusSessions',item:{title:'x',date:T,duration:5,status:'meio'}},T),/Situação da sessão inválida/);
+ assert.throws(()=>applyCommand(s,{type:'upsert',collection:'focusSessions',item:{title:'x',date:T,duration:5,kind:'short'}},T),/Situação da sessão inválida/);
+ const i=applyCommand(s,{type:'upsert',collection:'focusSessions',item:{id:'i1',title:'x',date:T,duration:5,status:'interrupted',boardCardId:'c1',reason:'Ligação'}},T);
+ assert.equal(i.profile.xp,0);assert.deepEqual([i.focusSessions[0].boardCardId,i.focusSessions[0].reason],['c1','Ligação']);
+ const full=base();full.focusSessions=Array.from({length:2000},(_,k)=>({id:'o'+k,title:'x',date:k===7?'2025-01-01':'2026-01-01',duration:25}));
+ const r=run(run(full,{action:'start'},'2026-10-20T13:00:00Z'),{action:'complete'},'2026-10-20T13:30:00Z');
+ assert.equal(r.focusSessions.length,2000);assert.ok(!r.focusSessions.some(x=>x.id==='o7'));assert.equal(r.focusSessions.at(-1).status,'completed');});
