@@ -534,8 +534,8 @@ Todas as rotas exigem a sessão do Clerk e a mesma origem nas escritas, validam 
 | `POST /api/foco/triage` | `{cardIds}` (até 20): gasta 1 da cota `board_ai` e devolve as sugestões em NDJSON, uma linha `{cardId, area, priority, estimate}` por card, conforme chegam |
 | `GET`, `PUT /api/foco/plan?date=` | lê e grava o plano do dia (validado: até 16 itens, 🍅 de 1 a 4, só cards do usuário) |
 | `GET /api/foco/audit` | as últimas 100 entradas |
-| `GET /api/foco/export?page=n` | uma página do quadro para o backup: até 500 cards com os eventos deles; a página 0 traz também a auditoria e os planos dos últimos 30 dias, e cada resposta diz se há próxima página |
-| `POST /api/foco/import` | `{replace, cards, events, audit?, plans?}`, até 500 cards por chamada; `replace:true` apaga o quadro antes (só na primeira chamada) |
+| `GET /api/foco/export?after=n` | um pedaço do quadro para o backup: os cards com número maior que `n`, em ordem, até 500 cards ou cerca de 3 MB (o que vier antes), com os eventos deles; o primeiro pedaço (`after=0`) traz também a auditoria e os planos dos últimos 30 dias; a resposta traz `next` (o número para o próximo pedaço) ou `null` |
+| `POST /api/foco/import` | `{replace, cards, events, audit?, plans?}`, até 500 cards e 4 MB por chamada; `replace:true` apaga o quadro antes (só na primeira chamada) |
 | `GET`, `POST /api/foco/assistant` | o painel |
 
 - **Timer:**
@@ -544,10 +544,10 @@ Todas as rotas exigem a sessão do Clerk e a mesma origem nas escritas, validam 
   - só a rota do card inicia com card, porque é ela que lê o título e move o card.
 - **Corpo das rotas:** a importação aceita até 4 MB, abaixo do limite de 4,5 MB da Vercel.
 - **Backup e restauração:**
-  - **Baixar backup** pede as páginas do export até o fim e grava `{app:'norte', version:2, exportedAt, state, board:{cards, events, audit, plans}}`.
+  - **Baixar backup** pede os pedaços do export até `next` ser `null` e grava `{app:'norte', version:2, exportedAt, state, board:{cards, events, audit, plans}}`.
   - **Restaurar** um arquivo com `board`:
     - faz o `import` do workspace;
-    - depois envia o quadro em páginas de 500 cards, a primeira com `replace:true`;
+    - depois envia o quadro em pedaços de até 500 cards e cerca de 3 MB, a primeira com `replace:true`;
     - se uma página falhar, avisa "A restauração do quadro parou no meio. Tente de novo." (tentar de novo recomeça com `replace:true`).
   - Um arquivo sem `board` (os antigos) mantém o quadro atual, e o modal de restauração diz isso.
   - O modal conta também os cards.
