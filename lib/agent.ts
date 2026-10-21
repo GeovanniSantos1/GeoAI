@@ -78,7 +78,7 @@ export function checkProposals(raw:unknown,today:string,s?:Workspace){
   // O id é descartado: confirmPlan faz upsert, e um id vindo do modelo poderia sobrescrever um registro existente.
   const {collection,...fields}=(entry&&typeof entry==='object'?entry:{}) as Record<string,unknown>;delete fields.id;
   try{
-   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, aplicações, início da menstruação, uso do método e relação');
+   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, aplicações, início da menstruação, uso do método, relação e movimentos de investimento');
    if(s){const hidden=hiddenSections(s.profile.gender);
     if(['periods','contraceptiveDoses','intimacy'].includes(collection as string)&&hidden.includes('saude-feminina'))throw new Error('esse registro fica no menu Saúde feminina, que não aparece no seu perfil');
     if(collection==='trtDoses'&&hidden.includes('testosterona'))throw new Error('esse registro fica no menu Testosterona, que não aparece no seu perfil');}

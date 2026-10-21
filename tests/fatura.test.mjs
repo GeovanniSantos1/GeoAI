@@ -64,3 +64,13 @@ test('linhas marcadas viram itens para importar, com cartão ou como crédito',(
  assert.deepEqual([noCard[0].payment,noCard[0].cardId],['credit',undefined]);});
 test('loja só casa como palavra inteira: Uberlândia não vira Uber',()=>{const r=parseFaturaText(['Fechamento: 03/10/2026','05/09 UBERLANDIA SUPERMERCADO 20,00','06/09 AUTO POSTO COMPOSTO 50,00','07/09 FARMACIAS PACHECO 30,00'].join('\n'),ctx());
  assert.deepEqual(r.rows.map(x=>[x.title,x.category]),[['Uberlandia Supermercado','Mercado'],['Auto Posto Composto','Transporte'],['Farmacias Pacheco','Saúde']]);});
+test('parcelas de faturas seguidas sem datas reconhecidas não viram já lançado',()=>{const sep=parseFaturaText('25 JUL LOJA ABC PARC 2/10 100,00',ctx());
+ const saved=faturaItems(sep.rows,'c1').map((x,i)=>({id:'s'+i,...x}));
+ const oct=parseFaturaText('25 JUL LOJA ABC PARC 3/10 100,00',ctx(saved));
+ assert.deepEqual([oct.rows[0].duplicate,oct.rows[0].selected],[false,true]);
+ assert.equal(parseFaturaText('25 JUL LOJA ABC PARC 2/10 100,00',ctx(saved)).rows[0].duplicate,true);});
+test('fechamento e vencimento com mês por extenso',()=>{assert.deepEqual(readFatura('Vencimento 10 OUT 2026\nFechamento: 03 de outubro de 2026',TODAY).meta,{issuer:'Cartão',closingDate:'2026-10-03',dueDate:'2026-10-10',total:null});});
+test('total da fatura anterior não vale como total',()=>{assert.equal(readFatura('Total da fatura anterior R$ 2.000,00\nTotal a pagar R$ 33,90',TODAY).meta.total,3390);});
+test('sinal de menos Unicode vira estorno',()=>{const r=parseFaturaText('01/10 ESTORNO LOJA −R$ 50,00',ctx()).rows;
+ assert.equal(r.length,1);assert.deepEqual([r[0].direction,r[0].amount,r[0].title],['income',5000,'Estorno Loja']);});
+test('pagamentos com outras palavras são ignorados',()=>{assert.equal(parseFaturaText('07/10 PAGAMENTO FATURA -500,00\n08/10 PAGTO DEBITO AUTOMATICO -200,00\n09/10 PAGAMENTO EM 07 OUT -100,00',ctx()).rows.length,0);});

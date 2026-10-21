@@ -9,7 +9,9 @@ export function FaturaImport({cardId='',money,onClose}:{cardId?:string;money:(ce
  const [card,setCard]=useState(cardId),[file,setFile]=useState<File|null>(null),[password,setPassword]=useState(''),[busy,setBusy]=useState<''|'reading'|'ai'|'saving'>(''),[error,setError]=useState(''),[result,setResult]=useState<FaturaResult|null>(null),[rows,setRows]=useState<FaturaRow[]>([]),text=useRef('');
  const ctx={transactions:a.state.transactions,today:a.today};
  const show=(r:FaturaResult)=>{setResult(r);setRows(r.rows);};
- async function read(e:React.FormEvent){e.preventDefault();if(!file)return;setError('');setBusy('reading');try{text.current=await pdfText(file,password.trim()||undefined);show(parseFaturaText(text.current,ctx));}catch(err){setError(err instanceof Error?err.message:'Não consegui ler este PDF.');}finally{setBusy('');}}
+ async function read(e:React.FormEvent){e.preventDefault();if(!file)return;setError('');setBusy('reading');try{text.current=await pdfText(file,password.trim()||undefined);
+  if(!text.current.trim()){setError('Este PDF não tem texto para ler (parece uma imagem). Baixe a fatura em PDF pelo app ou site do banco.');return;}
+  show(parseFaturaText(text.current,ctx));}catch(err){setError(err instanceof Error?err.message:'Não consegui ler este PDF.');}finally{setBusy('');}}
  async function withAi(){setError('');setBusy('ai');try{const r=await fetch('/api/finance/fatura',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text.current})});const j:AiReply=await r.json().catch(()=>({}));if(!r.ok||!Array.isArray(j.lines))throw new Error(j.error||'Não consegui ler a fatura com a IA. Tente de novo.');show(faturaFromLines(j.lines,j.meta,ctx));}catch(err){setError(err instanceof Error&&!(err instanceof TypeError)?err.message:'Não consegui ler a fatura com a IA. Tente de novo.');}finally{setBusy('');}}
  const chosen=rows.filter(r=>r.selected),total=chosen.reduce((s,r)=>s+(r.direction==='income'?-r.amount:r.amount),0);
  const patch=(key:string,p:Partial<FaturaRow>)=>setRows(list=>list.map(r=>r.key===key?{...r,...p}:r));

@@ -134,7 +134,7 @@
 .fin-fatura .fin-warning{margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .fin-fatura-note{margin:0 0 10px;font-size:11px;color:var(--subtle)}
 .fin-fatura-tools{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
-.fin-fatura-list{list-style:none;margin:0 0 6px;padding:0;max-height:min(52vh,520px);overflow:auto;border:1px solid var(--border);border-radius:12px}
+.fin-fatura-list{list-style:none;margin:0 0 6px;padding:0;max-height:min(46vh,460px);overflow:auto;border:1px solid var(--border);border-radius:12px}
 .fin-fatura-list li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border-top:1px solid var(--border)}.fin-fatura-list li:first-child{border-top:0}.fin-fatura-list li.off{opacity:.55}
 .fin-fatura-list input[type=checkbox]{margin-top:3px}
 .fin-fatura-list p{display:flex;justify-content:space-between;gap:10px;margin:0 0 5px;font-size:13px}.fin-fatura-list p span{min-width:0;overflow-wrap:anywhere}.fin-fatura-list p b{white-space:nowrap}

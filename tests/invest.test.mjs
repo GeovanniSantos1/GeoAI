@@ -79,7 +79,9 @@ test('movimento salvo: ativo existente, data e exigências pelo modo do ativo',(
 test('venda maior que a posição na data',()=>{const s=wallet();
  assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'sell',date:T,quantity:11,amount:100}),{message:'Você tem só 10 nessa data.'});
  assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'sell',date:'2026-09-30',quantity:1,amount:100}),{message:'Você tem só 0 nessa data.'});
- assert.throws(()=>up(s,'investmentEvents',{assetId:'c',move:'sell',date:T,amount:150000}),{message:'O resgate passa do valor da posição (R$'+String.fromCharCode(160)+'1.000,00).'});
+ const red=up(s,'investmentEvents',{id:'r1',assetId:'c',move:'sell',date:T,amount:108000}),pc=position(red.investments.find(a=>a.id==='c'),red.investmentEvents);
+ assert.deepEqual([pc.value,pc.invested,pc.realized,pc.closed],[0,0,8000,true]);
+ assert.throws(()=>up(red,'investmentEvents',{assetId:'c',move:'sell',date:T,amount:100}),{message:'Não há saldo para resgatar nessa data.'});
  const sold=up(s,'investmentEvents',{id:'e2',assetId:'p',move:'sell',date:T,quantity:10,amount:35000});
  assert.equal(up(sold,'investmentEvents',{id:'e2',assetId:'p',move:'sell',date:T,quantity:10,amount:36000,_rev:1}).investmentEvents.find(x=>x.id==='e2').amount,36000);});
 test('ativo novo junto do movimento: cria uma vez e reaproveita por código ou nome',()=>{let s=emptyWorkspace('Geo');
@@ -102,3 +104,13 @@ test('espaço antigo ganha as coleções de investimentos',()=>{const old=emptyW
 test('checkInvestmentEvent devolve o ativo encontrado ou null para o ativo novo',()=>{const s=wallet();
  assert.equal(checkInvestmentEvent(s,validateItem('investmentEvents',{assetId:'p',move:'dividend',date:T,amount:10}),T).id,'p');
  assert.equal(checkInvestmentEvent(s,validateItem('investmentEvents',{move:'buy',date:T,quantity:1,amount:10,newAsset:{title:'Vale',kind:'acao'}}),T),null);});
+test('ativo novo do formulário nunca se junta a outro; o do assistente só ao do mesmo tipo',()=>{let s=emptyWorkspace('Geo');
+ s=up(s,'investmentEvents',{id:'a1',move:'buy',date:T,amount:100000,newAsset:{id:'cdb-1',title:'CDB Inter',kind:'cdb',indexer:'cdi',rate:110}});
+ s=up(s,'investmentEvents',{id:'a2',move:'buy',date:T,amount:50000,newAsset:{id:'cdb-2',title:'CDB Inter',kind:'cdb',indexer:'cdi',rate:120}});
+ assert.deepEqual(s.investments.map(a=>[a.id,a.rate]),[['cdb-1',110],['cdb-2',120]]);
+ s=up(s,'investmentEvents',{id:'a3',move:'buy',date:T,quantity:1,amount:3000,newAsset:{title:'Itaú',kind:'acao',ticker:'ITUB4'}});
+ s=up(s,'investmentEvents',{id:'a4',move:'buy',date:T,amount:20000,newAsset:{title:'Itau',kind:'cdb'}});
+ assert.deepEqual(s.investments.map(a=>a.kind),['cdb','cdb','acao','cdb']);
+ s=up(s,'investmentEvents',{id:'a5',move:'buy',date:T,quantity:1,amount:3100,newAsset:{title:'itaú',kind:'acao'}});
+ assert.equal(s.investments.length,4);assert.equal(s.investmentEvents.find(e=>e.id==='a5').assetId,'a3-a');});
+test('ativo só com proventos não aparece como encerrado',()=>{assert.equal(position({id:'d',title:'D',kind:'fii'},[ev('1','d','dividend','2026-05-01',{amount:100})]).closed,false);});

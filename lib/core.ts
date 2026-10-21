@@ -115,15 +115,16 @@ export function validateItem(collection:string,raw:any):Item{
 // Ativo novo que vem junto do movimento: validado como ativo; o id só fica quando veio (formulário de ativo novo).
 function cleanNewAsset(collection:string,value:unknown){if(collection!=='investmentEvents'||!value||typeof value!=='object'||Array.isArray(value))throw new Error('Ativo inválido');const v=value as Record<string,unknown>,given=typeof v.id==='string';const {id,...asset}=validateItem('investments',{...v,id:given?v.id:'novo'});return given?{...asset,id}:asset;}
 const foldName=(t:string)=>String(t).normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().trim();
-// Movimento de investimento: ativo existente (pelo id, ou o mesmo código ou nome do ativo novo), exigências do movimento, data e o que existe para vender.
+// Movimento de investimento: ativo existente (pelo id; com ativo novo, só o mesmo id do formulário, ou, vindo do assistente sem id, um do mesmo tipo com o mesmo código ou nome), exigências do movimento, data e o que existe para vender.
 export function checkInvestmentEvent(s:Workspace,e:Item,today:string){
- const n=e.newAsset,asset=s.investments.find(a=>a.id===e.assetId)||(n?s.investments.find(a=>(n.id&&a.id===n.id)||(n.ticker&&a.ticker===n.ticker)||foldName(a.title)===foldName(n.title)):undefined)||null;
+ const n=e.newAsset,asset=s.investments.find(a=>a.id===e.assetId)||(n?s.investments.find(a=>n.id?a.id===n.id:a.kind===n.kind&&((n.ticker&&a.ticker===n.ticker)||foldName(a.title)===foldName(n.title))):undefined)||null;
  if(!asset&&!n)throw new Error('Selecione um ativo da carteira');
  const kind=(asset||n).kind;if(e.date>today)throw new Error('A data não pode ser futura');
  const problem=moveProblem(e as Parameters<typeof moveProblem>[0],kind);if(problem)throw new Error(problem);
  if(e.move==='sell'){const p=position(asset||{id:'',title:'',kind},s.investmentEvents.filter(x=>x.id!==e.id),e.date);
   if(modeOf(kind)==='quantity'&&e.quantity>p.quantity+1e-9)throw new Error('Você tem só '+formatQty(p.quantity)+' nessa data.');
-  if(modeOf(kind)==='value'&&e.amount>p.value)throw new Error('O resgate passa do valor da posição ('+formatMoney(p.value)+').');}
+  // Quem não atualiza o valor do CDB resgata no vencimento com ganho: acima do registrado vale como resgate total; só sem saldo é recusado.
+  if(modeOf(kind)==='value'&&!(p.value>0))throw new Error('Não há saldo para resgatar nessa data.');}
  return asset;}
 export function validateWorkspace(raw:any):Workspace{
  raw=upgradeWorkspace(raw&&typeof raw==='object'?{...raw}:raw);

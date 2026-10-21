@@ -137,3 +137,6 @@ test('importar fatura: tudo ou nada, até 250 por vez e dentro do limite',()=>{c
  const full=emptyWorkspace('Geo');full.transactions=Array.from({length:4999},(_,i)=>({id:'t'+i,title:'x',amount:100,direction:'expense',date:T}));
  assert.equal(applyCommand(full,{type:'importTransactions',items:[items[1]]},T).transactions.length,5000);
  assert.throws(()=>applyCommand(full,{type:'importTransactions',items},T),/Limite de registros excedido/);});
+test('avisos de teto dizem o mês quando a importação abrange vários meses',()=>{const NB=String.fromCharCode(160),s=fin([],{budget:10000});
+ const items=['2026-09-05','2026-10-05'].map(date=>({collection:'transactions',item:{direction:'expense',amount:20000,date,category:'Lazer'}}));
+ assert.deepEqual(budgetAlerts(s,items),['⚠️ Teto do mês em setembro: R$'+NB+'200,00 de R$'+NB+'100,00, passou do teto.','⚠️ Teto do mês em outubro: R$'+NB+'200,00 de R$'+NB+'100,00, passou do teto.']);});

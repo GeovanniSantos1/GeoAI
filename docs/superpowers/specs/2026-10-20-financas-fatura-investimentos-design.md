@@ -245,7 +245,7 @@ O emissor e a parcela, unidos por " · ", em até 240 caracteres.
 
 **Venda acima do que existe na data do movimento:**
 - modo quantidade: "Você tem só N nessa data.";
-- modo valor, resgate acima do valor da posição: "O resgate passa do valor da posição (R$ X).".
+- modo valor: um resgate acima do valor registrado vale como resgate total (o ganho vira resultado realizado); sem saldo na data: "Não há saldo para resgatar nessa data.".
 
 #### Ativo novo junto com o movimento
 

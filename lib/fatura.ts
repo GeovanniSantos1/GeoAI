@@ -12,16 +12,18 @@ const fold=(t:string)=>t.normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().re
 const iso=(d:number,m:number,y:number)=>{const v=y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'),t=new Date(v+'T12:00:00Z');return Number.isFinite(t.getTime())&&t.toISOString().slice(0,10)===v?v:null;};
 const isIso=(v:unknown):v is string=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&iso(Number(v.slice(8)),Number(v.slice(5,7)),Number(v.slice(0,4)))===v;
 const MONTHS:Record<string,number>={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
-const AMOUNT='(-\\s?)?(?:R\\$\\s?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(\\s?-)?';
+const AMOUNT='([-−–]\\s?)?(?:R\\$\\s?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(\\s?[-−–])?';
 const SLASH=new RegExp('^(\\d{2})/(\\d{2})(?:/(\\d{4}|\\d{2}))?\\s+(.+?)\\s+'+AMOUNT+'$');
 const NAMED=new RegExp('^(\\d{2})\\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\\.?\\s+(.+?)\\s+'+AMOUNT+'$','i');
 const cents=(digits:string,negative:boolean)=>(negative?-1:1)*Number(digits.replace(/\./g,'').replace(',',''));
 // Emissor: o que aparece primeiro no texto (o cabeçalho vem antes das compras, que podem citar outros bancos).
 const ISSUERS:[RegExp,string][]=[[/picpay/i,'PicPay'],[/nubank|nu pagamentos/i,'Nubank'],[/banco inter\b/i,'Inter'],[/c6\s*bank/i,'C6 Bank'],[/ita[uú]/i,'Itaú'],[/bradesco/i,'Bradesco'],[/santander/i,'Santander'],[/caixa econ[oô]mica|cart[aã]o caixa/i,'Caixa'],[/banco do brasil|ourocard/i,'Banco do Brasil'],[/mercado pago/i,'Mercado Pago'],[/\bxp (?:investimentos|visa|card)/i,'XP']];
 function issuerOf(text:string){let best='Cartão',at=Infinity;for(const [re,name] of ISSUERS){const m=re.exec(text);if(m&&m.index<at){at=m.index;best=name;}}return best;}
-function labeledDate(text:string,label:string){const m=text.match(new RegExp(label+'[^\\d\\n]{0,40}?(\\d{2})[/.-](\\d{2})[/.-](\\d{4})','i'));return m?iso(Number(m[1]),Number(m[2]),Number(m[3])):null;}
-const TOTALS=['total\\s+da\\s+fatura','total\\s+geral\\s+dos\\s+lan[cç]amentos','valor\\s+total','total\\s+a\\s+pagar','despesas\\s+do\\s+m[eê]s'];
-function totalOf(text:string){for(const label of TOTALS){const m=text.match(new RegExp(label+'[^\\d\\n-]{0,30}?(-\\s?)?(?:R\\$\\s?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})','i'));if(m)return cents(m[2],!!m[1]);}return null;}
+// Data do rótulo: numérica (03/10/2026) ou com o mês por extenso (3 de outubro de 2026, 10 OUT 2026).
+function labeledDate(text:string,label:string){const m=text.match(new RegExp(label+'[^\\d\\n]{0,40}?(\\d{2})[/.-](\\d{2})[/.-](\\d{4})','i'));if(m)return iso(Number(m[1]),Number(m[2]),Number(m[3]));
+ const n=text.match(new RegExp(label+'[^\\d\\n]{0,40}?(\\d{1,2})\\s*(?:de\\s+)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-zç]*\\.?\\s*(?:de\\s+)?(\\d{4})','i'));return n?iso(Number(n[1]),MONTHS[n[2].toLowerCase()],Number(n[3])):null;}
+const TOTALS=['total\\s+desta\\s+fatura','total\\s+da\\s+fatura(?!\\s+anterior)','total\\s+geral\\s+dos\\s+lan[cç]amentos','valor\\s+total','total\\s+a\\s+pagar','despesas\\s+do\\s+m[eê]s'];
+function totalOf(text:string){for(const label of TOTALS){const m=text.match(new RegExp(label+'[^\\d\\n−–-]{0,30}?([-−–]\\s?)?(?:R\\$\\s?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})','i'));if(m)return cents(m[2],!!m[1]);}return null;}
 export function readFatura(text:string,today:string):{meta:FaturaMeta;lines:FaturaLine[]}{
  const pipe=text.match(/(\d{2})-(\d{2})-(\d{4})\s*\|\s*(\d{2})-(\d{2})-(\d{4})/);
  let dueDate=labeledDate(text,'vencimento'),closingDate=labeledDate(text,'fechamento');
@@ -36,7 +38,7 @@ export function readFatura(text:string,today:string):{meta:FaturaMeta;lines:Fatu
   else continue;
   const date=iso(d,m,y??(m>refM?refY-1:refY));if(date)lines.push({date,description:desc.trim(),amount:cents(digits,neg)});}
  return {meta,lines};}
-const SKIP=/pagamento (de|da) fatura|pagamento recebido|pagamento efetuado|fatura anterior|saldo anterior|subtotal|total (geral|da fatura|dos lancamentos|a pagar)|creditos e estornos|limite disponivel/;
+const SKIP=/pagamento (de |da )?fatura|pagamento recebido|pagamento efetuado|pagamento em|pagto|fatura anterior|saldo anterior|subtotal|total (geral|da fatura|desta fatura|dos lancamentos|a pagar)|creditos e estornos|limite disponivel/;
 const CHARGE=/\b(encargos?|iof|juros|multa|anuidade)\b/;
 // Lojas conhecidas: a primeira que aparecer no título, sempre como palavra inteira (aceita plural), define categoria e nome.
 const STORES:[string,string,string?][]=[
@@ -60,9 +62,11 @@ function splitInstallment(desc:string){const m=desc.match(/\bparc(?:ela)?\.?\s*(
  if(m){const k=Number(m[1]),n=Number(m[2]),at=m.index||0;if(k>=1&&k<=n&&n<=48)return {k,n,rest:(desc.slice(0,at)+' '+desc.slice(at+m[0].length)).trim()};}return {k:0,n:0,rest:desc};}
 export function faturaFromLines(lines:FaturaLine[],meta:FaturaMeta,ctx:FaturaCtx):FaturaResult{
  // Já lançado conta por ocorrência: duas linhas iguais contra um lançamento salvo marcam só uma.
- const fp=(date:string,amount:number,direction:string,title:string)=>date+'|'+amount+'|'+direction+'|'+fold(title).slice(0,48);
+ // A parcela entra na chave: sem datas reconhecidas, as parcelas 2/10 e 3/10 da mesma compra caem na mesma data.
+ const fp=(date:string,amount:number,direction:string,title:string,tag:string)=>date+'|'+amount+'|'+direction+'|'+fold(title).slice(0,48)+'|'+tag;
+ const tagOf=(x:Item)=>{const m=typeof x.notes==='string'?x.notes.match(/Parcela (\d{1,2})\/(\d{1,2})/):null;return m?Number(m[1])+'/'+Number(m[2]):x.installmentIndex&&x.installmentCount?x.installmentIndex+'/'+x.installmentCount:'';};
  const left=new Map<string,number>(),usedParts=new Set<string>(),history=new Map<string,{date:string;category:string}>();
- for(const x of ctx.transactions){if(typeof x.title!=='string'||typeof x.date!=='string')continue;const k=fp(x.date,x.amount,x.direction,x.title);left.set(k,(left.get(k)||0)+1);
+ for(const x of ctx.transactions){if(typeof x.title!=='string'||typeof x.date!=='string')continue;const k=fp(x.date,x.amount,x.direction,x.title,tagOf(x));left.set(k,(left.get(k)||0)+1);
   if(x.direction==='expense'&&EXPENSE_CATEGORIES.includes(x.category)){const h=history.get(fold(x.title));if(!h||x.date>h.date)history.set(fold(x.title),{date:x.date,category:x.category});}}
  const valid=lines.filter(l=>isIso(l.date)&&Number.isSafeInteger(l.amount)&&l.amount!==0&&typeof l.description==='string'&&!SKIP.test(fold(l.description)));
  const rows=valid.slice(0,MAX_ROWS).map((l,i):FaturaRow=>{
@@ -72,7 +76,7 @@ export function faturaFromLines(lines:FaturaLine[],meta:FaturaMeta,ctx:FaturaCtx
   const late=parc.k>=2,date=late?(meta.closingDate||meta.dueDate||l.date):l.date,installment=parc.k?parc.k+'/'+parc.n:null;
   const category=refund?'Outras receitas':history.get(fold(title))?.category||store?.category||'Outros';
   const notes=[meta.issuer!=='Cartão'?meta.issuer:'',installment?'Parcela '+installment+(late?' · compra em '+l.date.slice(8)+'/'+l.date.slice(5,7):''):''].filter(Boolean).join(' · ').slice(0,240);
-  const direction=refund?'income':'expense',k=fp(date,amount,direction,title),n=left.get(k)||0;let reason:string|null=null;
+  const direction=refund?'income':'expense',k=fp(date,amount,direction,title,installment||''),n=left.get(k)||0;let reason:string|null=null;
   if(n>0){left.set(k,n-1);reason='Já está nos lançamentos';}
   else if(parc.k&&!refund){const part=ctx.transactions.find(x=>x.installmentGroup&&!usedParts.has(x.id)&&x.installmentIndex===parc.k&&x.installmentCount===parc.n&&Math.abs(x.amount-amount)<=parc.n);if(part){usedParts.add(part.id);reason='Já está nas compras parceladas';}}
   const duplicate=!!reason;if(!reason&&refund)reason='Estorno: marque para lançar como receita';

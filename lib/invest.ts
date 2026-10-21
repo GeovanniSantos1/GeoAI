@@ -28,8 +28,9 @@ const pctOf=(part:number,base:number)=>base>0?Math.round(part/base*1000)/10:0;
 // Movimentos do ativo até a data: por data e, no mesmo dia, na ordem em que foram salvos.
 function movesOf(assetId:string,events:Item[],until?:string){return events.map((e,i)=>({e,i})).filter(({e})=>e.assetId===assetId&&typeof e.date==='string'&&(!until||e.date<=until)).sort((a,b)=>a.e.date.localeCompare(b.e.date)||a.i-b.i).map(({e})=>e);}
 export function position(asset:Item,events:Item[],until?:string):Position{
- const mode=modeOf(asset.kind);let qty=0,cost=0,held=0,realized=0,income=0,price=0,priceDate:string|null=null,moved=false;
- for(const e of movesOf(asset.id,events,until)){moved=true;const amount=Number(e.amount)||0,q=Number(e.quantity)||0,p=Number(e.price)||0;
+ const mode=modeOf(asset.kind);let qty=0,cost=0,held=0,realized=0,income=0,price=0,priceDate:string|null=null,bought=false;
+ // Encerrado: já teve compra e zerou. Ativo só com proventos ou cotação não é encerrado.
+ for(const e of movesOf(asset.id,events,until)){if(e.move==='buy')bought=true;const amount=Number(e.amount)||0,q=Number(e.quantity)||0,p=Number(e.price)||0;
   if(INCOME_MOVES.includes(e.move)){income+=amount;continue;}
   if(mode==='quantity'){
    if(e.move==='buy'&&q>0){qty+=q;cost+=amount;price=p||amount/q;priceDate=e.date;}
@@ -43,7 +44,7 @@ export function position(asset:Item,events:Item[],until?:string):Position{
    else if(e.move==='valuation'&&amount>0){held=amount;priceDate=e.date;}
   }}
  qty=Math.round(qty*1e8)/1e8;const invested=Math.round(cost),value=mode==='quantity'?(qty>0?Math.round(qty*price):0):Math.round(held),unrealized=value-invested,r=Math.round(realized),inc=Math.round(income);
- return {asset,mode,quantity:qty,avgPrice:qty>0?cost/qty:0,invested,value,lastPrice:price,priceDate,unrealized,realized:r,income:inc,pnl:unrealized+r+inc,pct:pctOf(unrealized,invested),closed:moved&&value===0&&invested===0};}
+ return {asset,mode,quantity:qty,avgPrice:qty>0?cost/qty:0,invested,value,lastPrice:price,priceDate,unrealized,realized:r,income:inc,pnl:unrealized+r+inc,pct:pctOf(unrealized,invested),closed:bought&&value===0&&invested===0};}
 export function positions(assets:Item[],events:Item[],until?:string){return assets.map(a=>position(a,events,until)).sort((x,y)=>Number(x.closed)-Number(y.closed)||y.value-x.value||String(x.asset.title).localeCompare(String(y.asset.title)));}
 export function portfolio(list:Position[]){const sum=(k:'invested'|'value'|'realized'|'income')=>list.reduce((s,p)=>s+p[k],0),invested=sum('invested'),value=sum('value'),realized=sum('realized'),income=sum('income'),unrealized=value-invested;
  const allocation=INVEST_KINDS.map(k=>({kind:k.id,label:k.label,color:k.color,value:list.filter(p=>kindInfo(p.asset.kind).id===k.id).reduce((s,p)=>s+p.value,0)})).filter(x=>x.value>0).map(x=>({...x,share:x.value/value}));

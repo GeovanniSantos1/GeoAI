@@ -69,8 +69,8 @@ export function transactionsCsv(s:FinData){const cards=new Map((s.cards||[]).map
  return '\ufeff'+['Data;Tipo;Categoria;Descrição;Valor;Pagamento;Notas',...rows].join('\r\n');}
 // Aviso ao confirmar sugestões: compara a situação dos tetos antes e depois das despesas novas; só avisa o que mudou.
 export function budgetAlerts(s:FinData,items:{collection:string;item:Partial<Item>}[]){try{const added=items.filter(p=>p.collection==='transactions'&&p.item.direction==='expense'&&typeof p.item.amount==='number'&&p.item.amount>0&&typeof p.item.date==='string').map(p=>p.item as Item);
- const out:string[]=[];
- for(const m of [...new Set(added.map(x=>x.date.slice(0,7)))].sort()){const before=budgetView(s,m),after=budgetView({...s,transactions:[...s.transactions,...added.filter(x=>x.date.startsWith(m))]},m);
-  const a=after.month;if(a.state!==before.month.state&&(a.state==='over'||a.state==='near'))out.push(a.state==='over'?'⚠️ Teto do mês: '+formatMoney(a.spent)+' de '+formatMoney(a.cap)+', passou do teto.':'⚠️ Você já usou '+a.pct+'% do teto do mês.');
-  after.categories.forEach((c,i)=>{if(c.state!==before.categories[i].state&&(c.state==='over'||c.state==='near'))out.push(c.state==='over'?'⚠️ '+c.name+': '+formatMoney(c.spent)+' de '+formatMoney(c.cap)+', passou do teto.':'⚠️ '+c.name+' já usou '+c.pct+'% do teto.');});}
+ const out:string[]=[],months=[...new Set(added.map(x=>x.date.slice(0,7)))].sort();
+ for(const m of months){const tag=months.length>1?' em '+MONTHS[Number(m.slice(5))-1]:'',before=budgetView(s,m),after=budgetView({...s,transactions:[...s.transactions,...added.filter(x=>x.date.startsWith(m))]},m);
+  const a=after.month;if(a.state!==before.month.state&&(a.state==='over'||a.state==='near'))out.push(a.state==='over'?'⚠️ Teto do mês'+tag+': '+formatMoney(a.spent)+' de '+formatMoney(a.cap)+', passou do teto.':'⚠️ Você já usou '+a.pct+'% do teto do mês'+tag+'.');
+  after.categories.forEach((c,i)=>{if(c.state!==before.categories[i].state&&(c.state==='over'||c.state==='near'))out.push(c.state==='over'?'⚠️ '+c.name+tag+': '+formatMoney(c.spent)+' de '+formatMoney(c.cap)+', passou do teto.':'⚠️ '+c.name+' já usou '+c.pct+'% do teto'+tag+'.');});}
  return out.slice(0,3);}catch{return [];}}
