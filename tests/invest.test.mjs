@@ -49,3 +49,56 @@ test('taxa, quantidade e cotação formatadas',()=>{
 test('cotação digitada vira centavos, com fração para cripto',()=>{
  assert.deepEqual([priceToCents('38,50'),priceToCents('0,000123'),priceToCents('1.234,5'),priceToCents('350.000'),priceToCents('38.5'),priceToCents('R$ 10')],[3850,0.0123,123450,35000000,3850,1000]);
  for(const bad of ['','abc','0','-5'])assert.throws(()=>priceToCents(bad),/Informe uma cotação válida/);});
+
+import {emptyWorkspace,applyCommand,validateItem,upgradeWorkspace,checkInvestmentEvent} from '../lib/core.ts';
+const T='2026-10-18';
+const up=(s,collection,item)=>applyCommand(s,{type:'upsert',collection,item},T);
+function wallet(){let s=emptyWorkspace('Geo');s=up(s,'investments',{id:'p',title:'Petrobras',kind:'acao',ticker:'PETR4'});s=up(s,'investments',{id:'c',title:'CDB Banco X',kind:'cdb',indexer:'cdi',rate:110});
+ s=up(s,'investmentEvents',{id:'e1',assetId:'p',move:'buy',date:'2026-10-01',quantity:10,amount:30000});s=up(s,'investmentEvents',{id:'c1',assetId:'c',move:'buy',date:'2026-10-01',amount:100000});return s;}
+test('ativo: tipo, código e campos de renda fixa só na renda fixa',()=>{
+ const a=validateItem('investments',{title:'Petrobras',kind:'acao',ticker:' petr 4 ',indexer:'cdi',rate:10,dueDate:'2030-01-01'});
+ assert.deepEqual([a.ticker,a.indexer,a.rate,a.dueDate],['PETR4',undefined,undefined,undefined]);
+ const c=validateItem('investments',{title:'CDB',kind:'cdb',indexer:'cdi',rate:110,dueDate:'2028-05-01'});
+ assert.deepEqual([c.indexer,c.rate,c.dueDate],['cdi',110,'2028-05-01']);
+ assert.throws(()=>validateItem('investments',{title:'X',kind:'imovel'}),/Tipo de investimento inválido/);
+ assert.throws(()=>validateItem('investments',{title:'X',kind:'cdb',indexer:'poupanca'}),/Indexador inválido/);
+ assert.throws(()=>validateItem('investments',{title:'X',kind:'acao',ticker:'A'.repeat(17)}),/até 16/);});
+test('movimento: título padrão, tipo e ativo obrigatórios',()=>{
+ assert.equal(validateItem('investmentEvents',{assetId:'p',move:'dividend',date:T,amount:100}).title,'Dividendo');
+ assert.throws(()=>validateItem('investmentEvents',{assetId:'p',move:'gift',date:T}),/Movimento inválido/);
+ assert.throws(()=>validateItem('investmentEvents',{move:'buy',date:T,amount:1}),/Selecione um ativo da carteira/);
+ assert.throws(()=>validateItem('investmentEvents',{assetId:'p',move:'buy',amount:1}),/Informe a data/);});
+test('movimento salvo: ativo existente, data e exigências pelo modo do ativo',()=>{const s=wallet();
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'zz',move:'buy',date:T,quantity:1,amount:100}),/Selecione um ativo da carteira/);
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'buy',date:'2026-10-19',quantity:1,amount:100}),/A data não pode ser futura/);
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'buy',date:T,amount:100}),/Informe a quantidade/);
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'valuation',date:T,amount:100}),/Informe a cotação/);
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'c',move:'valuation',date:T,price:100}),/Informe o valor atual/);
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'dividend',date:T}),/Informe o valor do provento/);
+ assert.equal(up(s,'investmentEvents',{assetId:'p',move:'valuation',date:T,price:3850.5}).investmentEvents.length,3);});
+test('venda maior que a posição na data',()=>{const s=wallet();
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'sell',date:T,quantity:11,amount:100}),{message:'Você tem só 10 nessa data.'});
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'p',move:'sell',date:'2026-09-30',quantity:1,amount:100}),{message:'Você tem só 0 nessa data.'});
+ assert.throws(()=>up(s,'investmentEvents',{assetId:'c',move:'sell',date:T,amount:150000}),{message:'O resgate passa do valor da posição (R$'+String.fromCharCode(160)+'1.000,00).'});
+ const sold=up(s,'investmentEvents',{id:'e2',assetId:'p',move:'sell',date:T,quantity:10,amount:35000});
+ assert.equal(up(sold,'investmentEvents',{id:'e2',assetId:'p',move:'sell',date:T,quantity:10,amount:36000,_rev:1}).investmentEvents.find(x=>x.id==='e2').amount,36000);});
+test('ativo novo junto do movimento: cria uma vez e reaproveita por código ou nome',()=>{let s=emptyWorkspace('Geo');
+ const cmd={id:'e1',move:'buy',date:T,quantity:10,amount:38000,newAsset:{title:'Petrobras',kind:'acao',ticker:'petr4'}};
+ s=up(s,'investmentEvents',cmd);
+ assert.deepEqual(s.investments.map(a=>[a.id,a.title,a.ticker]),[['e1-a','Petrobras','PETR4']]);
+ assert.equal(s.investmentEvents[0].assetId,'e1-a');assert.equal(s.investmentEvents[0].newAsset,undefined);
+ s=up(s,'investmentEvents',{...cmd,_rev:1});assert.deepEqual([s.investments.length,s.investmentEvents.length],[1,1]);
+ s=up(s,'investmentEvents',{id:'e2',move:'buy',date:T,quantity:1,amount:3900,newAsset:{title:'Petro',kind:'acao',ticker:'PETR4'}});
+ s=up(s,'investmentEvents',{id:'e3',move:'buy',date:T,quantity:1,amount:3900,newAsset:{title:'petrobrás',kind:'acao'}});
+ assert.equal(s.investments.length,1);assert.deepEqual(s.investmentEvents.map(x=>x.assetId),['e1-a','e1-a','e1-a']);
+ s=up(s,'investmentEvents',{id:'f1',move:'buy',date:T,amount:50000,newAsset:{id:'cdb1',title:'CDB Novo',kind:'cdb',indexer:'cdi',rate:105}});
+ assert.deepEqual([s.investments.find(a=>a.id==='cdb1').rate,s.investmentEvents.find(x=>x.id==='f1').assetId],[105,'cdb1']);
+ assert.throws(()=>up(s,'investmentEvents',{id:'g1',move:'buy',date:T,amount:1,newAsset:{title:'Casa',kind:'imovel'}}),/Tipo de investimento inválido/);
+ assert.throws(()=>up(s,'investmentEvents',{id:'g2',move:'sell',date:T,quantity:1,amount:1,newAsset:{title:'Vale',kind:'acao'}}),{message:'Você tem só 0 nessa data.'});});
+test('excluir o ativo exclui os movimentos dele',()=>{const s=applyCommand(wallet(),{type:'delete',collection:'investments',id:'p'},T);
+ assert.deepEqual([s.investments.map(a=>a.id),s.investmentEvents.map(e=>e.id)],[['c'],['c1']]);});
+test('espaço antigo ganha as coleções de investimentos',()=>{const old=emptyWorkspace('Geo');delete old.investments;delete old.investmentEvents;
+ const s=upgradeWorkspace(old);assert.deepEqual([s.investments,s.investmentEvents],[[],[]]);assert.deepEqual(emptyWorkspace().investmentEvents,[]);});
+test('checkInvestmentEvent devolve o ativo encontrado ou null para o ativo novo',()=>{const s=wallet();
+ assert.equal(checkInvestmentEvent(s,validateItem('investmentEvents',{assetId:'p',move:'dividend',date:T,amount:10}),T).id,'p');
+ assert.equal(checkInvestmentEvent(s,validateItem('investmentEvents',{move:'buy',date:T,quantity:1,amount:10,newAsset:{title:'Vale',kind:'acao'}}),T),null);});

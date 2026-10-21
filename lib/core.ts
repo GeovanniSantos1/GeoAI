@@ -4,6 +4,7 @@ import { cleanMarkers, cleanReview, cleanFile } from './exam-schema.ts';
 import { HAIR_STYLES, hiddenSections } from './gender.ts';
 import { SYMPTOMS, FLOWS, METHODS, femaleAgenda } from './female-health.ts';
 import { formatMoney, PAYMENTS, EXPENSE_CATEGORIES, CATEGORIES } from './finance.ts';
+import { INVEST_KINDS, FIXED_INCOME, INDEXERS, MOVES, MOVE_TITLE, moveProblem, modeOf, position, formatQty } from './invest.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -29,8 +30,12 @@ for(const key of ['lab','markers','file','review','createdOn','dose','intervalDa
 for(const key of ['endDate','flow','symptoms','method','activeDays','pauseDays','changeDate','methodId','intervalMonths','lastDate','snoozeHour','protection'])VALID_KEYS.add(key);for(const key of ['activeDays','pauseDays','intervalMonths','snoozeHour'])NUMBERS.add(key);for(const key of ['endDate','changeDate','lastDate'])DATES.add(key);
 // Finanças: forma de pagamento do lançamento.
 VALID_KEYS.add('payment');
+// Investimentos: ativo (tipo, código, corretora, indexador e taxa) e movimento (ativo, tipo de movimento, cotação e o ativo novo que pode vir junto).
+for(const key of ['kind','ticker','broker','indexer','rate','assetId','move','price','newAsset'])VALID_KEYS.add(key);for(const key of ['rate','price'])NUMBERS.add(key);
+// Limites por coleção (lançamentos têm mais espaço por causa da importação de faturas) e do espaço inteiro, em caracteres de JSON.
+const LIMITS:Record<string,number>={transactions:5000};const limitOf=(c:string)=>LIMITS[c]||2000;const MAX_STATE=2500000;
 // Coleções criadas depois do lançamento: espaços e backups antigos ganham a lista vazia.
-const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy'];
+const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy','investments','investmentEvents'];
 // Perfis de antes da versão feminina eram todos tratados no masculino; o avatar ganha penteado e brincos padrão.
 // Copia o perfil em vez de alterá-lo, porque validateWorkspace só copia o primeiro nível do backup.
 export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];
@@ -52,6 +57,8 @@ export function consecutiveDays(dates:string[],today:string){const unique=new Se
 export function sleepDuration(bedtime:string,waketime:string){const parse=(v:string)=>{if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))throw new Error('Horário inválido');const [h,m]=v.split(':').map(Number);return h*60+m;};const diff=parse(waketime)-parse(bedtime);return diff<=0?diff+1440:diff;}
 export function validateItem(collection:string,raw:any):Item{
  if(!(COLLECTIONS as readonly string[]).includes(collection)||!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Registro inválido');
+ // Movimento sem título recebe o nome do movimento: o formulário e o assistente não pedem título.
+ if(collection==='investmentEvents'&&(typeof raw.title!=='string'||!raw.title.trim()))raw={...raw,title:MOVE_TITLE[raw.move]||'Movimento'};
  if(typeof raw.title!=='string'||!raw.title.trim()||raw.title.length>200)throw new Error('Informe um título de até 200 caracteres');
  const id=raw.id||crypto.randomUUID();if(typeof id!=='string'||!/^[\w-]{1,100}$/.test(id))throw new Error('Identificador inválido');
  const item:any={id,title:raw.title.trim()};
@@ -64,12 +71,13 @@ export function validateItem(collection:string,raw:any):Item{
   else if(key==='markers')item[key]=cleanMarkers(value);
   else if(key==='review')item[key]=cleanReview(value);
   else if(key==='file')item[key]=cleanFile(value);
+  else if(key==='newAsset')item[key]=cleanNewAsset(collection,value);
   else if(typeof value==='string'){if(value.length>10000)throw new Error('Texto muito longo');item[key]=value;}
   else if(Array.isArray(value)&&['weekdays','paidMonths','tags','symptoms'].includes(key)&&value.length<=100&&value.every(x=>typeof x==='string'||typeof x==='number'))item[key]=value;
   else throw new Error('Tipo inválido para '+key);
  }
  if(item.repeat&&!['none','daily','weekdays','weekly','monthly'].includes(item.repeat))throw new Error('Repetição inválida');
- if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses','periods','symptoms','contraceptiveDoses','intimacy'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
+ if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses','periods','symptoms','contraceptiveDoses','intimacy','investmentEvents'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
  if(['transactions','bills'].includes(collection)&&(!Number.isSafeInteger(item.amount)||item.amount<=0))throw new Error('Informe um valor maior que zero');
  if(collection==='bills'&&(!Number.isInteger(item.day)||item.day<1||item.day>31))throw new Error('Informe um dia entre 1 e 31');
  if(['books','readingLogs'].includes(collection)&&(!Number.isInteger(item.pages)||item.pages<1))throw new Error('Informe a quantidade de páginas');
@@ -95,9 +103,28 @@ export function validateItem(collection:string,raw:any):Item{
   if(item.method!=='iud'&&item.remind&&!item.time)throw new Error('Informe o horário do lembrete');}
  if(collection==='contraceptiveDoses'&&(typeof item.methodId!=='string'||!/^[\w-]{1,100}$/.test(item.methodId)))throw new Error('Escolha o método');
  if(collection==='preventives'&&(!Number.isInteger(item.intervalMonths)||item.intervalMonths<1||item.intervalMonths>120))throw new Error('Informe o intervalo entre 1 e 120 meses');
+ if(collection==='investments'){if(!INVEST_KINDS.some(k=>k.id===item.kind))throw new Error('Tipo de investimento inválido');
+  if(item.ticker!==undefined){item.ticker=item.ticker.toUpperCase().replace(/\s+/g,'');if(item.ticker.length>16)throw new Error('Use um código de até 16 caracteres');if(!item.ticker)delete item.ticker;}
+  if(item.broker!==undefined&&item.broker.length>40)throw new Error('Use um nome de corretora de até 40 caracteres');
+  if(FIXED_INCOME.includes(item.kind)){if(item.indexer!==undefined&&!INDEXERS.some(([id])=>id===item.indexer))throw new Error('Indexador inválido');if(item.rate!==undefined&&item.rate>1000)throw new Error('Taxa inválida');}
+  else{delete item.indexer;delete item.rate;delete item.dueDate;}}
+ if(collection==='investmentEvents'){if(!(MOVES as readonly string[]).includes(item.move))throw new Error('Movimento inválido');if(!item.newAsset&&(typeof item.assetId!=='string'||!/^[\w-]{1,100}$/.test(item.assetId)))throw new Error('Selecione um ativo da carteira');}
  if(item.repeatUntil&&item.date&&item.repeatUntil<item.date)throw new Error('Término anterior ao início');
  return item;
 }
+// Ativo novo que vem junto do movimento: validado como ativo; o id só fica quando veio (formulário de ativo novo).
+function cleanNewAsset(collection:string,value:unknown){if(collection!=='investmentEvents'||!value||typeof value!=='object'||Array.isArray(value))throw new Error('Ativo inválido');const v=value as Record<string,unknown>,given=typeof v.id==='string';const {id,...asset}=validateItem('investments',{...v,id:given?v.id:'novo'});return given?{...asset,id}:asset;}
+const foldName=(t:string)=>String(t).normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().trim();
+// Movimento de investimento: ativo existente (pelo id, ou o mesmo código ou nome do ativo novo), exigências do movimento, data e o que existe para vender.
+export function checkInvestmentEvent(s:Workspace,e:Item,today:string){
+ const n=e.newAsset,asset=s.investments.find(a=>a.id===e.assetId)||(n?s.investments.find(a=>(n.id&&a.id===n.id)||(n.ticker&&a.ticker===n.ticker)||foldName(a.title)===foldName(n.title)):undefined)||null;
+ if(!asset&&!n)throw new Error('Selecione um ativo da carteira');
+ const kind=(asset||n).kind;if(e.date>today)throw new Error('A data não pode ser futura');
+ const problem=moveProblem(e as Parameters<typeof moveProblem>[0],kind);if(problem)throw new Error(problem);
+ if(e.move==='sell'){const p=position(asset||{id:'',title:'',kind},s.investmentEvents.filter(x=>x.id!==e.id),e.date);
+  if(modeOf(kind)==='quantity'&&e.quantity>p.quantity+1e-9)throw new Error('Você tem só '+formatQty(p.quantity)+' nessa data.');
+  if(modeOf(kind)==='value'&&e.amount>p.value)throw new Error('O resgate passa do valor da posição ('+formatMoney(p.value)+').');}
+ return asset;}
 export function validateWorkspace(raw:any):Workspace{
  raw=upgradeWorkspace(raw&&typeof raw==='object'?{...raw}:raw);
  if(!raw||typeof raw!=='object'||!raw.profile||COLLECTIONS.some(k=>!Array.isArray(raw[k])))throw new Error('Backup não reconhecido');
@@ -106,10 +133,10 @@ export function validateWorkspace(raw:any):Workspace{
  if(Number.isSafeInteger(raw.profile.xp)&&raw.profile.xp>=0)s.profile.xp=Math.min(raw.profile.xp,1e7);
  if(Number.isSafeInteger(raw.profile.points)&&raw.profile.points>=0)s.profile.points=Math.min(raw.profile.points,1e7);
  s.profile.unlockedMoments=Array.isArray(raw.profile.unlockedMoments)?raw.profile.unlockedMoments.filter((x:string)=>MOMENTS.some(m=>m.id===x)):[];
- for(const key of COLLECTIONS){if(raw[key].length>2000)throw new Error('Limite de registros excedido');s[key]=raw[key].map((x:any)=>validateItem(key,x));if(new Set(s[key].map(x=>x.id)).size!==s[key].length)throw new Error('Identificadores duplicados');}
+ for(const key of COLLECTIONS){if(raw[key].length>limitOf(key))throw new Error('Limite de registros excedido');s[key]=raw[key].map((x:any)=>validateItem(key,x));if(new Set(s[key].map(x=>x.id)).size!==s[key].length)throw new Error('Identificadores duplicados');}
  if(raw.completions&&typeof raw.completions==='object')for(const [key,value]of Object.entries(raw.completions))if(/^[\w-]+:\d{4}-\d{2}-\d{2}$/.test(key)&&typeof value==='boolean')s.completions[key]=value;
  s.rewarded=Array.isArray(raw.rewarded)?raw.rewarded.filter((x:any)=>typeof x==='string'&&x.length<160).slice(-20000):[];
- if(JSON.stringify(s).length>1000000)throw new Error('Backup muito grande');return s;
+ if(JSON.stringify(s).length>MAX_STATE)throw new Error('Backup muito grande');return s;
 }
 function cleanProfile(raw:any,previous:Workspace['profile']){
  const p=structuredClone(previous);
@@ -133,13 +160,14 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   const col=command.collection as Collection;const item=validateItem(col,command.item);const index=s[col].findIndex(x=>x.id===item.id);
   if(index>=0&&command.item?._rev!==undefined&&command.item._rev!==(s[col][index]._rev||0))throw new Error('Este registro foi atualizado em outra aba. Feche o formulário e abra novamente.');
   if(col==='intimacy'&&item.date>today)throw new Error('A relação não pode ter data no futuro.');
+  if(col==='investmentEvents'){const asset=checkInvestmentEvent(s,item,today);if(item.newAsset){const {id:assetId,...fields}=item.newAsset;if(asset)item.assetId=asset.id;else{if(s.investments.length>=limitOf('investments'))throw new Error('Limite da coleção atingido');const created=validateItem('investments',{...fields,id:assetId||item.id+'-a'});created._rev=1;s.investments.push(created);item.assetId=created.id;}delete item.newAsset;}}
   item._rev=(index>=0?s[col][index]._rev||0:0)+1;
   if(['journal','sleep','symptoms','intimacy'].includes(col)&&s[col].some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro para esta data. Edite o registro existente.');
   if(col==='trtDoses'&&s.trtDoses.some(x=>x.protocolId===item.protocolId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma aplicação deste protocolo nesta data. Edite o registro existente.');
   if(col==='periods'&&s.periods.some(x=>x.date===item.date&&x.id!==item.id))throw new Error('Já existe uma menstruação com este início. Edite o registro existente.');
   if(col==='contraceptiveDoses'&&s.contraceptiveDoses.some(x=>x.methodId===item.methodId&&x.date===item.date&&x.id!==item.id))throw new Error('Já existe um registro deste método nesta data. Edite o registro existente.');
   if(col==='readingLogs'){const previous=index>=0?s[col][index]:undefined;if(previous){const oldBook=s.books.find(x=>x.id===previous.bookId);if(oldBook){oldBook.pagesRead=Math.max(0,(oldBook.pagesRead||0)-(previous.appliedPages??previous.pages));if(oldBook.status==='done'&&oldBook.pagesRead<oldBook.pages)oldBook.status='active';}}const book=s.books.find(x=>x.id===item.bookId);if(!book)throw new Error('Selecione um livro da sua biblioteca');item.appliedPages=Math.min(item.pages,Math.max(0,book.pages-(book.pagesRead||0)));book.pagesRead=(book.pagesRead||0)+item.appliedPages;if(book.pagesRead>=book.pages)book.status='done';}
-  if(index<0&&s[col].length>=2000)throw new Error('Limite da coleção atingido');if(index<0)s[col].push(item);else s[col][index]=item;
+  if(index<0&&s[col].length>=limitOf(col))throw new Error('Limite da coleção atingido');if(index<0)s[col].push(item);else s[col][index]=item;
   if(col==='journal')reward(s,'journal:'+item.date,15);
   if(col==='sleep')reward(s,'sleep:'+item.date,10);
   if(col==='focusSessions')reward(s,'focus:'+item.id,20);
@@ -149,6 +177,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   if(col==='readingLogs'){const log=get(col,command.id);const book=s.books.find(x=>x.id===log.bookId);if(book){book.pagesRead=Math.max(0,(book.pagesRead||0)-(log.appliedPages??log.pages));if(book.status==='done'&&book.pagesRead<book.pages)book.status='active';}}
   if(col==='transactions')for(const bill of s.bills)bill.paidMonths=(bill.paidMonths||[]).filter((month:string)=>command.id!=='bill-'+bill.id+'-'+month);
   s[col]=s[col].filter(x=>x.id!==command.id);
+  if(col==='investments')s.investmentEvents=s.investmentEvents.filter(x=>x.assetId!==command.id);
   if(col==='objectives')s.tasks.forEach(t=>{if(t.objectiveId===command.id)delete t.objectiveId;});
   if(col==='rooms')s.chores.forEach(t=>{if(t.roomId===command.id)delete t.roomId;});
  }else if(command.type==='patch'){
@@ -168,7 +197,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
   const id='bill-'+bill.id+'-'+month;if(!s.transactions.some(x=>x.id===id)){s.transactions.push(validateItem('transactions',{id,title:bill.title,amount:bill.amount,direction:'expense',category:bill.category||'Contas',date:today,cardId:bill.cardId}));bill.paidMonths=[...new Set([...(bill.paidMonths||[]),month])];}
  }else if(command.type==='installments'){
   const raw=command.item;if(!raw?.title)throw new Error('Informe a compra');const group=raw.id||crypto.randomUUID();const rows=allocateInstallments(raw.amount,raw.installmentCount,raw.date);
-  if(s.transactions.length+rows.length>2000)throw new Error('Limite de registros excedido');
+  if(s.transactions.length+rows.length>limitOf('transactions'))throw new Error('Limite de registros excedido');
   rows.forEach((r,i)=>{const id=group+'-part-'+(i+1);if(!s.transactions.some(x=>x.id===id))s.transactions.push(validateItem('transactions',{...raw,...r,id,title:raw.title+' ('+(i+1)+'/'+rows.length+')',direction:'expense',installmentGroup:group,installmentIndex:i+1,installmentCount:rows.length}));});
  }else if(command.type==='confirmPlan'){
   if(!Array.isArray(command.items)||command.items.length>30)throw new Error('Plano inválido');
@@ -176,7 +205,7 @@ export function applyCommand(state:Workspace,command:Command,today:string):Works
  }else if(command.type==='import'){return validateWorkspace(command.state);
  }else if(command.type==='reset'){return emptyWorkspace(s.profile.name);
  }else throw new Error('Ação não reconhecida');
- if(JSON.stringify(s).length>1000000)throw new Error('Seu backup excedeu o limite de armazenamento');return s;
+ if(JSON.stringify(s).length>MAX_STATE)throw new Error('Seu backup excedeu o limite de armazenamento');return s;
 }
 export function planFromText(text:string,today:string):Proposal[]{
  if(typeof text!=='string'||text.length>4000)throw new Error('Descreva seu plano em até 4.000 caracteres');

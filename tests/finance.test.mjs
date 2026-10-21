@@ -110,3 +110,19 @@ test('aviso do teto do mês vem antes das categorias e não é cortado',()=>{con
  const it=c=>({collection:'transactions',item:{title:'x',amount:200,direction:'expense',date:'2026-10-18',category:c}});
  const out=budgetAlerts(s,['Moradia','Mercado','Lazer'].map(it));assert.equal(out.length,3);assert.ok(out[0].startsWith('⚠️ Teto do mês'));});
 test('sem caracteres invisíveis crus nos fontes',async()=>{const fs=await import('node:fs');for(const f of ['lib/finance.ts','tests/finance.test.mjs'])assert.ok(!/[\uFEFF\u0300-\u036F]/.test(fs.readFileSync(new URL('../'+f,import.meta.url),'utf8')),f);});
+test('limites: 5.000 lançamentos, 2.000 nas outras coleções e espaço de 2,5 MB',()=>{
+ const many=(n,f)=>Array.from({length:n},(_,i)=>f(i)),tx=i=>({id:'t'+i,title:'x',amount:100,direction:'expense',date:T});
+ let s=emptyWorkspace('Geo');s.transactions=many(2000,tx);
+ assert.equal(up(s,'transactions',{title:'nova',amount:100,direction:'expense',date:T}).transactions.length,2001);
+ s.transactions=many(5000,tx);
+ assert.throws(()=>up(s,'transactions',{title:'nova',amount:100,direction:'expense',date:T}),/Limite da coleção atingido/);
+ s=emptyWorkspace('Geo');s.notes=many(2000,i=>({id:'n'+i,title:'x',content:'y'}));
+ assert.throws(()=>up(s,'notes',{title:'nova',content:'z'}),/Limite da coleção atingido/);
+ const backup=emptyWorkspace('Geo');backup.transactions=many(2001,tx);
+ assert.equal(validateWorkspace(backup).transactions.length,2001);
+ const notes=emptyWorkspace('Geo');notes.notes=many(2001,i=>({id:'n'+i,title:'x',content:'y'}));
+ assert.throws(()=>validateWorkspace(notes),/Limite de registros excedido/);
+ const big=emptyWorkspace('Geo');big.notes=many(170,i=>({id:'n'+i,title:'x',content:'a'.repeat(9000)}));
+ assert.equal(validateWorkspace(big).notes.length,170);
+ big.notes=many(290,i=>({id:'n'+i,title:'x',content:'a'.repeat(9000)}));
+ assert.throws(()=>validateWorkspace(big),/Backup muito grande/);});
