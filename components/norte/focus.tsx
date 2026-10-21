@@ -22,7 +22,7 @@ export function FocusView(){const a=useApp();const {toast,sync}=a;const clients=
   return()=>{document.removeEventListener('visibilitychange',vis);window.removeEventListener('geoai:foco-tab',onTab);window.removeEventListener('geoai:foco-panel',onPanel);window.removeEventListener('geoai:foco-refresh',onRefresh);};},[reload]);
  useEffect(()=>{window.dispatchEvent(new CustomEvent('geoai:foco-queue',{detail:queued}));},[queued]);
  useEffect(()=>()=>{window.dispatchEvent(new CustomEvent('geoai:foco-queue',{detail:0}));},[]);
- const start=useCallback(async(id:string,replace=false)=>{try{const r=await foco.start(id,replace);sync(r);setCards(cs=>cs.map(c=>c.id===r.card.id?summarize(r.card):c));}
+ const start=useCallback(async(id:string,replace=false)=>{try{const r=await foco.start(id,replace);sync(r);setCards(cs=>cs.map(c=>c.id===r.card.id?summarize(r.card):c));window.dispatchEvent(new Event('geoai:foco-refresh'));}
   catch(e){if(e instanceof ApiError&&e.message===FOCUS_BUSY&&!replace){setPending(id);return;}toast(e instanceof Error?e.message:'Não foi possível iniciar o pomodoro.',true);}},[sync,toast]);
  const clientName=useCallback((id:string|null)=>id?clients.find(c=>c.id===id)?.title||'':'',[clients]);
  const closeCard=useCallback(()=>setOpenId(null),[]);

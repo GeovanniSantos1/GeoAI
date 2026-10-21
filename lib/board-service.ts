@@ -81,7 +81,7 @@ export async function clearBoard(d:BoardDeps){await d.store.clear(d.userId);retu
 export async function generateProposal(d:BoardDeps,id:string,raw:unknown){const body=rec(raw),action=body.action;if(action!=='refine'&&action!=='tests')throw new BoardError('Ação de IA inválida.');
  const instruction=typeof body.instruction==='string'?body.instruction.trim().slice(0,LIMITS.instruction):'';if(!d.ai)throw new BoardError(AI_OFF,503);
  const card=await mustCard(d,id);const {today}=await context(d);if(!await d.quota('board_ai',today))throw new BoardError(AI_QUOTA,429);
- let out:unknown;try{out=await (action==='refine'?d.ai.refine({card,instruction}):d.ai.tests({card,instruction}));}catch{throw new BoardError(AI_FAILED,502);}
+ let out:unknown;try{out=await (action==='refine'?d.ai.refine({card,instruction}):d.ai.tests({card,instruction}));}catch(e){console.error('foco ia',e);throw new BoardError(AI_FAILED,502);}
  const proposal=storeProposal(card,action,out,instruction,clock(d).toISOString()).proposals[action];
  const fresh=await mustCard(d,id),proposals={...fresh.proposals,[action]:proposal};await d.store.setProposals(d.userId,id,proposals);return {card:{...fresh,proposals}};}
 export async function decideCardProposal(d:BoardDeps,id:string,raw:unknown){const body=rec(raw),action=body.action,decision=body.decision;

@@ -4,7 +4,10 @@ export function boardDeps(userId:string):BoardDeps{return {userId,store:dbBoardS
 export const boardJson=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export function boardFail(error:unknown){
  if(error instanceof BoardError){const set=(error as BoardError&{set?:unknown}).set;return boardJson({error:error.message,...(set?{set}:{})},error.status);}
- const message=error instanceof Error?error.message:'Não foi possível concluir agora.';if(/outra aba|em andamento/.test(message))return jsonError(message,409);console.error('foco',message);return jsonError(message,400);}
+ const message=error instanceof Error?error.message:'';if(/outra aba|em andamento/.test(message))return jsonError(message,409);
+ // Erro simples (new Error) vem das nossas validações, com texto próprio em pt-BR; o resto (banco, rede, driver) não vaza o texto.
+ if(error instanceof Error&&error.constructor===Error&&!('cause' in error)&&message)return jsonError(message,400);
+ console.error('foco',error);return jsonError('Não foi possível concluir agora.',500);}
 // Sessão do Clerk em tudo; mesma origem nas escritas.
 export async function boardUser(request:Request,write=true):Promise<{userId:string}|{error:Response}>{const userId=await getUserId();if(!userId)return {error:jsonError('Entre na sua conta para continuar',401)};if(write&&!sameOrigin(request))return {error:jsonError('Origem não permitida',403)};return {userId};}
 export async function readBody(request:Request,max=262144):Promise<Record<string,unknown>>{if(!request.headers.get('content-type')?.includes('application/json'))throw new BoardError('Formato inválido',415);

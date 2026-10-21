@@ -11,7 +11,7 @@ const toolParts=(m:UIMessage)=>m.parts.filter(p=>p.type.startsWith('tool-')) as 
 const isApproval=(p:ToolPartData)=>(APPROVAL_TOOLS as readonly string[]).includes(p.type.slice(5));
 // Um transporte para o app inteiro, como o do assistente geral; as decisões e o card aberto vão junto com a conversa.
 const context={decisions:{} as Record<string,Decision>,openCardId:null as string|null};
-const transport=new DefaultChatTransport<UIMessage>({api:'/api/foco/assistant',prepareSendMessagesRequest:({messages})=>({body:{messages,decisions:context.decisions,openCardId:context.openCardId}})});
+const transport=new DefaultChatTransport<UIMessage>({api:'/api/foco/assistant',prepareSendMessagesRequest:({messages})=>({body:{messages:messages.slice(-40),decisions:context.decisions,openCardId:context.openCardId}})});
 const STATUS:Record<string,string>={buscar_cards:'Buscando cards…',relatorio_foco:'Somando os pomodoros…',abrir_card:'Abrindo o card…',iniciar_pomodoro:'Iniciando o pomodoro…',montar_plano:'Montando o plano…',criar_cards:'Preparando os cards…'};
 const ACTION:Record<string,string>={mover_cards:'mover cards',arquivar_cards:'arquivar cards',alterar_cards:'alterar cards',criar_cards:'criar cards'};
 function chatError(error:Error){try{return JSON.parse(error.message).error||'Tente novamente.';}catch{return error.message&&error.message.length<200?error.message:'Não foi possível falar com o assistente. Tente novamente.';}}

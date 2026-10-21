@@ -6,7 +6,7 @@ import {buildDayPlan,planProgress,type DayPlan} from '@/lib/day-plan';import {co
 export function FocusToday(){const a=useApp(),f=useFoco();const {toast}=a;const [plan,setPlan]=useState<DayPlan|null>(null),[date,setDate]=useState(a.today),[available,setAvailable]=useState(8);const queue=useRef<Promise<unknown>>(Promise.resolve());const pending=useRef(0);
  const show=useCallback((r:{date:string;plan:DayPlan})=>{setPlan(r.plan);setDate(r.date);setAvailable(r.plan.available);},[]);
  const fail=useCallback((e:unknown)=>toast(e instanceof Error?e.message:'Não foi possível abrir o plano.',true),[toast]);
- useEffect(()=>{const load=()=>{foco.plan().then(r=>{if(!pending.current)show(r);}).catch(fail);};load();window.addEventListener('geoai:foco-refresh',load);return()=>window.removeEventListener('geoai:foco-refresh',load);},[show,fail]);
+ useEffect(()=>{const load=()=>{foco.plan().then(r=>{if(!pending.current)show(r);}).catch(fail);};load();window.addEventListener('geoai:foco-refresh',load);return()=>window.removeEventListener('geoai:foco-refresh',load);},[show,fail,a.today]);
  if(!plan)return <p className="quiet-copy"><LoaderCircle size={15} className="spin"/> Carregando o plano…</p>;
  // Com gravações na fila, a leitura do servidor é ignorada; se uma falhar, o plano é relido quando a fila esvazia.
  const save=(next:DayPlan)=>{setPlan(next);pending.current++;const run=queue.current.then(()=>foco.putPlan(date,next));queue.current=run.catch(()=>{});run.then(()=>{pending.current--;},e=>{pending.current--;toast(e instanceof Error?e.message:'Não foi possível salvar o plano.',true);if(!pending.current)foco.plan().then(r=>{if(!pending.current)show(r);}).catch(fail);});};

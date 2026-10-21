@@ -1,13 +1,14 @@
 CREATE TABLE "board_audit" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" text NOT NULL,
 	"user_id" text NOT NULL,
 	"at" text NOT NULL,
 	"tool" text NOT NULL,
-	"changes" text NOT NULL
+	"changes" text NOT NULL,
+	CONSTRAINT "board_audit_user_id_id_pk" PRIMARY KEY("user_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "board_cards" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" text NOT NULL,
 	"user_id" text NOT NULL,
 	"number" integer NOT NULL,
 	"title" text NOT NULL,
@@ -28,11 +29,12 @@ CREATE TABLE "board_cards" (
 	"created_at" text NOT NULL,
 	"updated_at" text NOT NULL,
 	"status_changed_at" text NOT NULL,
+	CONSTRAINT "board_cards_user_id_id_pk" PRIMARY KEY("user_id","id"),
 	CONSTRAINT "board_cards_user_number" UNIQUE("user_id","number")
 );
 --> statement-breakpoint
 CREATE TABLE "board_events" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" text NOT NULL,
 	"user_id" text NOT NULL,
 	"card_id" text NOT NULL,
 	"at" text NOT NULL,
@@ -40,7 +42,8 @@ CREATE TABLE "board_events" (
 	"kind" text NOT NULL,
 	"field" text,
 	"before" text,
-	"after" text
+	"after" text,
+	CONSTRAINT "board_events_user_id_id_pk" PRIMARY KEY("user_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "day_plans" (
