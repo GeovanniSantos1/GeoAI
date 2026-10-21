@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyWorkspace, formatMoney } from '../lib/core.ts';
+import { emptyWorkspace, formatMoney, applyCommand } from '../lib/core.ts';
 import { agendaRange, financeReport, searchRecords, checkProposals, assistantBrief, proposalsText, cleanHistory, describeProposal, testosteroneReport } from '../lib/agent.ts';
 
 function workspace(){const s=emptyWorkspace('Geo');s.tasks=[{id:'run',title:'Correr',date:'2026-10-01',repeat:'daily',time:'07:00',type:'habit'},{id:'call',title:'Ligar para o banco',date:'2026-10-17',type:'task'}];s.completions={'run:2026-10-16':true};s.transactions=[{id:'t1',title:'Mercado',amount:12050,direction:'expense',category:'Alimentação',date:'2026-10-03'},{id:'t2',title:'Almoço',amount:3590,direction:'expense',category:'Alimentação',date:'2026-10-10'},{id:'t3',title:'Salário',amount:500000,direction:'income',category:'Trabalho',date:'2026-10-05'},{id:'t4',title:'Cinema',amount:4000,direction:'expense',category:'Lazer',date:'2026-09-28'}];s.notes=[{id:'n1',title:'Ideia de viagem',category:'Ideias',content:'Conhecer o litoral norte em dezembro. '+'x'.repeat(600)}];s.profile.budget=200000;return s;}
@@ -39,3 +39,24 @@ test('sugestão de lançamento: categoria fora da lista salva, forma de pagament
  const a=checkProposals([{collection:'transactions',title:'Presente',amount:5000,direction:'expense',category:'Viagem'}],'2026-10-18',s);assert.deepEqual([a.errors,a.valid[0].item.category,a.valid[0].item.payment],[[],'Viagem',undefined]);
  const b=checkProposals([{collection:'transactions',title:'Uber',amount:2500,direction:'expense',category:'Transporte',payment:'pix'}],'2026-10-18',s);assert.equal(b.valid[0].item.payment,'pix');
  const c=checkProposals([{collection:'transactions',title:'Uber',amount:2500,direction:'expense',payment:'boleto'}],'2026-10-18',s);assert.equal(c.valid.length,0);assert.match(c.errors[0],/Forma de pagamento inválida/);});
+
+const NB=String.fromCharCode(160);
+test('relatório de finanças traz a carteira no fim do mês',()=>{const s=emptyWorkspace('Geo');s.investments=[{id:'p',title:'Petrobras',kind:'acao',ticker:'PETR4'},{id:'c',title:'CDB X',kind:'cdb'}];
+ s.investmentEvents=[{id:'1',title:'Compra',assetId:'p',move:'buy',date:'2026-09-10',quantity:10,amount:30000},{id:'2',title:'Cotação',assetId:'p',move:'valuation',date:'2026-10-05',price:3500},{id:'3',title:'Compra',assetId:'c',move:'buy',date:'2026-09-01',amount:100000},{id:'4',title:'Dividendo',assetId:'p',move:'dividend',date:'2026-10-06',amount:250}];
+ assert.deepEqual(financeReport(s,'2026-10').investimentos,{patrimonio:formatMoney(135000),investido:formatMoney(130000),resultado:formatMoney(5000),resultadoPct:'+3,8%',proventosNoAno:formatMoney(250),ativos:[{id:'c',nome:'CDB X',tipo:'CDB',valorAtual:formatMoney(100000),resultado:formatMoney(0)},{id:'p',nome:'Petrobras',codigo:'PETR4',tipo:'Ações',quantidade:'10',valorAtual:formatMoney(35000),resultado:formatMoney(5000),cotacaoEm:'2026-10-05'}]});
+ assert.equal(financeReport(s,'2026-09').investimentos.patrimonio,formatMoney(130000));
+ assert.equal(financeReport(emptyWorkspace('Geo'),'2026-10').investimentos,undefined);});
+test('sugestão de movimento de investimento: ativo existente, ativo novo e erros',()=>{const s=emptyWorkspace('Geo');s.investments=[{id:'p',title:'Petrobras',kind:'acao',ticker:'PETR4'}];s.investmentEvents=[{id:'1',title:'Compra',assetId:'p',move:'buy',date:'2026-09-10',quantity:10,amount:30000}];
+ const today='2026-10-18';
+ const {valid,errors}=checkProposals([{collection:'investmentEvents',title:'x',assetId:'p',move:'buy',quantity:10,amount:38000},{collection:'investmentEvents',title:'x',move:'dividend',amount:1240,newAsset:{title:'Maxi Renda',kind:'fii',ticker:'MXRF11'}},{collection:'investmentEvents',title:'x',assetId:'p',move:'sell',quantity:20,amount:1000},{collection:'investmentEvents',title:'x',assetId:'zz',move:'buy',quantity:1,amount:100}],today,s);
+ assert.deepEqual(valid.map(p=>[p.item.title,p.item.date,p.item.assetId??null,describeProposal(p)]),[['Compra · PETR4','2026-10-18','p','10 un. · R$'+NB+'380,00 · 2026-10-18'],['Dividendo · MXRF11','2026-10-18',null,'R$'+NB+'12,40 · 2026-10-18']]);
+ assert.deepEqual(errors,['x: Você tem só 10 nessa data.','x: Selecione um ativo da carteira']);
+ const cot=checkProposals([{collection:'investmentEvents',title:'x',assetId:'p',move:'valuation',price:3500}],today,s).valid[0];
+ assert.equal(cot.item.title+' — '+describeProposal(cot),'Cotação · PETR4 — R$'+NB+'35,00 · 2026-10-18');});
+test('confirmar duas vezes a sugestão com ativo novo cria um ativo só',()=>{const s=emptyWorkspace('Geo'),today='2026-10-18';
+ const {valid}=checkProposals([{collection:'investmentEvents',title:'x',move:'buy',quantity:2,amount:70000000,newAsset:{title:'Bitcoin',kind:'cripto',ticker:'btc'}}],today,s);
+ let r=applyCommand(s,{type:'confirmPlan',items:valid},today);r=applyCommand(r,{type:'confirmPlan',items:valid},today);
+ assert.deepEqual([r.investments.length,r.investments[0].ticker,r.investmentEvents.length],[1,'BTC',1]);});
+test('histórico das sugestões não chama movimento de investimento de despesa',()=>{
+ const text=proposalsText([{collection:'investmentEvents',item:{title:'Compra · PETR4',amount:38000,date:'2026-10-18'}}]);
+ assert.ok(text.endsWith('- [Investimento] Compra · PETR4 · R$'+NB+'380,00 · 2026-10-18'));});
