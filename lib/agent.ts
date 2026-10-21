@@ -1,7 +1,8 @@
 import type { UIMessage } from 'ai';
 import { COLLECTIONS } from './types.ts';
 import type { Workspace, Item, Proposal, Collection, Gender } from './types.ts';
-import { validDate, addDays, isComplete, financeSummary, formatMoney, validateItem } from './core.ts';
+import { validDate, addDays, isComplete, financeSummary, formatMoney, validateItem, checkInvestmentEvent } from './core.ts';
+import { positions, portfolio, incomeInYear, kindInfo, moveLabel, monthEnd, formatQty, formatPrice } from './invest.ts';
 import { genderBrief, hiddenSections } from './gender.ts';
 import { cyclePrediction, dailyStatus, injectionNext, iudStatus, preventiveStatus, METHOD_SHORT, PREVENTIVE_LABEL } from './female-health.ts';
 import { protocolStatus, punctuality, finalOverall, classifyMarker, rangeText, valueText, STATUS_LABEL, OVERALL_LABEL } from './testosterone.ts';
@@ -12,9 +13,9 @@ import { cleanCardProposal, describeCardProposal, STATUS_LABEL as CARD_STATUS, P
 
 // Consultas e validações usadas pelas ferramentas do assistente. Puras: recebem o espaço já carregado do usuário.
 export type AgentMessage = UIMessage<unknown,{proposals:{items:Proposal[]}}>;
-export const PROPOSABLE = ['tasks','transactions','notes','boardCards','trtDoses','periods','contraceptiveDoses','intimacy'] as const;
-const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',boardCards:'Card',trtDoses:'Aplicação',periods:'Menstruação',contraceptiveDoses:'Uso do método',intimacy:'Relação'};
-const FIELDS = ['title','date','time','endTime','repeat','type','category','status','priority','amount','direction','costPerDay','content','notes','bedtime','waketime','duration','quality','mood','target','current','unit','deadline','pages','pagesRead','day','startDate','dueDate','checked','weight','dose','intervalDays','site','lab','protection'];
+export const PROPOSABLE = ['tasks','transactions','notes','boardCards','trtDoses','periods','contraceptiveDoses','intimacy','investmentEvents'] as const;
+const LABELS:Record<string,string> = {tasks:'Tarefa',transactions:'Lançamento',notes:'Nota',boardCards:'Card',trtDoses:'Aplicação',periods:'Menstruação',contraceptiveDoses:'Uso do método',intimacy:'Relação',investmentEvents:'Investimento'};
+const FIELDS = ['title','date','time','endTime','repeat','type','category','status','priority','amount','direction','costPerDay','content','notes','bedtime','waketime','duration','quality','mood','target','current','unit','deadline','pages','pagesRead','day','startDate','dueDate','checked','weight','dose','intervalDays','site','lab','protection','kind','ticker','broker','assetId','move','quantity','price','rate','indexer'];
 const clip = (value:string,max=300) => value.length>max?value.slice(0,max)+'…':value;
 const norm = (value:unknown) => String(value??'').toLocaleLowerCase('pt-BR');
 
@@ -36,7 +37,10 @@ export function financeReport(s:Workspace,month:string){
  const sum=financeSummary(s,month),groups=new Map<string,{total:number;count:number}>();
  for(const x of s.transactions.filter(x=>x.date?.startsWith(month)&&x.direction==='expense')){const g=groups.get(x.category||'Outros')||{total:0,count:0};g.total+=x.amount;g.count++;groups.set(x.category||'Outros',g);}
  const b=budgetView(s,month);
- return {mes:month,receitas:formatMoney(sum.income),despesas:formatMoney(sum.expense),saldo:formatMoney(sum.balance),orcamento:s.profile.budget?formatMoney(s.profile.budget):'não definido',...(s.profile.budget?{orcamentoRestante:formatMoney(sum.remaining)}:{}),despesasPorCategoria:[...groups].sort((a,b)=>b[1].total-a[1].total).map(([categoria,g])=>({categoria,total:formatMoney(g.total),lancamentos:g.count})),tetoDoMes:{teto:b.month.cap?formatMoney(b.month.cap):'não definido',gasto:formatMoney(b.month.spent),situacao:SITUACAO[b.month.state]},tetosPorCategoria:b.categories.filter(c=>c.cap).map(c=>({categoria:c.name,teto:formatMoney(c.cap),gasto:formatMoney(c.spent),restante:formatMoney(c.cap-c.spent),situacao:SITUACAO[c.state]}))};
+ // Carteira no fim do mês pedido (movimentos nunca têm data futura, então no mês atual é a posição de hoje).
+ const until=monthEnd(month),pos=positions(s.investments,s.investmentEvents,until).filter(p=>!p.closed),t=portfolio(pos);
+ const investimentos=s.investments.length?{investimentos:{patrimonio:formatMoney(t.value),investido:formatMoney(t.invested),resultado:formatMoney(t.unrealized),resultadoPct:(t.pct>0?'+':'')+String(t.pct).replace('.',',')+'%',proventosNoAno:formatMoney(incomeInYear(s.investmentEvents,month.slice(0,4),until)),ativos:pos.slice(0,30).map(p=>({id:p.asset.id,nome:p.asset.title,...(p.asset.ticker?{codigo:p.asset.ticker}:{}),tipo:kindInfo(p.asset.kind).label,...(p.mode==='quantity'?{quantidade:formatQty(p.quantity)}:{}),valorAtual:formatMoney(p.value),resultado:formatMoney(p.unrealized),...(p.priceDate?{cotacaoEm:p.priceDate}:{})}))}}:{};
+ return {mes:month,receitas:formatMoney(sum.income),despesas:formatMoney(sum.expense),saldo:formatMoney(sum.balance),orcamento:s.profile.budget?formatMoney(s.profile.budget):'não definido',...(s.profile.budget?{orcamentoRestante:formatMoney(sum.remaining)}:{}),despesasPorCategoria:[...groups].sort((a,b)=>b[1].total-a[1].total).map(([categoria,g])=>({categoria,total:formatMoney(g.total),lancamentos:g.count})),tetoDoMes:{teto:b.month.cap?formatMoney(b.month.cap):'não definido',gasto:formatMoney(b.month.spent),situacao:SITUACAO[b.month.state]},tetosPorCategoria:b.categories.filter(c=>c.cap).map(c=>({categoria:c.name,teto:formatMoney(c.cap),gasto:formatMoney(c.spent),restante:formatMoney(c.cap-c.spent),situacao:SITUACAO[c.state]})),...investimentos};
 }
 
 export function searchRecords(s:Workspace,{collection,text,limit=20}:{collection?:string;text?:string;limit?:number},board:CardSummary[]=[]){
@@ -49,7 +53,7 @@ export function searchRecords(s:Workspace,{collection,text,limit=20}:{collection
  const records=rows.filter(({item})=>!term||[item.title,item.content,item.notes,item.category].some(v=>norm(v).includes(term)))
   .sort((a,b)=>String(b.item.date||'').localeCompare(String(a.item.date||'')))
   .slice(0,max)
-  .map(({collection,item})=>{const out:Record<string,unknown>={collection};for(const key of FIELDS){const v=item[key];if(v===undefined||v===null||v==='')continue;out[key]=['amount','costPerDay'].includes(key)&&typeof v==='number'?formatMoney(v):typeof v==='string'?clip(v):v;}return out;});
+  .map(({collection,item})=>{const out:Record<string,unknown>={collection};if(collection==='investments')out.id=item.id;for(const key of FIELDS){const v=item[key];if(v===undefined||v===null||v==='')continue;out[key]=['amount','costPerDay'].includes(key)&&typeof v==='number'?formatMoney(v):key==='price'&&typeof v==='number'?formatPrice(v):typeof v==='string'?clip(v):v;}return out;});
  return [...records,...cards].slice(0,max);
 }
 
@@ -70,6 +74,7 @@ function proposalDefaults(collection:unknown,fields:Record<string,unknown>,today
   const day=typeof fields.date==='string'?fields.date:today;
   if((s?.contraceptiveDoses||[]).some(d=>d.methodId===m.id&&d.date===day))throw new Error('o registro desse dia já existe');
   return {date:today,title:(m.method==='injection'?'Injeção: ':'Tomei: ')+m.title,methodId:m.id};}
+ if(collection==='investmentEvents')return {date:today};
  return {};
 }
 export function checkProposals(raw:unknown,today:string,s?:Workspace){
@@ -78,14 +83,17 @@ export function checkProposals(raw:unknown,today:string,s?:Workspace){
   // O id é descartado: confirmPlan faz upsert, e um id vindo do modelo poderia sobrescrever um registro existente.
   const {collection,...fields}=(entry&&typeof entry==='object'?entry:{}) as Record<string,unknown>;delete fields.id;
   try{
-   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, cards do quadro, aplicações, início da menstruação, uso do método e relação');
+   if(!(PROPOSABLE as readonly unknown[]).includes(collection))throw new Error('só é possível sugerir tarefas, lançamentos, notas, cards do quadro, aplicações, início da menstruação, uso do método, relação e movimentos de investimento');
    if(s){const hidden=hiddenSections(s.profile.gender);
     if(['periods','contraceptiveDoses','intimacy'].includes(collection as string)&&hidden.includes('saude-feminina'))throw new Error('esse registro fica no menu Saúde feminina, que não aparece no seu perfil');
     if(collection==='trtDoses'&&hidden.includes('testosterona'))throw new Error('esse registro fica no menu Testosterona, que não aparece no seu perfil');}
    // Card do quadro: validado pelas regras do quadro; prioridade, área e prazo só valem para ele.
    if(collection==='boardCards'){valid.push({collection:'boardCards',item:cleanCardProposal(fields) as Partial<Item>});continue;}
    delete fields.area;delete fields.priority;delete fields.dueDate;
-   valid.push({collection:collection as Collection,item:validateItem(collection as Collection,{...proposalDefaults(collection,fields,today,s),...fields})});
+   const item=validateItem(collection as Collection,{...proposalDefaults(collection,fields,today,s),...fields});
+   // Movimento de investimento: confere ativo, data e posição agora; o título diz o que é ("Compra · PETR4").
+   if(collection==='investmentEvents'&&s){const asset=checkInvestmentEvent(s,item,today),a=asset||item.newAsset;item.title=moveLabel(item.move,a.kind)+' · '+(a.ticker||a.title);if(asset){item.assetId=asset.id;delete item.newAsset;}}
+   valid.push({collection:collection as Collection,item});
   }catch(e){errors.push(String(fields.title||'Item').slice(0,80)+': '+(e instanceof Error?e.message:'inválido'));}
  }
  return {valid,errors};
@@ -97,10 +105,10 @@ export function assistantBrief(s:Workspace,today:string){
  return ['Usuário: '+p.name,genderBrief(p.gender),'Hoje:'+today+' ('+weekday+')','Fuso horário: '+p.timezone,'Ações por dia que cabem na rotina: '+p.dailyTarget,'Orçamento mensal: '+(p.budget?formatMoney(p.budget):'não definido'),'Meta de sono: '+p.sleepGoal/60+'h','Registros salvos: '+counts].join('\n');
 }
 
-export function describeProposal(p:Proposal){if(p.collection==='boardCards')return describeCardProposal(p.item);return [p.collection==='intimacy'?'Relação'+(p.item.protection==='com'?' · com proteção':p.item.protection==='sem'?' · sem proteção':''):p.collection==='periods'?'Início da menstruação'+(p.item.flow?' · fluxo '+p.item.flow:''):p.collection==='contraceptiveDoses'?'Uso do método':p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
+export function describeProposal(p:Proposal){if(p.collection==='boardCards')return describeCardProposal(p.item);return [p.collection==='investmentEvents'?[typeof p.item.quantity==='number'?formatQty(p.item.quantity)+' un.':'',p.item.move==='valuation'&&typeof p.item.price==='number'?formatPrice(p.item.price):typeof p.item.amount==='number'?formatMoney(p.item.amount):''].filter(Boolean).join(' · '):p.collection==='intimacy'?'Relação'+(p.item.protection==='com'?' · com proteção':p.item.protection==='sem'?' · sem proteção':''):p.collection==='periods'?'Início da menstruação'+(p.item.flow?' · fluxo '+p.item.flow:''):p.collection==='contraceptiveDoses'?'Uso do método':p.collection==='trtDoses'?'Aplicação'+(p.item.dose?' · '+String(p.item.dose).replace('.',','):'')+(p.item.site?' · '+p.item.site:''):p.collection==='transactions'?formatMoney(p.item.amount||0)+(p.item.direction==='income'?' · Receita':' · Despesa'):p.collection==='notes'?'Nota'+(p.item.category?' · '+p.item.category:''):p.item.type==='habit'?'Hábito':p.item.type==='event'?'Compromisso':'Tarefa',p.item.date,p.item.time].filter(Boolean).join(' · ');}
 
 export function proposalsText(items:unknown){
- const lines=(Array.isArray(items)?items:[]).slice(0,15).map(entry=>{const p=(entry||{}) as {collection?:string;item?:Record<string,unknown>},i=p.item||{};return '- ['+(LABELS[p.collection||'']||'Registro')+'] '+String(i.title||'').slice(0,200)+(typeof i.amount==='number'?' · '+formatMoney(i.amount)+(i.direction==='income'?' (receita)':' (despesa)'):'')+(i.date?' · '+String(i.date):'')+(i.time?' '+String(i.time):'');});
+ const lines=(Array.isArray(items)?items:[]).slice(0,15).map(entry=>{const p=(entry||{}) as {collection?:string;item?:Record<string,unknown>},i=p.item||{};return '- ['+(LABELS[p.collection||'']||'Registro')+'] '+String(i.title||'').slice(0,200)+(typeof i.amount==='number'?' · '+formatMoney(i.amount)+(p.collection==='transactions'?(i.direction==='income'?' (receita)':' (despesa)'):''):'')+(i.date?' · '+String(i.date):'')+(i.time?' '+String(i.time):'');});
  return 'Sugestões mostradas, aguardando confirmação:\n'+lines.join('\n');
 }
 

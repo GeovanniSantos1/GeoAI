@@ -1,4 +1,4 @@
-export const COLLECTIONS = ['tasks','objectives','transactions','bills','cards','journal','workouts','sessions','measurements','courses','activities','books','readingLogs','rooms','chores','shopping','clients','workGoals','sleep','vices','relapses','notes','reviews','focusSessions','labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy'] as const;
+export const COLLECTIONS = ['tasks','objectives','transactions','bills','cards','journal','workouts','sessions','measurements','courses','activities','books','readingLogs','rooms','chores','shopping','clients','workGoals','sleep','vices','relapses','notes','reviews','focusSessions','labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy','investments','investmentEvents'] as const;
 export type Collection = typeof COLLECTIONS[number];
 export type Item = { id: string; title: string; [key: string]: any };
 export type Gender = 'male'|'female'|'';

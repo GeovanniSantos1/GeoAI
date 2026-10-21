@@ -1,5 +1,6 @@
 import {House,CalendarDays,Target,ChartNoAxesCombined,Timer,Heart, Dumbbell,Utensils, Sparkles,Wallet,BookOpen,ShoppingBasket,Briefcase,ShieldCheck,Moon,UserRound,NotebookPen,Settings,Compass,ClipboardCheck,FlaskConical,Flower2,Headphones} from 'lucide-react';
-import type {Collection,Workspace} from '@/lib/types';
+import type {Collection,Workspace,Command,Item} from '@/lib/types';
+import {INVEST_KINDS,INDEXERS,FIXED_INCOME,MOVE_OPTIONS,modeOf} from '@/lib/invest';
 import {categoryOptions} from '@/lib/gender';
 import {SYMPTOMS,FLOWS,METHODS} from '@/lib/female-health';
 import {EXPENSE_CATEGORIES,INCOME_CATEGORIES,PAYMENTS} from '@/lib/finance';
@@ -27,7 +28,7 @@ export const NAV=[
 {id:'avatar',path:'/it-girl-collection',label:'Sua jornada',icon:Compass,group:'EVOLUA'},
 {id:'perfil',path:'/perfil',label:'Configurações',icon:Settings,group:'EVOLUA'}
 ];
-export type Field={key:string;label:string;type?:string;options?:string[][];required?:boolean;hint?:string;min?:number;max?:number;step?:string;source?:Collection;default?:any;showIf?:(values:any)=>boolean;resets?:string[]};
+export type Field={key:string;label:string;type?:string;options?:string[][];required?:boolean;hint?:string;min?:number;max?:number;step?:string;source?:Collection;default?:any;showIf?:(values:any,state:Workspace)=>boolean;resets?:string[]};
 const title:Field={key:'title',label:'Título',required:true};
 const date:Field={key:'date',label:'Data',type:'date',required:true};
 const notes:Field={key:'notes',label:'Observações',type:'textarea'};
@@ -35,6 +36,7 @@ const amount:Field={key:'amount',label:'Valor (R$)',type:'money',required:true};
 const status:Field={key:'status',label:'Status',type:'select',options:[['active','Em andamento'],['done','Concluído'],['paused','Pausado']],default:'active'};
 const repeat:Field={key:'repeat',label:'Repetição',type:'select',options:[['none','Não repetir'],['daily','Todos os dias'],['weekdays','Dias úteis'],['weekly','Semanalmente'],['monthly','Mensalmente']],default:'none'};
 const cat=(options:string[])=>({key:'category',label:'Categoria',type:'select',options:options.map(x=>[x,x])} as Field);
+const qtyMode=(v:{assetId?:string},s:Workspace)=>modeOf(s.investments.find(x=>x.id===v.assetId)?.kind)==='quantity';
 export const FIELDS:Record<Collection,Field[]>={
 tasks:[{...title,label:'O que você vai fazer?'},{key:'type',label:'Tipo',type:'select',options:[['task','Tarefa'],['habit','Hábito'],['event','Compromisso']],default:'task'},date,{key:'time',label:'Horário',type:'time'},{key:'duration',label:'Duração (min)',type:'number',default:30,min:1},repeat,{key:'repeatUntil',label:'Repetir até',type:'date'},{key:'section',label:'Área',type:'select',options:[['pessoal','Pessoal'],['trabalho','Trabalho'],['alimentacao','Alimentação'],['cuidados','Cuidados'],['estudos','Estudos']],default:'pessoal'},{key:'priority',label:'Prioridade',type:'select',options:[['normal','Normal'],['high','Alta'],['low','Baixa']],default:'normal'},{key:'objectiveId',label:'Vincular a objetivo',type:'select',source:'objectives'},{key:'clientId',label:'Cliente',type:'select',source:'clients'},cat(['Rotina','Refeições','Hidratação','Suplementos','Planejamento','Pele','Cabelo & barba','Higiene','Autocuidado']),notes],
 objectives:[{...title,label:'Qual é o seu objetivo?'},{key:'target',label:'Meta',type:'number',required:true,min:1,default:1},{key:'current',label:'Progresso atual',type:'number',default:0},{key:'unit',label:'Unidade',hint:'Ex.: livros, km, aulas'},{key:'deadline',label:'Prazo',type:'date'},status,notes],
@@ -74,8 +76,20 @@ contraceptives:[{...title,label:'Nome',hint:'Ex.: Yasmin, Depo-Provera, Mirena, 
  {key:'status',label:'Situação',type:'select',options:[['active','Ativo'],['paused','Pausado']],default:'active'},{key:'doctor',label:'Médico responsável'},notes],
 contraceptiveDoses:[{...title,label:'Registro'},date,{key:'methodId',label:'Método',type:'select',source:'contraceptives',required:true},notes],
 preventives:[{...title,label:'Consulta ou exame',hint:'Ex.: Papanicolau, mamografia, ginecologista'},{key:'intervalMonths',label:'Repetir a cada (meses)',type:'number',min:1,max:120,default:12,required:true},{key:'lastDate',label:'Última vez',type:'date'},{key:'doctor',label:'Médico ou clínica'},notes],
-intimacy:[{...title,label:'Registro',default:'Relação'},date,{key:'protection',label:'Proteção',type:'select',options:[['','Não informar'],['com','Com proteção'],['sem','Sem proteção']]},notes]
+intimacy:[{...title,label:'Registro',default:'Relação'},date,{key:'protection',label:'Proteção',type:'select',options:[['','Não informar'],['com','Com proteção'],['sem','Sem proteção']]},notes],investments:[{...title,label:'Nome',hint:'Ex.: Tesouro Selic 2029, Petrobras, Bitcoin'},{key:'kind',label:'Tipo',type:'select',options:INVEST_KINDS.map(k=>[k.id,k.label]),default:'cdb'},{key:'ticker',label:'Código',hint:'Ex.: PETR4, MXRF11, BTC'},{key:'broker',label:'Corretora ou banco'},
+ {key:'indexer',label:'Indexador',type:'select',options:INDEXERS.map(([v,l])=>[v,l]),default:'cdi',showIf:v=>FIXED_INCOME.includes(v.kind)},{key:'rate',label:'Taxa (%)',type:'number',step:'any',showIf:v=>FIXED_INCOME.includes(v.kind)&&v.indexer!=='none'},{key:'dueDate',label:'Vencimento',type:'date',showIf:v=>FIXED_INCOME.includes(v.kind)},
+ {key:'date',label:'Data da primeira aplicação',type:'date',required:true,showIf:v=>!v.id},{key:'quantity',label:'Quantidade',type:'number',step:'any',required:true,showIf:v=>!v.id&&modeOf(v.kind)==='quantity'},{key:'amount',label:'Valor aplicado (R$)',type:'money',required:true,showIf:v=>!v.id},notes],
+investmentEvents:[{key:'assetId',label:'Ativo',type:'select',source:'investments',required:true},{key:'move',label:'Movimento',type:'select',options:MOVE_OPTIONS,default:'buy'},date,
+ {key:'quantity',label:'Quantidade',type:'number',step:'any',required:true,showIf:(v,s)=>(v.move==='buy'||v.move==='sell')&&qtyMode(v,s)},
+ {key:'price',label:'Cotação (R$)',type:'price',required:true,showIf:(v,s)=>v.move==='valuation'&&qtyMode(v,s)},
+ {key:'amount',label:'Valor total (R$)',type:'money',required:true,showIf:v=>v.move==='buy'||v.move==='sell'},
+ {key:'amount',label:'Valor (R$)',type:'money',required:true,showIf:v=>['dividend','yield','interest'].includes(v.move)},
+ {key:'amount',label:'Valor atual (R$)',type:'money',required:true,showIf:(v,s)=>v.move==='valuation'&&!qtyMode(v,s)},notes],
 };
-export const COLLECTION_LABELS:Record<Collection,string>={tasks:'Nova ação',objectives:'Novo objetivo',transactions:'Novo lançamento',bills:'Nova conta',cards:'Novo cartão',journal:'Registrar meu dia',workouts:'Novo treino',sessions:'Registrar treino',measurements:'Peso e medidas',courses:'Novo estudo',activities:'Planejar atividade',books:'Adicionar livro',readingLogs:'Registrar leitura',rooms:'Novo cômodo',chores:'Nova tarefa de casa',shopping:'Adicionar à lista',clients:'Novo cliente',workGoals:'Nova meta de trabalho',sleep:'Registrar minha noite',vices:'Começar um novo caminho',relapses:'Registrar recomeço',notes:'Nova anotação',reviews:'Minha revisão',focusSessions:'Registrar foco',labExams:'Novo exame',trtProtocols:'Novo protocolo',trtDoses:'Registrar aplicação',periods:'Registrar menstruação',symptoms:'Registrar sintomas',contraceptives:'Novo método',contraceptiveDoses:'Registrar uso',preventives:'Novo preventivo',intimacy:'Registrar relação'};
+export const COLLECTION_LABELS:Record<Collection,string>={tasks:'Nova ação',objectives:'Novo objetivo',transactions:'Novo lançamento',bills:'Nova conta',cards:'Novo cartão',journal:'Registrar meu dia',workouts:'Novo treino',sessions:'Registrar treino',measurements:'Peso e medidas',courses:'Novo estudo',activities:'Planejar atividade',books:'Adicionar livro',readingLogs:'Registrar leitura',rooms:'Novo cômodo',chores:'Nova tarefa de casa',shopping:'Adicionar à lista',clients:'Novo cliente',workGoals:'Nova meta de trabalho',sleep:'Registrar minha noite',vices:'Começar um novo caminho',relapses:'Registrar recomeço',notes:'Nova anotação',reviews:'Minha revisão',focusSessions:'Registrar foco',labExams:'Novo exame',trtProtocols:'Novo protocolo',trtDoses:'Registrar aplicação',periods:'Registrar menstruação',symptoms:'Registrar sintomas',contraceptives:'Novo método',contraceptiveDoses:'Registrar uso',preventives:'Novo preventivo',intimacy:'Registrar relação',investments:'Novo ativo',investmentEvents:'Registrar movimento'};
 export const relationOptions=(field:Field,state:Workspace)=>field.source?[['','Sem vínculo'],...state[field.source].map(x=>[x.id,x.title])]:field.key==='category'?categoryOptions(field.options||[],state.profile.gender):field.options||[];
+// Ativo novo é salvo com a primeira aplicação, num só movimento de compra que traz o ativo (o core cria os dois).
+export const SAVE_COMMAND:Partial<Record<Collection,(item:Item,isNew:boolean)=>Command>>={investments:(item,isNew)=>{if(!isNew)return {type:'upsert',collection:'investments',item};const {date,quantity,amount,...asset}=item;return {type:'upsert',collection:'investmentEvents',item:{id:item.id+'-1',move:'buy',date,quantity,amount,newAsset:asset}};},
+ // Sem o título: o core o preenche pelo movimento, para não ficar o título antigo depois de editar.
+ investmentEvents:item=>{const rest:Record<string,unknown>={...item};delete rest.title;return {type:'upsert',collection:'investmentEvents',item:rest};}};
 
