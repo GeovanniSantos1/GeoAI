@@ -183,3 +183,21 @@
 .fo-switch{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--border);border-radius:10px}.fo-switch span{display:grid;gap:3px}.fo-switch small{font-size:12px;color:var(--muted);line-height:1.5}
 .fo-timer .duration-choices{flex-wrap:wrap}
 @media(max-width:580px){.fo-mini small{display:none}.fo-mini{padding-right:9px}.fo-end{top:62px;right:16px}}
+/* Menu Foco: hoje, triagem, relatório e auditoria */
+.fo-pad{padding:0 24px 16px}.fo-inline{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.fo-inline input,.fo-plan input,.fo-triage-fields input{width:64px;min-height:34px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);font:inherit;font-size:13px;padding:0 8px}
+.fo-plan{list-style:none;margin:0;padding:0}.fo-plan li{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;gap:12px;padding:12px 24px;border-top:1px solid var(--border)}
+.fo-plan-n{display:grid;place-items:center;width:26px;height:26px;border-radius:13px;background:color-mix(in srgb,var(--fo-tomato) 14%,transparent);color:var(--fo-tomato);font-size:12px;font-weight:700}
+.fo-plan-main{display:grid;gap:2px;min-width:0}.fo-plan-main .text-button{text-align:left;font-size:13px;color:var(--text);overflow-wrap:anywhere}.fo-plan-main small{font-size:11px;color:var(--muted)}
+.fo-plan-progress{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.fo-plan-tools{display:flex}.fo-plan li.gone .fo-plan-main .text-button{text-decoration:line-through;color:var(--muted)}
+.fo-triage-list{list-style:none;margin:0;padding:0}.fo-triage-list li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 24px;border-top:1px solid var(--border)}
+.fo-step{color:var(--muted)}.fo-triage-list li:has(.fo-step [class*=check]) .fo-step{color:var(--green)}.fo-triage-card{display:grid;gap:3px;min-width:0}.fo-triage-card .text-button{text-align:left;font-size:13px;color:var(--text);overflow-wrap:anywhere}.fo-triage-card small{font-size:11px;color:var(--muted)}
+.fo-triage-fields{display:flex;gap:6px}.fo-triage-fields select{min-height:34px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);font:inherit;font-size:12px;padding:0 6px}
+.fo-week{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:16px}.fo-week b{margin-left:auto;font-size:13px}
+.fo-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;align-items:end;height:180px;padding:0 24px 20px}.fo-bar{display:grid;grid-template-rows:auto 1fr auto;height:100%;text-align:center;gap:6px}.fo-bar span{font-size:11px;color:var(--muted)}
+.fo-bar>div{display:flex;align-items:flex-end;justify-content:center;background:var(--surface-2);border-radius:7px;overflow:hidden}.fo-bar i{display:block;width:100%;background:var(--fo-tomato);border-radius:7px 7px 0 0}.fo-bar small{font-size:11px;color:var(--muted)}
+.fo-table{width:100%;border-collapse:collapse;font-size:13px}.fo-table th,.fo-table td{padding:9px 24px;border-top:1px solid var(--border);text-align:left}.fo-table th{font-size:11px;color:var(--muted);font-weight:600}.fo-table td:not(:first-child),.fo-table th:not(:first-child){text-align:right;white-space:nowrap}
+.fo-lead{margin-bottom:14px}.fo-audit{list-style:none;margin:0;padding:0;display:grid;gap:12px}.fo-audit li{padding:14px 18px}.fo-audit header{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}.fo-audit header small{margin-left:auto;color:var(--muted);font-size:12px}
+@media(max-width:580px){.fo-pad{padding:0 18px 14px}.fo-today .section-heading,.fo-triage .section-heading{flex-wrap:wrap}
+ .fo-plan li{grid-template-columns:auto minmax(0,1fr) auto;padding:12px 18px}.fo-plan input{grid-column:2}.fo-plan-tools{grid-column:3}
+ .fo-triage-list li{grid-template-columns:auto minmax(0,1fr);padding:12px 18px}.fo-triage-fields{grid-column:1/-1;flex-wrap:wrap}.fo-triage-fields select{flex:1}
+ .fo-bars{padding:0 14px 16px;gap:6px}.fo-table th,.fo-table td{padding:9px 14px}.fo-week b{width:100%;margin-left:0}}
