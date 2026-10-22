@@ -12,7 +12,7 @@ import {NAV} from './catalog';
 import {byGender,hiddenSections} from '@/lib/gender';
 import {TestosteroneView} from './testosterone';
 import {FemaleHealthView} from './female-health';import {MusicView,MiniPlayer} from './music';import {FocusMiniTimer} from './focus-mini-timer';import {SoundProvider} from './sound-player';
-import {Context,useApp,type CalendarResult} from './context';import {budgetAlerts} from '@/lib/finance';
+import {Context,useApp,type CalendarResult} from './context';import {budgetAlerts} from '@/lib/finance';import {isNewer} from '@/lib/live-sync';import {useLiveSync} from './use-live-sync';
 import {Modal,Editor} from './primitives';
 import Avatar from './Avatar';
 import {HomeView,AgendaView,GoalsView,TrackerView} from './planning';import {FocusView} from './focus';
@@ -30,8 +30,12 @@ export default function NorteApp(){
  useEffect(()=>{setPath(window.location.pathname);load();const pop=()=>setPath(window.location.pathname);window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[load]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(null),5000);return()=>clearTimeout(t);},[notice]);
  useEffect(()=>{if(data)applyTheme(resolveTheme(data.state.profile.theme));},[data]);
- // O timer vive no servidor: ao voltar para a aba, o app recarrega o estado (outra aba ou o celular podem ter mexido).
- useEffect(()=>{const v=()=>{if(document.visibilityState==='visible')load();};document.addEventListener('visibilitychange',v);return()=>document.removeEventListener('visibilitychange',v);},[load]);
+ // Atualização automática: o WhatsApp, o Telegram, os lembretes, o timer do Foco ou outro aparelho podem ter gravado; a tela recebe o espaço novo sem recarregar a página.
+ const versionRef=useRef(-1);useEffect(()=>{if(data)versionRef.current=data.version;},[data]);
+ const refresh=useCallback(async()=>{if(versionRef.current<0)return;const r=await fetch('/api/state/version?since='+versionRef.current,{cache:'no-store'});if(!r.ok)return;const j:{state?:Workspace;version:number}=await r.json(),next=j.state;if(next)setData(prev=>prev&&isNewer(j.version,prev.version)?{...prev,state:next,version:j.version}:prev);},[]);
+ useLiveSync(refresh,busy);
+ // Sem espaço aberto (tela de erro), voltar para a aba tenta abrir de novo.
+ useEffect(()=>{const v=()=>{if(document.visibilityState==='visible'&&versionRef.current<0)load();};document.addEventListener('visibilitychange',v);return()=>document.removeEventListener('visibilitychange',v);},[load]);
  const navigate=useCallback((next:string)=>{window.history.pushState({},'',next);setPath(next);setMobile(false);window.scrollTo({top:0,behavior:'instant'});},[]);
  const mutate=useCallback(async(command:Command)=>{setBusy(true);try{const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});const j:any=await r.json();if(!r.ok)throw new Error(j.error||'Não foi possível salvar');setData(prev=>({...j,user:j.user||prev?.user}));return true;}catch(e){toast(e instanceof Error?e.message:'Não foi possível salvar',true);return false;}finally{setBusy(false);}},[toast]);
  const edit=useCallback((collection:Collection,item?:Item,defaults?:any,installments=false)=>setEditor({collection,item,defaults,installments}),[]);
