@@ -1,9 +1,9 @@
-import {proposalsText} from '@/lib/agent';import {config} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,telegramFile,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace} from '@/lib/workspace-server';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';
+import {proposalsText} from '@/lib/agent';import {config} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,telegramFile,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {parseWater} from '@/lib/hydration';import {waterChat} from '@/lib/water-channels';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';
 // Webhook público do bot. Só aceita chamadas com o segredo registrado no setWebhook e só responde a chats vinculados a uma conta.
 type Api=ReturnType<typeof telegramApi>;
 // Áudio soma o download e a transcrição à rodada da IA (até 45 s).
 export const maxDuration=120;
-const HELP='Me conte o que você quer organizar ou pergunte sobre sua agenda, seus gastos e seus registros. Eu sugiro as ações e você confirma pelos botões.\n\nComandos: /ajuda e /desconectar.';
+const HELP='Me conte o que você quer organizar ou pergunte sobre sua agenda, seus gastos e seus registros. Eu sugiro as ações e você confirma pelos botões.\n\nÁgua: mande "bebi 500 ml" ou "2 copos" e eu somo na hora; "água?" mostra o seu dia.\n\nComandos: /ajuda e /desconectar.';
 const NOT_LINKED='Este chat ainda não está ligado a uma conta do GeoAI. No app, abra Configurações, procure GeoAI no Telegram e toque em Conectar Telegram.';
 const ok=()=>Response.json({ok:true});
 export async function POST(request:Request){const c=config(),token=c.TELEGRAM_BOT_TOKEN;if(!token)return new Response('Not found',{status:404});
@@ -27,6 +27,9 @@ async function onMessage(api:Api,e:Extract<TelegramEvent,{kind:'message'}>,file:
  let text=e.text,heard='';
  if(!text.trim()){const ready=voiceReady(),voice=e.voice;if(!voice||!ready)return send(mediaReply(ready));
   await typing();const h=await hear(link.userId,voice.seconds,()=>file(voice.fileId));if('reply' in h)return send(h.reply);text=h.text;heard=heardLine(text)+'\n\n';}
+ // Água ("bebi 500 ml", "água?", "desfazer água"): registra na hora, sem IA e sem botões.
+ const water=parseWater(text);
+ if(water){const reply=await waterChat({load:u=>loadWorkspace(u,''),mutate:(u,c)=>mutateWorkspace(u,'',c)},link.userId,water,'telegram');await send(heard+reply);return saveConversation(e.chatId,pushHistory(link.history,[{role:'user',text},{role:'assistant',text:reply}]),link.pending);}
  await typing();
  const turn=await agentTurn(link.userId,link.history,text,'telegram');if('error' in turn)return send(heard+turn.error);const {reply}=turn;
  const items=turn.items;let pending=link.pending;
