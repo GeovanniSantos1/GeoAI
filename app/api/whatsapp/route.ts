@@ -1,8 +1,8 @@
-import {after} from 'next/server';import {timingSafeEqual} from 'node:crypto';import {parseEvolutionEvent,linkCodeOf,waCommand,choiceIndex,choicesOf,waSecret,type WaMessage} from '@/lib/whatsapp';import {waContext,ownerJidCached,sayWa,knownUnlinked,rememberUnlinked,forgetUnlinked} from '@/lib/whatsapp-server';import {consumeWaCode,linkWhatsapp,getWaLinkByJid,claimWaMessage,unlinkWaJid,saveWaConversation,swapWaChoices} from '@/lib/whatsapp-store';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {proposalList,pushHistory,addPending,newCode,type Pending} from '@/lib/telegram';import {proposalsText} from '@/lib/agent';import {loadWorkspace} from '@/lib/workspace-server';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';
+import {after} from 'next/server';import {timingSafeEqual} from 'node:crypto';import {parseEvolutionEvent,linkCodeOf,waCommand,choiceIndex,choicesOf,waSecret,type WaMessage} from '@/lib/whatsapp';import {waContext,ownerJidCached,sayWa,knownUnlinked,rememberUnlinked,forgetUnlinked} from '@/lib/whatsapp-server';import {consumeWaCode,linkWhatsapp,getWaLinkByJid,claimWaMessage,unlinkWaJid,saveWaConversation,swapWaChoices} from '@/lib/whatsapp-store';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {proposalList,pushHistory,addPending,newCode,type Pending} from '@/lib/telegram';import {proposalsText} from '@/lib/agent';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {parseWater} from '@/lib/hydration';import {waterChat} from '@/lib/water-channels';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';
 // Webhook público da Evolution API. Só aceita o segredo registrado no webhook; responde 200 na hora e processa depois,
 // para a Evolution não reenviar por demora. Número pessoal: conversas não ligadas e grupos ficam em silêncio.
 export const maxDuration=120;
-const HELP='Me conte o que você quer organizar ou pergunte sobre sua agenda, seus gastos e seus registros. Eu sugiro as ações e você confirma respondendo 1 ou 2.\n\nComandos: ajuda e desconectar.';
+const HELP='Me conte o que você quer organizar ou pergunte sobre sua agenda, seus gastos e seus registros. Eu sugiro as ações e você confirma respondendo 1 ou 2.\n\nÁgua: mande "bebi 500 ml" ou "2 copos" e eu somo na hora; "água?" mostra o seu dia.\n\nComandos: ajuda e desconectar.';
 type Ctx=NonNullable<ReturnType<typeof waContext>>;
 const sameSecret=(a:string,b:string)=>a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
 export async function POST(request:Request){const ctx=waContext();if(!ctx)return new Response('Not found',{status:404});
@@ -38,6 +38,9 @@ async function onMessage(ctx:Ctx,m:WaMessage){const say=(text:string)=>sayWa(ctx
  const cmd=waCommand(m.text);
  if(cmd==='desconectar'){await unlinkWaJid(m.jid);return say('WhatsApp desconectado do GeoAI. Para conectar de novo, use Configurações no app.');}
  if(cmd==='ajuda')return say(HELP);
+ // Água ("bebi 500 ml", "água?", "desfazer água"): registra na hora, sem IA e sem 1/2.
+ const water=parseWater(said);
+ if(water){const reply=await waterChat({load:u=>loadWorkspace(u,''),mutate:(u,c)=>mutateWorkspace(u,'',c)},link.userId,water,'whatsapp');await say(heard+reply);return saveWaConversation(link.jid,pushHistory(link.history,[{role:'user',text:said},{role:'assistant',text:reply}]));}
  const turn=await agentTurn(link.userId,link.history,said,'whatsapp');if('error' in turn)return say(heard+turn.error);
  const {reply,items}=turn;let pending:Pending|undefined,choices:string[]|undefined,text=heard+reply;
  if(items.length){const id=newCode().slice(0,10);pending=addPending(link.pending,id,items);choices=['add:'+id,'drop:'+id];text=heard+reply+'\n\n'+proposalList(items)+'\n\nResponda 1 para adicionar ou 2 para descartar.';}

@@ -6,6 +6,7 @@ import { SYMPTOMS, FLOWS, METHODS, femaleAgenda } from './female-health.ts';
 import { formatMoney, PAYMENTS, EXPENSE_CATEGORIES, CATEGORIES } from './finance.ts';
 import { focusStep, cleanFocusSettings, upgradeFocusSettings, FOCUS_DEFAULTS, type FocusCommand } from './focus.ts';
 import { INVEST_KINDS, FIXED_INCOME, INDEXERS, MOVES, MOVE_TITLE, moveProblem, modeOf, position, formatQty } from './invest.ts';
+import { waterStep, cleanSips, sipsTotal, cleanWaterGoal, WATER_POINTS, type WaterCommand } from './hydration.ts';
 
 export const MOMENTS = [
 {id:'coffee',title:'Um café sem pressa',category:'Pausa',cost:40,icon:'coffee'},
@@ -35,18 +36,20 @@ VALID_KEYS.add('payment');
 for(const key of ['kind','startedAt','endedAt','reason','boardCardId'])VALID_KEYS.add(key);
 // Investimentos: ativo (tipo, código, corretora, indexador e taxa) e movimento (ativo, tipo de movimento, cotação e o ativo novo que pode vir junto).
 for(const key of ['kind','ticker','broker','indexer','rate','assetId','move','price','newAsset'])VALID_KEYS.add(key);for(const key of ['rate','price'])NUMBERS.add(key);
+// Hidratação: um registro por dia com os goles, o total e os lembretes já enviados.
+for(const key of ['sips','ml','goal','reminded','remindedAt'])VALID_KEYS.add(key);for(const key of ['ml','goal','reminded'])NUMBERS.add(key);TIMES.add('remindedAt');
 // Limites por coleção (lançamentos têm mais espaço por causa da importação de faturas) e do espaço inteiro, em caracteres de JSON.
 const LIMITS:Record<string,number>={transactions:5000};const limitOf=(c:string)=>LIMITS[c]||2000;const MAX_STATE=2500000;
 // Coleções criadas depois do lançamento: espaços e backups antigos ganham a lista vazia.
-const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy','investments','investmentEvents'];
+const ADDED_COLLECTIONS=['labExams','trtProtocols','trtDoses','periods','symptoms','contraceptives','contraceptiveDoses','preventives','intimacy','investments','investmentEvents','water'];
 // Perfis de antes da versão feminina eram todos tratados no masculino; o avatar ganha penteado e brincos padrão.
 // Copia o perfil em vez de alterá-lo, porque validateWorkspace só copia o primeiro nível do backup.
 export function upgradeWorkspace<T>(raw:T):T{if(raw&&typeof raw==='object'){const s=raw as Record<string,any>;for(const key of ADDED_COLLECTIONS)if(s[key]===undefined)s[key]=[];if(s.focusTimer===undefined)s.focusTimer=null;
  for(const key of ['transactions','bills'])if(Array.isArray(s[key]))s[key]=s[key].map((x:any)=>x&&x.category==='Casa'?{...x,category:'Moradia'}:x);
  if(s.profile&&typeof s.profile==='object'){const p={...s.profile};if(p.gender===undefined)p.gender='male';if(p.avatar&&typeof p.avatar==='object')p.avatar={style:'longo',earrings:true,...p.avatar};
- if(!p.categoryBudgets||typeof p.categoryBudgets!=='object'||Array.isArray(p.categoryBudgets))p.categoryBudgets={};p.focus=upgradeFocusSettings(p.focus);s.profile=p;}}return raw;}
+ if(!p.categoryBudgets||typeof p.categoryBudgets!=='object'||Array.isArray(p.categoryBudgets))p.categoryBudgets={};p.focus=upgradeFocusSettings(p.focus);if(p.waterGoal===undefined)p.waterGoal=0;if(p.waterReminders===undefined)p.waterReminders=false;s.profile=p;}}return raw;}
 export function emptyWorkspace(name=''): Workspace {
- const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,categoryBudgets:{},focus:{...FOCUS_DEFAULTS},sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,gender:'',avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c',style:'longo',earrings:true},unlockedMoments:[]},completions:{},rewarded:[],focusTimer:null};
+ const result:any={profile:{name,timezone:'America/Sao_Paulo',theme:'light',budget:0,openingBalance:0,categoryBudgets:{},focus:{...FOCUS_DEFAULTS},sleepGoal:480,bedtime:'23:00',waketime:'07:00',dailyTarget:3,assistantName:'GeoAI',xp:0,points:0,gender:'',avatar:{skin:'#c48b68',hair:'#302c28',beard:true,shirt:'#24594c',style:'longo',earrings:true},unlockedMoments:[],waterGoal:0,waterReminders:false},completions:{},rewarded:[],focusTimer:null};
  for(const key of COLLECTIONS)result[key]=[];return result;
 }
 export function validDate(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(value+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;}
@@ -72,6 +75,7 @@ export function validateItem(collection:string,raw:any):Item{
   else if(TIMES.has(key)){if(typeof value!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw new Error('Horário inválido');item[key]=value;}
   else if(key==='checked'||key==='remind'){if(typeof value!=='boolean')throw new Error('Campo de conclusão inválido');item[key]=value;}
   else if(key==='markers')item[key]=cleanMarkers(value);
+  else if(key==='sips')item[key]=cleanSips(value);
   else if(key==='review')item[key]=cleanReview(value);
   else if(key==='file')item[key]=cleanFile(value);
   else if(key==='newAsset')item[key]=cleanNewAsset(collection,value);
@@ -80,7 +84,8 @@ export function validateItem(collection:string,raw:any):Item{
   else throw new Error('Tipo inválido para '+key);
  }
  if(item.repeat&&!['none','daily','weekdays','weekly','monthly'].includes(item.repeat))throw new Error('Repetição inválida');
- if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses','periods','symptoms','contraceptiveDoses','intimacy','investmentEvents'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
+ if(['tasks','transactions','journal','sessions','measurements','activities','readingLogs','sleep','relapses','reviews','focusSessions','chores','labExams','trtDoses','periods','symptoms','contraceptiveDoses','intimacy','investmentEvents','water'].includes(collection)&&!item.date)throw new Error('Informe a data do registro');
+ if(collection==='water'){item.title='Água';item.sips=item.sips||[];item.ml=sipsTotal(item.sips);}
  if(['transactions','bills'].includes(collection)&&(!Number.isSafeInteger(item.amount)||item.amount<=0))throw new Error('Informe um valor maior que zero');
  if(collection==='bills'&&(!Number.isInteger(item.day)||item.day<1||item.day>31))throw new Error('Informe um dia entre 1 e 31');
  if(['books','readingLogs'].includes(collection)&&(!Number.isInteger(item.pages)||item.pages<1))throw new Error('Informe a quantidade de páginas');
@@ -156,6 +161,9 @@ function cleanProfile(raw:any,previous:Workspace['profile']){
  if(raw.categoryBudgets!==undefined){const c=raw.categoryBudgets;if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Configuração inválida');const next:Record<string,number>={...(p.categoryBudgets||{})};
   for(const [k,v] of Object.entries(c)){if(!EXPENSE_CATEGORIES.includes(k)||!Number.isSafeInteger(v)||(v as number)<0||(v as number)>1e12)throw new Error('Configuração inválida');if(v===0)delete next[k];else next[k]=v as number;}p.categoryBudgets=next;}
  if(raw.focus!==undefined)p.focus=cleanFocusSettings(raw.focus,p.focus||FOCUS_DEFAULTS);
+ // Meta de água: 0 é a automática (peso e treino); lembretes por mensagem só para quem ligou.
+ if(raw.waterGoal!==undefined)p.waterGoal=cleanWaterGoal(raw.waterGoal);
+ if(raw.waterReminders!==undefined){if(typeof raw.waterReminders!=='boolean')throw new Error('Configuração inválida');p.waterReminders=raw.waterReminders;}
  return p;
 }
 function reward(s:Workspace,key:string,points:number){if(s.rewarded.includes(key))return;s.rewarded.push(key);s.profile.xp+=points;s.profile.points+=points;}
@@ -211,6 +219,11 @@ export function applyCommand(state:Workspace,command:Command,today:string,now=ne
   for(const raw of r.sessions){const item=validateItem('focusSessions',raw);const i=s.focusSessions.findIndex(x=>x.id===item.id);item._rev=(i>=0?s.focusSessions[i]._rev||0:0)+1;
    if(i>=0)s.focusSessions[i]=item;else{if(s.focusSessions.length>=2000){const oldest=s.focusSessions.reduce((m,x,k,arr)=>String(x.date)<String(arr[m].date)?k:m,0);s.focusSessions.splice(oldest,1);}s.focusSessions.push(item);}}
   for(const key of r.rewards)reward(s,key,20);
+ }else if(command.type==='water'){
+  // Gole somado no servidor sobre o espaço atual: o portal e o WhatsApp ao mesmo tempo não se sobrescrevem. Com 2000 dias, o mais antigo sai.
+  const r=waterStep(s,command as WaterCommand,today,now),item=validateItem('water',r.item),i=s.water.findIndex(x=>x.id===item.id);item._rev=(i>=0?s.water[i]._rev||0:0)+1;
+  if(i>=0)s.water[i]=item;else{if(s.water.length>=limitOf('water')){const oldest=s.water.reduce((m,x,k,arr)=>String(x.date)<String(arr[m].date)?k:m,0);s.water.splice(oldest,1);}s.water.push(item);}
+  if(r.reward)reward(s,r.reward,WATER_POINTS);
  }else if(command.type==='importTransactions'){
   // Fatura importada: cada linha ganha um id novo e tudo é validado antes de gravar (tudo ou nada).
   if(!Array.isArray(command.items)||!command.items.length||command.items.length>250)throw new Error('Importação inválida');
