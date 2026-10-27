@@ -12,7 +12,8 @@ import {annualSaving,PLAN_NAMES,type BillingView,type PlanOffer,type Plan} from 
 import type {Workspace} from '@/lib/types';
 
 type Toast=(text:string,error?:boolean)=>void;
-const when=(iso:string|null,zone:string,time=false)=>iso?new Intl.DateTimeFormat('pt-BR',{timeZone:zone,day:'2-digit',month:'2-digit',...(time?{hour:'2-digit',minute:'2-digit'}:{})}).format(new Date(iso)):'';
+// Fim do teste com hora (30/10, 14:05); datas da assinatura com o ano, porque o plano anual vai longe (27/10/2027).
+const when=(iso:string|null,zone:string,time=false)=>iso?new Intl.DateTimeFormat('pt-BR',{timeZone:zone,day:'2-digit',month:'2-digit',...(time?{hour:'2-digit',minute:'2-digit'}:{year:'numeric'})}).format(new Date(iso)):'';
 
 // Os dois planos com os preços da AbacatePay; "Assinar" leva ao checkout hospedado (só cartão).
 export function PlansPicker(){
@@ -53,7 +54,7 @@ export function BillingCard(){const a=useApp(),b=a.billing,zone=a.state.profile.
  const plan=b.plan?PLAN_NAMES[b.plan]:'';
  const text=b.status==='free'?'Acesso liberado, sem cobrança.':b.status==='trial'?'Teste grátis até '+when(b.until,zone,true)+'.':b.cancelled?'Plano '+plan+' cancelado · acesso até '+when(b.until,zone)+'.':'Plano '+plan+' · renova em '+when(b.until,zone)+'.';
  async function cancel(){setBusy(true);try{const r=await fetch('/api/billing/cancel',{method:'POST'});const j=await r.json().catch(()=>({}));if(!r.ok||!j.billing)throw new Error(j.error||'Não foi possível cancelar agora.');a.setBilling(j.billing);setConfirm(false);a.toast('Renovação cancelada. Seu acesso continua até '+when(j.billing.until,zone)+'.');}catch(e){a.toast(e instanceof Error?e.message:'Não foi possível cancelar agora.',true);}finally{setBusy(false);}}
- return <section className="panel integration-card billing-card"><span className="icon-tile"><CreditCard size={22}/></span><h2>Assinatura</h2><span className={'pill'+(b.status==='trial'?'':' green')}>{b.status==='free'?'Grátis':b.status==='trial'?'Teste grátis':b.cancelled?'Cancelada':'Ativa'}</span><p>{text}</p>
+ return <section className="panel integration-card billing-card"><span className="icon-tile"><CreditCard size={22}/></span><h2>Assinatura</h2><span className={'pill'+(b.status==='trial'||b.cancelled?'':' green')}>{b.status==='free'?'Grátis':b.status==='trial'?'Teste grátis':b.cancelled?'Cancelada':'Ativa'}</span><p>{text}</p>
   {b.canSubscribe&&<button className="button primary full-width" onClick={a.openPlans}>Ver planos</button>}
   {b.canCancel&&<button className="text-button danger" onClick={()=>setConfirm(true)}>Cancelar renovação</button>}
   {confirm&&<Modal title="Cancelar a renovação?" subtitle={'Nenhuma nova cobrança será feita. Você continua com acesso até '+when(b.until,zone)+'.'} onClose={()=>setConfirm(false)}><div className="modal-footer"><button className="button ghost" onClick={()=>setConfirm(false)}>Manter assinatura</button><button className="button destructive" disabled={busy} onClick={cancel}>Cancelar renovação</button></div></Modal>}
