@@ -207,7 +207,7 @@ A cobrança só liga com as 4 primeiras preenchidas.
 **O que o proprietário faz no painel da AbacatePay:**
 1. Cria o produto "GeoAI Mensal" com ciclo `MONTHLY` e o produto "GeoAI Anual" com ciclo `ANNUALLY`, com os preços que escolher e sem `trialDays`.
 2. Cria uma chave de API com `SUBSCRIPTION:CREATE`, `SUBSCRIPTION:DELETE` e `PRODUCT:READ`.
-3. Cria o webhook com a URL `https://geo-ai-mocha.vercel.app/api/billing/webhook?webhookSecret=<segredo>` e os eventos `subscription.completed`, `subscription.renewed`, `subscription.cancelled` e `checkout.refunded`.
+3. Cria o webhook com a URL `https://geo-ai-mocha.vercel.app/api/billing/webhook`, sem parâmetros (a AbacatePay acrescenta `?webhookSecret=` sozinha), um segredo aleatório no campo Secret e os eventos `subscription.completed`, `subscription.renewed`, `subscription.cancelled` e `checkout.refunded`.
 
 O primeiro teste acontece em dev mode, com uma chave e produtos de dev e o cartão `4242 4242 4242 4242`. Depois, as variáveis passam para os valores de produção.
 
