@@ -1,4 +1,4 @@
-import { pgTable, text, integer, bigint, primaryKey, unique, index } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, bigint, boolean, primaryKey, unique, index } from "drizzle-orm/pg-core";
 export const workspaces=pgTable("workspaces",{userId:text("user_id").primaryKey(),data:text("data").notNull(),version:integer("version").notNull().default(0),updatedAt:text("updated_at").notNull()});
 // Um chat privado do Telegram por usuário; history e pending guardam JSON da conversa e das sugestões aguardando confirmação.
 export const telegramLinks=pgTable("telegram_links",{chatId:text("chat_id").primaryKey(),userId:text("user_id").notNull().unique(),label:text("label").notNull(),history:text("history").notNull().default("[]"),pending:text("pending").notNull().default("{}"),lastUpdateId:bigint("last_update_id",{mode:"number"}).notNull().default(0),linkedAt:text("linked_at").notNull()});
@@ -16,3 +16,9 @@ export const boardEvents=pgTable("board_events",{id:text("id").notNull(),userId:
 // Ações da IA aprovadas (e triagens aplicadas): o que mudou em cada card, para a aba Auditoria.
 export const boardAudit=pgTable("board_audit",{id:text("id").notNull(),userId:text("user_id").notNull(),at:text("at").notNull(),tool:text("tool").notNull(),changes:text("changes").notNull()},t=>[primaryKey({columns:[t.userId,t.id]}),index("board_audit_user_at").on(t.userId,t.at)]);
 export const dayPlans=pgTable("day_plans",{userId:text("user_id").notNull(),date:text("date").notNull(),data:text("data").notNull()},t=>[primaryKey({columns:[t.userId,t.date]})]);
+// Assinatura de cada conta (AbacatePay). Só o servidor e o webhook gravam aqui; paid_until é o fim do período pago, sem a folga.
+export const billingAccounts=pgTable("billing_accounts",{userId:text("user_id").primaryKey(),free:boolean("free").notNull().default(false),trialEndsAt:text("trial_ends_at").notNull(),paidUntil:text("paid_until"),plan:text("plan"),subscriptionId:text("subscription_id").unique(),customerId:text("customer_id"),cancelledAt:text("cancelled_at"),refundedAt:text("refunded_at"),updatedAt:text("updated_at").notNull()},t=>[index("billing_accounts_customer").on(t.customerId)]);
+// Checkouts de assinatura criados pelo app: a ativação chega com o bill_ e é por ele que se acha o usuário.
+export const billingCheckouts=pgTable("billing_checkouts",{id:text("id").primaryKey(),userId:text("user_id").notNull(),plan:text("plan").notNull(),createdAt:text("created_at").notNull()});
+// Eventos de webhook já processados: as retentativas da AbacatePay reenviam o mesmo id.
+export const billingEvents=pgTable("billing_events",{id:text("id").primaryKey(),event:text("event").notNull(),receivedAt:text("received_at").notNull()});

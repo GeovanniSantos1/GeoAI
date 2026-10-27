@@ -101,16 +101,21 @@ O plano vem de `data.subscription.frequency`: `MONTHLY` é o Mensal e `ANNUALLY`
 
 ### O que fica bloqueado com `expired`
 
+A regra: fica bloqueado o que cria, edita ou custa (IA e serviços externos). Ler, desconectar e excluir continuam valendo.
+
 O servidor responde `402` com `{error: "Seu acesso venceu. Assine para continuar.", billing}` em:
 - `POST /api/state`, exceto o comando `reset` ("Apagar meus dados");
 - `GET /api/state/version`;
-- `/api/assistant`, `/api/calendar`, `/api/finance/fatura`, `/api/telegram/link` e `/api/whatsapp/link`;
-- `/api/exams`, `/api/exams/[id]` e `/api/exams/[id]/review`;
+- `POST /api/assistant`, `GET` e `POST /api/calendar` (o `GET` pode sincronizar com o Google e o Outlook) e `POST /api/finance/fatura`;
+- `POST /api/telegram/link` e `POST /api/whatsapp/link`, que geram o código de conexão;
+- `POST /api/exams` e `POST /api/exams/[id]/review`;
 - as rotas do Foco que gravam ou chamam IA: todas as que passam por `boardUser(request)` com `write = true`, inclusive a de importar.
 
-Continuam respondendo, porque servem ao backup ou são só leitura:
+Continuam respondendo:
 - `GET /api/state`, que sempre devolve o espaço e `billing`;
-- `GET /api/foco/export`, as outras leituras do Foco e `GET /api/exams/[id]/file`.
+- `GET /api/foco/export` e as outras leituras do Foco;
+- `GET /api/exams/[id]/file` e `DELETE /api/exams/[id]`;
+- `DELETE /api/calendar` e os `GET` e `DELETE` de `/api/telegram/link` e `/api/whatsapp/link`.
 
 ## Fluxo do pagamento
 
@@ -119,8 +124,7 @@ Continuam respondendo, porque servem ao backup ou são só leitura:
    - Chama `POST /subscriptions/create` com:
      - o produto do plano;
      - `methods: ["CARD"]`;
-     - `externalId` = userId;
-     - `metadata: {userId, plan}`;
+     - `metadata: {userId, plan}`. O `externalId` não é enviado, porque a documentação não diz se ele precisa ser único, e o usuário é achado pelo `bill_`;
      - `returnUrl` = `<origem>/`;
      - `completionUrl` = `<origem>/?assinatura=ok`;
      - `retryPolicy: {maxRetry: 3, retryEvery: 1}`.

@@ -1,11 +1,11 @@
-import {getUserId} from '@/lib/auth';import {jsonError,sameOrigin} from '@/lib/workspace-server';import {waSecret,waLink,displayNumber,evolutionErrorText} from '@/lib/whatsapp';import {waContext,ownerJidCached,cachedOwnerJid} from '@/lib/whatsapp-server';import {createWaCode,getWaLinkByUser,unlinkWaUser} from '@/lib/whatsapp-store';
+import {getUserId} from '@/lib/auth';import {jsonError,sameOrigin} from '@/lib/workspace-server';import {waSecret,waLink,displayNumber,evolutionErrorText} from '@/lib/whatsapp';import {waContext,ownerJidCached,cachedOwnerJid} from '@/lib/whatsapp-server';import {createWaCode,getWaLinkByUser,unlinkWaUser} from '@/lib/whatsapp-store';import {requireAccess} from '@/lib/billing-server';
 // Vínculo entre a conta do app e uma conversa do WhatsApp, sempre iniciado pelo usuário logado.
 export const dynamic='force-dynamic';
 export async function GET(){const userId=await getUserId();if(!userId)return jsonError('Entre na sua conta',401);const ctx=waContext(),link=await getWaLinkByUser(userId);
  // O cartão não usa o número no GET: ele vem só do cache, sem chamar a Evolution (pode ser null).
  const owner=ctx?cachedOwnerJid(ctx.config.instance):null;
  return Response.json({configured:!!ctx,number:owner?displayNumber(owner):null,linked:link?{label:link.label,linkedAt:link.linkedAt}:null},{headers:{'Cache-Control':'no-store'}});}
-export async function POST(request:Request){const userId=await getUserId();if(!userId)return jsonError('Entre na sua conta',401);if(!sameOrigin(request))return jsonError('Origem não permitida',403);
+export async function POST(request:Request){const userId=await getUserId();if(!userId)return jsonError('Entre na sua conta',401);if(!sameOrigin(request))return jsonError('Origem não permitida',403);const blocked=await requireAccess(userId);if(blocked)return blocked;
  const ctx=waContext();if(!ctx)return jsonError('O WhatsApp não está configurado no servidor.',503);const origin=new URL(request.url).origin;
  try{
   // A instância tem um único webhook: só o domínio de produção o registra, para que uma prévia ou a URL fixa de um deploy antigo não o tire de lá.

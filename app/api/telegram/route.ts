@@ -1,4 +1,4 @@
-import {proposalsText} from '@/lib/agent';import {config} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,telegramFile,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {parseWater} from '@/lib/hydration';import {waterChat} from '@/lib/water-channels';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';
+import {proposalsText} from '@/lib/agent';import {config} from '@/lib/agent-runtime';import {parseUpdate,command,webhookSecret,chunkText,proposalList,pushHistory,addPending,newCode,telegramApi,telegramFile,type TelegramEvent} from '@/lib/telegram';import {consumeCode,linkChat,getLinkByChat,unlinkChat,claimUpdate,saveConversation} from '@/lib/telegram-store';import {loadWorkspace,mutateWorkspace} from '@/lib/workspace-server';import {parseWater} from '@/lib/hydration';import {waterChat} from '@/lib/water-channels';import {agentTurn} from '@/lib/chat-turn';import {resolveChoice} from '@/lib/chat-actions';import {voiceReady,hear} from '@/lib/voice-server';import {heardLine,mediaReply} from '@/lib/voice';import {confirmCommand} from '@/lib/board-deps';import {userHasAccess} from '@/lib/billing-server';import {EXPIRED_TEXT} from '@/lib/billing';
 // Webhook público do bot. Só aceita chamadas com o segredo registrado no setWebhook e só responde a chats vinculados a uma conta.
 type Api=ReturnType<typeof telegramApi>;
 // Áudio soma o download e a transcrição à rodada da IA (até 45 s).
@@ -22,6 +22,8 @@ async function onMessage(api:Api,e:Extract<TelegramEvent,{kind:'message'}>,file:
  if(!await claimUpdate(e.chatId,e.updateId))return;
  if(cmd?.name==='desconectar'){await unlinkChat(e.chatId);return send('Telegram desconectado do GeoAI. Para conectar de novo, use Configurações no app.');}
  if(cmd&&['start','ajuda','help'].includes(cmd.name))return send(HELP);
+ // Acesso vencido: só ajuda e desconectar; nada vai para a IA.
+ if(!await userHasAccess(link.userId))return send(EXPIRED_TEXT);
  const typing=()=>api('sendChatAction',{chat_id:e.chatId,action:'typing'}).catch(()=>{});
  // Áudio vira texto antes da IA; a resposta começa com o que foi ouvido, e só o texto entra no histórico.
  let text=e.text,heard='';
@@ -40,6 +42,7 @@ async function onCallback(api:Api,e:Extract<TelegramEvent,{kind:'callback'}>){co
  const link=await getLinkByChat(e.chatId);if(!link)return answer('Este chat não está conectado ao GeoAI.');
  if(!await claimUpdate(e.chatId,e.updateId))return answer('');
  const clearButtons=()=>api('editMessageReplyMarkup',{chat_id:e.chatId,message_id:e.messageId,reply_markup:{inline_keyboard:[]}}).catch(()=>{});
+ if(!await userHasAccess(link.userId)){await clearButtons();await answer('Seu acesso ao GeoAI venceu.');return sendText(api,e.chatId,EXPIRED_TEXT);}
  const {state}=await loadWorkspace(link.userId,'');const r=resolveChoice(e.data,state,link.pending);
  if(r.expired){await clearButtons();return answer(r.ack);}
  if(r.command){try{await confirmCommand(link.userId,r.command);}catch(err){console.error('telegram choice',err);return answer('Não foi possível salvar agora. Tente de novo.');}}

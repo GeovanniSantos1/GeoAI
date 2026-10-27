@@ -1,8 +1,8 @@
-import {getUserId} from '@/lib/auth';import {config} from '@/lib/agent-runtime';import {webhookSecret,telegramApi} from '@/lib/telegram';import {createCode,getLinkByUser,unlinkUser} from '@/lib/telegram-store';import {jsonError,sameOrigin} from '@/lib/workspace-server';
+import {getUserId} from '@/lib/auth';import {config} from '@/lib/agent-runtime';import {webhookSecret,telegramApi} from '@/lib/telegram';import {createCode,getLinkByUser,unlinkUser} from '@/lib/telegram-store';import {jsonError,sameOrigin} from '@/lib/workspace-server';import {requireAccess} from '@/lib/billing-server';
 // Vínculo entre a conta do app e um chat do Telegram, sempre iniciado pelo usuário logado.
 export async function GET(){const userId=await getUserId();if(!userId)return jsonError('Entre na sua conta',401);const link=await getLinkByUser(userId);
  return Response.json({configured:!!config().TELEGRAM_BOT_TOKEN,linked:link?{label:link.label,linkedAt:link.linkedAt}:null},{headers:{'Cache-Control':'no-store'}});}
-export async function POST(request:Request){const userId=await getUserId();if(!userId)return jsonError('Entre na sua conta',401);if(!sameOrigin(request))return jsonError('Origem não permitida',403);
+export async function POST(request:Request){const userId=await getUserId();if(!userId)return jsonError('Entre na sua conta',401);if(!sameOrigin(request))return jsonError('Origem não permitida',403);const blocked=await requireAccess(userId);if(blocked)return blocked;
  const c=config(),token=c.TELEGRAM_BOT_TOKEN;if(!token)return jsonError('O bot do Telegram não está configurado no servidor.',503);
  const api=telegramApi(token,c.TELEGRAM_API_BASE||undefined),origin=new URL(request.url).origin;
  try{

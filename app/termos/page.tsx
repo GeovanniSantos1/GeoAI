@@ -21,11 +21,12 @@ export default function TermsPage(){return <LegalPage title="Termos de uso">
 <p>Decisões sobre saúde, medicamentos e doses, ou sobre investimentos, devem ser tomadas com um profissional habilitado.</p>
 <p>As respostas da IA podem conter erros: confira antes de confirmar. O assistente só grava algo depois da sua confirmação.</p></section>
 
-<section><h2>5. Planos pagos e pagamentos</h2>
-<p>O {LEGAL.product} pode ter funções gratuitas e planos pagos. Antes de qualquer cobrança, mostramos o preço, a periodicidade e o que está incluído.</p>
-<p>Os pagamentos são processados pela AbacatePay. Recebemos dela só o necessário para identificar a compra e o status do pagamento.</p>
-<p>Você pode cancelar uma assinatura a qualquer momento pelos contatos abaixo. O cancelamento impede as próximas cobranças, e o acesso pago continua até o fim do período já pago.</p>
-<p>Pelo direito de arrependimento (art. 49 do Código de Defesa do Consumidor), você pode desistir de uma contratação feita pela internet em até 7 dias e receber de volta o valor pago. A devolução é feita pelo mesmo meio de pagamento.</p></section>
+<section><h2>5. Teste grátis, assinatura e pagamentos</h2>
+<p>Toda conta nova começa com 3 dias de teste grátis, sem cartão. Depois do teste, o uso do {LEGAL.product} continua com uma assinatura, no plano Mensal ou no Anual. O preço e a periodicidade aparecem antes do pagamento.</p>
+<p>Os pagamentos são processados pela AbacatePay, no cartão de crédito. A assinatura é renovada e cobrada automaticamente a cada período, até ser cancelada. Recebemos da AbacatePay só o necessário para identificar a assinatura e o status dos pagamentos.</p>
+<p>Você pode cancelar a renovação a qualquer momento em Configurações, no cartão Assinatura, ou pelos contatos abaixo. O cancelamento impede as próximas cobranças, e o acesso pago continua até o fim do período já pago. Se a cobrança de uma renovação falhar, ela é tentada de novo por até 3 dias; sem pagamento, o acesso fica suspenso.</p>
+<p>Pelo direito de arrependimento (art. 49 do Código de Defesa do Consumidor), você pode desistir de uma contratação feita pela internet em até 7 dias e receber de volta o valor pago. A devolução é feita pelo mesmo meio de pagamento, e o acesso pago termina com ela.</p>
+<p>Sem teste ou assinatura em dia, seus dados continuam guardados. Você ainda pode baixar um backup e apagar seus dados, e volta a usar tudo assim que assinar.</p></section>
 
 <section><h2>6. Integrações</h2>
 <p>Você pode conectar o Telegram, o WhatsApp, o Google Agenda e o Outlook/Teams. Esses serviços são de terceiros e têm termos próprios. O {LEGAL.product} só lê a sua agenda e não cria nem altera eventos nela. Você pode desconectar qualquer integração em Configurações.</p></section>
