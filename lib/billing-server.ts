@@ -1,7 +1,7 @@
 // Assinatura no banco: cria a conta com o teste, calcula o acesso, trava as rotas e aplica os webhooks numa transação.
 import {eq,inArray} from 'drizzle-orm';import {getDb} from '@/db';import {billingAccounts,billingCheckouts,billingEvents} from '@/db/schema';
 import {accessOf,hasAccess,newAccount,processEvent,isFreeEmail,isPlan,BILLING_OFF,EXPIRED_ERROR,type BillingAccount,type BillingView,type BillingRepo,type BillingEvent,type Plan,type Products} from './billing';
-import {abacateConfig} from './abacatepay';
+import {abacateConfig,abacateApi} from './abacatepay';
 
 type Row=typeof billingAccounts.$inferSelect;
 type Db=ReturnType<typeof getDb>;type Tx=Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -34,10 +34,14 @@ export async function markCancelled(userId:string){const now=new Date().toISOStr
 
 function repoOf(tx:Tx):BillingRepo{return {
  claim:async e=>(await tx.insert(billingEvents).values({id:e.id,event:e.event,receivedAt:new Date().toISOString()}).onConflictDoNothing().returning({id:billingEvents.id})).length>0,
- userOfCheckout:async id=>(await tx.select({userId:billingCheckouts.userId}).from(billingCheckouts).where(eq(billingCheckouts.id,id)).limit(1))[0]?.userId??null,
+ checkout:async id=>{const r=(await tx.select({userId:billingCheckouts.userId,plan:billingCheckouts.plan}).from(billingCheckouts).where(eq(billingCheckouts.id,id)).limit(1))[0];return r?{userId:r.userId,plan:isPlan(r.plan)?r.plan:null}:null;},
  account:userId=>byUser(tx,userId),
  accountBy:async(field,value)=>{const r=(await tx.select().from(billingAccounts).where(eq(field==='subscriptionId'?billingAccounts.subscriptionId:billingAccounts.customerId,value)).limit(1))[0];return r?toAccount(r):null;},
  save:async(userId,patch)=>{await tx.update(billingAccounts).set({...patch,updatedAt:new Date().toISOString()}).where(eq(billingAccounts.userId,userId));},
 };}
 // Registro do evento e efeito juntos: se algo falhar, nada fica gravado e a AbacatePay tenta de novo.
-export async function applyBillingEvent(e:BillingEvent,products:Products){return getDb().transaction(tx=>processEvent(repoOf(tx),e,new Date(),products));}
+// Depois de gravar, cancela na AbacatePay a assinatura que sobrou (reembolso ou assinatura em dobro); se falhar, o log pede o cancelamento pelo painel.
+export async function applyBillingEvent(e:BillingEvent,products:Products){const outcome=await getDb().transaction(tx=>processEvent(repoOf(tx),e,new Date(),products));
+ if(outcome.cancel){const key=abacateConfig()?.apiKey;try{if(!key)throw new Error('sem ABACATEPAY_API_KEY');await abacateApi(key).cancelSubscription(outcome.cancel);console.warn('billing: assinatura cancelada na AbacatePay',outcome.cancel,e.event);}
+  catch(err){console.error('billing: cancele pelo painel da AbacatePay a assinatura',outcome.cancel,'(',e.event,')',err instanceof Error?err.message:'erro');}}
+ return outcome.result;}

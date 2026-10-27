@@ -56,7 +56,7 @@ Sucesso:
   - Os preços vêm do produto na AbacatePay.
   - Abaixo dos cartões vem a nota: "Cobrança automática no cartão. Cancele quando quiser em Configurações; o acesso continua até o fim do período pago. 7 dias para desistir com reembolso integral." e os links para os Termos.
   - "Assinar" leva ao checkout da AbacatePay, que é só cartão.
-- **Volta do checkout** (`/?assinatura=ok`): o app mostra "Confirmando pagamento…" e consulta `/api/state` a cada 3 s, por até 60 s, até o acesso ficar ativo. Ao confirmar, aparece o aviso "Assinatura ativa. Obrigado!" e o parâmetro sai da URL. Se o tempo acabar, a mensagem é "O pagamento ainda não foi confirmado. Se você pagou, aguarde alguns minutos e recarregue a página."
+- **Volta do checkout** (`/?assinatura=ok`): o app mostra "Confirmando pagamento…" e consulta `/api/state` a cada 3 s, por até 60 s, até o acesso ficar ativo. Ao confirmar, aparece o aviso "Assinatura ativa. Obrigado!" e o parâmetro sai da URL. Se o tempo acabar, a mensagem é "O pagamento ainda não foi confirmado. Se você já pagou, não pague de novo: aguarde alguns minutos e recarregue a página." Quem assina de novo com dias pagos sobrando só vê o "Assinatura ativa" quando a assinatura nova chega. A tela de planos também percebe um pagamento feito em outra aba ou aparelho: quando `/api/state/version` volta a responder, o app recarrega o espaço.
 - **Teste ou assinatura vencidos:** a tela de planos ocupa o lugar do app.
   - Título: "Seu teste grátis acabou" ou "Sua assinatura venceu".
   - Texto: "Seus dados continuam guardados."
@@ -65,7 +65,7 @@ Sucesso:
 - **Configurações → cartão "Assinatura"** (não aparece com a cobrança desligada):
   - grátis: "Acesso liberado, sem cobrança.";
   - teste: "Teste grátis até DD/MM." e o botão "Ver planos";
-  - ativa: "Plano Mensal · renova em DD/MM." e o botão "Cancelar renovação". A confirmação diz: "Nenhuma nova cobrança será feita. Você continua com acesso até DD/MM.";
+  - ativa: "Plano Mensal · renova em DD/MM/AAAA." (durante a folga, "aguardando a renovação.") e o botão "Cancelar renovação". A confirmação diz: "Nenhuma nova cobrança será feita. Você continua com acesso até DD/MM.";
   - cancelada com dias pagos: "Plano Mensal cancelado · acesso até DD/MM." e o botão "Ver planos".
 - **WhatsApp e Telegram com acesso vencido:**
   - toda mensagem recebe "Seu acesso ao GeoAI venceu. Para voltar a usar o assistente e os lembretes, assine em <link do app>.";
@@ -85,6 +85,10 @@ O app avalia uma conta nesta ordem e para na primeira regra que se aplica (`acce
 4. **`trial_ends_at` > agora** → `trial`.
 5. Nenhuma das anteriores → `expired`.
 
+Assinar e cancelar:
+- **Assinar** só é oferecido sem uma assinatura viva (`subscription_id` sem `cancelled_at`), qualquer que seja a situação. Isso evita cobrança em dobro. Uma conta vencida com assinatura viva (o último pagamento ainda não chegou) vê na tela de planos um aviso com os contatos, em vez dos planos.
+- **Cancelar** é oferecido sempre que há assinatura viva.
+
 O registro da conta é criado na primeira vez que o app pede o acesso dela, com `trial_ends_at` = agora + 3 dias. Uma conta que existe no Clerk mas nunca abriu o app começa o teste quando abrir.
 
 ### Datas
@@ -93,11 +97,11 @@ O "pago até" é guardado sem a folga, como o fim do período.
 
 | Evento | Efeito |
 |---|---|
-| `subscription.completed` e `subscription.renewed` | `paid_until = max(paid_until atual, agora + período)`. O período é 1 mês no Mensal e 1 ano no Anual, contado com `addMonths`/`addYears`. O `max` torna os eventos fora de ordem inofensivos. |
+| `subscription.completed` e `subscription.renewed` | `paid_until` = período somado a partir do que vier depois: o `paid_until` atual ou agora. O período é 1 mês no Mensal e 1 ano no Anual, mantendo o dia (31/01 → 28/02). Assim, assinar de novo com dias pagos sobrando não os perde. A mesma entrega duas vezes é barrada antes, pelo `id` do evento. |
 | `subscription.cancelled` | Grava `cancelled_at` e não mexe no `paid_until`. |
-| `checkout.refunded` | `paid_until = agora`, sem folga. Grava também `refunded_at`, para a folga não se aplicar. O checkout é localizado pelo `bill_` (em `billing_checkouts`) ou pelo `customerId` (em `billing_accounts`). |
+| `checkout.refunded` | `paid_until = agora`, sem folga. Grava também `refunded_at`, para a folga não se aplicar, e `cancelled_at`. Depois de gravar, cancela a assinatura viva na AbacatePay, para não haver nova cobrança. O checkout é localizado pelo `bill_` (em `billing_checkouts`) ou pelo `customerId` (em `billing_accounts`). |
 
-O plano vem de `data.subscription.frequency`: `MONTHLY` é o Mensal e `ANNUALLY` é o Anual. Um evento sem frequência conhecida usa o produto de `data.checkout.items[0].id`, comparado com as variáveis de ambiente.
+O plano vem de `data.subscription.frequency`: `MONTHLY` é o Mensal e `ANNUALLY` é o Anual. Um evento sem frequência conhecida usa o produto de `data.checkout.items[0].id`, comparado com as variáveis de ambiente. Sem nenhum dos dois, vale o plano escolhido no checkout (`billing_checkouts.plan`), e só depois o plano atual da conta ou o Mensal.
 
 ### O que fica bloqueado com `expired`
 
@@ -109,7 +113,7 @@ O servidor responde `402` com `{error: "Seu acesso venceu. Assine para continuar
 - `POST /api/assistant`, `GET` e `POST /api/calendar` (o `GET` pode sincronizar com o Google e o Outlook) e `POST /api/finance/fatura`;
 - `POST /api/telegram/link` e `POST /api/whatsapp/link`, que geram o código de conexão;
 - `POST /api/exams` e `POST /api/exams/[id]/review`;
-- as rotas do Foco que gravam ou chamam IA: todas as que passam por `boardUser(request)` com `write = true`, inclusive a de importar.
+- as rotas do Foco que gravam ou chamam IA: todas as que passam por `boardUser(request)` com `write = true`, inclusive a de importar e a de excluir card (o Foco não aparece com o acesso vencido).
 
 Continuam respondendo:
 - `GET /api/state`, que sempre devolve o espaço e `billing`;
@@ -120,7 +124,7 @@ Continuam respondendo:
 ## Fluxo do pagamento
 
 1. **`POST /api/billing/checkout {plan: "monthly" | "annual"}`.** Exige sessão e mesma origem.
-   - Só aceita contas em `trial` ou `expired`, ou em `active` com a assinatura cancelada. Nos outros casos, responde `409`: "Você já tem acesso."
+   - Só aceita contas sem assinatura viva e que não sejam grátis. Nos outros casos, responde `409`: "Você já tem uma assinatura ativa." ou "Você já tem acesso."
    - Chama `POST /subscriptions/create` com:
      - o produto do plano;
      - `methods: ["CARD"]`;
@@ -131,13 +135,14 @@ Continuam respondendo:
    - Grava `billing_checkouts(bill_…, userId, plan)` e devolve `{url}`.
    - O app manda o navegador para essa URL.
 2. **`POST /api/billing/webhook?webhookSecret=…`.**
-   - Sem configuração, responde `404`.
-   - Com segredo ou HMAC inválido, responde `401`.
+   - Precisa só do segredo e dos dois produtos, não da chave de API. Sem eles, responde `503`, para a AbacatePay tentar de novo e o pagamento não se perder num deploy mal configurado.
+   - Com o segredo errado, responde `401`.
+   - Com o segredo certo e o HMAC diferente, responde `503` e registra o erro no log. A AbacatePay tenta de novo por cerca de 18 h, enquanto o problema é corrigido.
    - Com corpo que não é JSON, responde `400`.
    - Numa transação, insere o `id` do evento em `billing_events`. Se o `id` já existia, responde `200` sem fazer nada. Se não, aplica o efeito e grava.
    - Um erro na transação desfaz tudo e responde `500`, para a AbacatePay tentar de novo.
    - Evento de usuário desconhecido, ou de tipo não usado: o `id` é gravado e o app responde `200`, com um registro no log.
-   - `subscription.completed`: localiza o usuário pelo `data.checkout.id` em `billing_checkouts`. Grava `subscription_id`, `customer_id` e `plan`, estende o `paid_until` e limpa `cancelled_at` e `refunded_at`.
+   - `subscription.completed`: localiza o usuário pelo `data.checkout.id` em `billing_checkouts`. Na falta dele, usa o `subscription_id` e depois o `userId` do `metadata`, que o webhook autenticado devolve. Grava `subscription_id`, `customer_id` e `plan`, estende o `paid_until` e limpa `cancelled_at` e `refunded_at`. Se a conta já tinha outra assinatura viva (pagamento em dobro), a antiga é cancelada na AbacatePay depois de gravar. Se o cancelamento falhar, o log pede que seja feito pelo painel.
    - `subscription.renewed`: localiza o usuário por `subscription_id` e estende o `paid_until`.
 3. **`POST /api/billing/cancel`.** Exige sessão, mesma origem, `subscription_id` gravado e assinatura ainda não cancelada.
    - Chama `POST /subscriptions/cancel` e grava `cancelled_at`. O webhook `subscription.cancelled` que chega depois não muda nada.

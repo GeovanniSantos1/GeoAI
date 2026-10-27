@@ -6,20 +6,25 @@ export const ABACATE_API='https://api.abacatepay.com/v2';
 // Chave pública com que a AbacatePay assina o corpo de cada webhook (docs: Webhooks → Segurança). Não é segredo: quem prova a origem é o webhookSecret da URL.
 export const ABACATE_PUBLIC_KEY='t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9';
 export type AbacateConfig={apiKey:string;webhookSecret:string;products:Products};
+type Env=Record<string,string|undefined>;
+// O webhook só precisa do segredo e dos produtos: um deploy sem a chave de API não pode perder pagamentos.
+export function webhookConfig(env:Env=process.env){const v=(k:string)=>env[k]?.trim()||'';const webhookSecret=v('ABACATEPAY_WEBHOOK_SECRET'),monthly=v('ABACATEPAY_PRODUCT_MONTHLY'),annual=v('ABACATEPAY_PRODUCT_ANNUAL');return webhookSecret&&monthly&&annual?{webhookSecret,products:{monthly,annual}}:null;}
 // Sem as 4 variáveis a cobrança fica desligada e ninguém é bloqueado.
-export function abacateConfig(env:Record<string,string|undefined>=process.env):AbacateConfig|null{const v=(k:string)=>env[k]?.trim()||'';const apiKey=v('ABACATEPAY_API_KEY'),webhookSecret=v('ABACATEPAY_WEBHOOK_SECRET'),monthly=v('ABACATEPAY_PRODUCT_MONTHLY'),annual=v('ABACATEPAY_PRODUCT_ANNUAL');return apiKey&&webhookSecret&&monthly&&annual?{apiKey,webhookSecret,products:{monthly,annual}}:null;}
+export function abacateConfig(env:Env=process.env):AbacateConfig|null{const w=webhookConfig(env),apiKey=env.ABACATEPAY_API_KEY?.trim()||'';return w&&apiKey?{apiKey,...w}:null;}
 
 const same=(a:string,b:string)=>{const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);};
 export const signBody=(raw:string)=>createHmac('sha256',ABACATE_PUBLIC_KEY).update(Buffer.from(raw,'utf8')).digest('base64');
-export function verifyWebhook(raw:string,signature:string|null,querySecret:string|null,secret:string){return !!querySecret&&!!signature&&same(querySecret,secret)&&same(signBody(raw),signature);}
+// 'secret': não veio da AbacatePay. 'signature': o segredo confere, mas o HMAC não; a rota pede nova tentativa em vez de perder o evento.
+export function verifyWebhook(raw:string,signature:string|null,querySecret:string|null,secret:string):'ok'|'secret'|'signature'{if(!querySecret||!same(querySecret,secret))return 'secret';return signature&&same(signBody(raw),signature)?'ok':'signature';}
 
 const str=(v:unknown)=>typeof v==='string'&&v?v:null;
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 // Sem id no envelope, o evento ganha um id estável pelo checkout ou pela assinatura, para as retentativas continuarem idempotentes.
+// userId vem do metadata que o app manda ao criar o checkout, quando a AbacatePay o devolve.
 export function readEvent(raw:unknown):BillingEvent|null{const r=obj(raw),event=str(r.event);if(!event)return null;
- const d=obj(r.data),s=obj(d.subscription),c=obj(d.checkout),items=Array.isArray(c.items)?c.items:[];
+ const d=obj(r.data),s=obj(d.subscription),c=obj(d.checkout),items=Array.isArray(c.items)?c.items:[],meta=[c,s,d].map(x=>str(obj(x.metadata).userId)).find(Boolean)??null;
  const subscriptionId=str(s.id),checkoutId=str(c.id),key=checkoutId||subscriptionId,id=str(r.id)??(key?event+':'+key:null);if(!id)return null;
- return {id,event,devMode:r.devMode===true,subscriptionId,customerId:str(obj(d.customer).id)??str(c.customerId),checkoutId,frequency:str(s.frequency),productId:str(obj(items[0]).id)};}
+ return {id,event,devMode:r.devMode===true,subscriptionId,customerId:str(obj(d.customer).id)??str(c.customerId),checkoutId,frequency:str(s.frequency),productId:str(obj(items[0]).id),userId:meta};}
 
 export function subscriptionBody(plan:Plan,products:Products,userId:string,origin:string){return {items:[{id:products[plan],quantity:1}],methods:['CARD'],metadata:{userId,plan},returnUrl:origin+'/',completionUrl:origin+'/?assinatura=ok',retryPolicy:{maxRetry:3,retryEvery:1}};}
 

@@ -10,6 +10,7 @@ import {PublicShell} from '@/components/legal';
 import {formatMoney} from '@/lib/finance';
 import {annualSaving,PLAN_NAMES,type BillingView,type PlanOffer,type Plan} from '@/lib/billing';
 import type {Workspace} from '@/lib/types';
+import {LEGAL} from '@/lib/legal';
 
 type Toast=(text:string,error?:boolean)=>void;
 // Fim do teste com hora (30/10, 14:05); datas da assinatura com o ano, porque o plano anual vai longe (27/10/2027).
@@ -39,11 +40,12 @@ export function TrialBar({billing,zone,onPlans}:{billing:BillingView;zone:string
 // Volta do checkout (/?assinatura=ok): o webhook pode levar alguns segundos, então o app consulta de novo até o acesso aparecer.
 export function CheckoutReturn({billing,reload,toast}:{billing:BillingView;reload:()=>unknown;toast:Toast}){
  const [active]=useState(()=>new URLSearchParams(window.location.search).get('assinatura')==='ok'),[done,setDone]=useState(false),handled=useRef(false);
- const paid=billing.status!=='trial'&&billing.status!=='expired';
+// Quem assina de novo com dias pagos sobrando já está 'active', mas cancelado: só conta como pago quando a assinatura nova chega.
+ const paid=billing.status==='free'||billing.status==='off'||(billing.status==='active'&&!billing.cancelled);
  useEffect(()=>{if(!active||handled.current)return;
   const clear=()=>{const u=new URL(window.location.href);u.searchParams.delete('assinatura');window.history.replaceState(window.history.state,'',u.pathname+u.search+u.hash);};
   if(paid){handled.current=true;clear();toast('Assinatura ativa. Obrigado!');return;}
-  const started=Date.now(),t=setInterval(()=>{if(Date.now()-started<60000){reload();return;}clearInterval(t);handled.current=true;clear();setDone(true);toast('O pagamento ainda não foi confirmado. Se você pagou, aguarde alguns minutos e recarregue a página.',true);},3000);
+  const started=Date.now(),t=setInterval(()=>{if(Date.now()-started<60000){reload();return;}clearInterval(t);handled.current=true;clear();setDone(true);toast('O pagamento ainda não foi confirmado. Se você já pagou, não pague de novo: aguarde alguns minutos e recarregue a página.',true);},3000);
   return()=>clearInterval(t);},[active,paid,reload,toast]);
  if(!active||done||paid)return null;
  return <p className="billing-confirm" role="status"><LoaderCircle className="spin" size={16}/>Confirmando pagamento…</p>;}
@@ -52,7 +54,7 @@ export function CheckoutReturn({billing,reload,toast}:{billing:BillingView;reloa
 export function BillingCard(){const a=useApp(),b=a.billing,zone=a.state.profile.timezone;const [confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false);
  if(b.status==='off')return null;
  const plan=b.plan?PLAN_NAMES[b.plan]:'';
- const text=b.status==='free'?'Acesso liberado, sem cobrança.':b.status==='trial'?'Teste grátis até '+when(b.until,zone,true)+'.':b.cancelled?'Plano '+plan+' cancelado · acesso até '+when(b.until,zone)+'.':'Plano '+plan+' · renova em '+when(b.until,zone)+'.';
+ const text=b.status==='free'?'Acesso liberado, sem cobrança.':b.status==='trial'?'Teste grátis até '+when(b.until,zone,true)+'.':b.cancelled?'Plano '+plan+' cancelado · acesso até '+when(b.until,zone)+'.':b.late?'Plano '+plan+' · aguardando a renovação.':'Plano '+plan+' · renova em '+when(b.until,zone)+'.';
  async function cancel(){setBusy(true);try{const r=await fetch('/api/billing/cancel',{method:'POST'});const j=await r.json().catch(()=>({}));if(!r.ok||!j.billing)throw new Error(j.error||'Não foi possível cancelar agora.');a.setBilling(j.billing);setConfirm(false);a.toast('Renovação cancelada. Seu acesso continua até '+when(j.billing.until,zone)+'.');}catch(e){a.toast(e instanceof Error?e.message:'Não foi possível cancelar agora.',true);}finally{setBusy(false);}}
  return <section className="panel integration-card billing-card"><span className="icon-tile"><CreditCard size={22}/></span><h2>Assinatura</h2><span className={'pill'+(b.status==='trial'||b.cancelled?'':' green')}>{b.status==='free'?'Grátis':b.status==='trial'?'Teste grátis':b.cancelled?'Cancelada':'Ativa'}</span><p>{text}</p>
   {b.canSubscribe&&<button className="button primary full-width" onClick={a.openPlans}>Ver planos</button>}
@@ -67,10 +69,11 @@ export function Paywall({billing,state,today,reload,onReset}:{billing:BillingVie
  async function backup(){try{await downloadBackup(state,today);}catch(e){toast(e instanceof Error?e.message:'Não foi possível baixar o backup.',true);}}
  async function wipe(){setBusy(true);const ok=await onReset();setBusy(false);if(ok){setReset(false);setResetText('');toast('Seus registros foram apagados.');}else toast('Não foi possível apagar agora. Tente de novo.',true);}
  return <PublicShell><main className="paywall"><div className="login-brand">G<span>↗</span></div><p className="eyebrow">GEOAI · ASSINATURA</p>
-  <h1>{billing.paidBefore?'Sua assinatura venceu':'Seu teste grátis acabou'}</h1><p className="paywall-lead">Escolha um plano para continuar organizando seu dia. Seus dados continuam guardados.</p>
+  <h1>{billing.paidBefore?'Sua assinatura venceu':'Seu teste grátis acabou'}</h1><p className="paywall-lead">{billing.canSubscribe?'Escolha um plano para continuar organizando seu dia. ':''}Seus dados continuam guardados.</p>
   <CheckoutReturn billing={billing} reload={reload} toast={toast}/>
   {msg&&<p className={msg.error?'form-error':'billing-confirm'} role={msg.error?'alert':'status'}>{msg.text}</p>}
-  <PlansPicker/>
+  {/* Assinatura viva sem o último pagamento confirmado: assinar de novo cobraria em dobro. */}
+  {billing.canSubscribe?<PlansPicker/>:<p className="paywall-pending">Sua assinatura continua ativa na AbacatePay, mas o último pagamento ainda não foi confirmado. Se você já pagou, aguarde alguns minutos; se continuar assim, fale com a gente pelo <a href={'mailto:'+LEGAL.email}>e-mail</a> ou pelo <a href={LEGAL.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a>.</p>}
   <div className="paywall-actions"><button className="button outline" onClick={backup}><Download size={16}/>Baixar backup</button><SignOutButton redirectUrl="/"><button className="button outline"><LogOut size={16}/>Sair</button></SignOutButton><button className="text-button danger" onClick={()=>setReset(true)}>Apagar meus dados<Trash2 size={15}/></button></div>
   {reset&&<Modal title="Apagar todos os meus registros" subtitle="Esta ação não pode ser desfeita sem um backup." onClose={()=>setReset(false)}><label className="field"><span>Digite APAGAR para confirmar</span><input value={resetText} onChange={e=>setResetText(e.target.value)}/></label><div className="modal-footer"><button className="button ghost" onClick={()=>setReset(false)}>Cancelar</button><button className="button destructive" disabled={resetText!=='APAGAR'||busy} onClick={wipe}>Apagar meus dados</button></div></Modal>}
  </main></PublicShell>;}

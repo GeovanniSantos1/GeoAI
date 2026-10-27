@@ -33,11 +33,14 @@ export default function NorteApp(){
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(null),5000);return()=>clearTimeout(t);},[notice]);
  useEffect(()=>{if(data)applyTheme(resolveTheme(data.state.profile.theme));},[data]);
  // Atualização automática: o WhatsApp, o Telegram, os lembretes, o timer do Foco ou outro aparelho podem ter gravado; a tela recebe o espaço novo sem recarregar a página.
- const versionRef=useRef(-1);useEffect(()=>{if(data)versionRef.current=data.version;},[data]);
+ const versionRef=useRef(-1),billingRef=useRef('off');useEffect(()=>{if(data){versionRef.current=data.version;billingRef.current=data.billing?.status||'off';}},[data]);
  const refresh=useCallback(async()=>{if(versionRef.current<0)return;const r=await fetch('/api/state/version?since='+versionRef.current,{cache:'no-store'});
   // Acesso vencido com o app aberto: o 402 traz a situação nova e a tela de assinatura aparece.
   if(r.status===402){const b=(await r.json().catch(()=>null))?.billing as BillingView|undefined;if(b)setData(prev=>prev&&prev.billing?.status!==b.status?{...prev,billing:b}:prev);return;}
-  if(!r.ok)return;const j:{state?:Workspace;version:number}=await r.json(),next=j.state;if(next)setData(prev=>prev&&isNewer(j.version,prev.version)?{...prev,state:next,version:j.version}:prev);},[]);
+  if(!r.ok)return;
+  // Pagou em outra aba ou aparelho: a versão volta a responder, e a tela de assinatura recarrega o espaço com o acesso novo.
+  if(billingRef.current==='expired'){load();return;}
+  const j:{state?:Workspace;version:number}=await r.json(),next=j.state;if(next)setData(prev=>prev&&isNewer(j.version,prev.version)?{...prev,state:next,version:j.version}:prev);},[load]);
  useLiveSync(refresh,busy);
  // Sem espaço aberto (tela de erro), voltar para a aba tenta abrir de novo.
  useEffect(()=>{const v=()=>{if(document.visibilityState==='visible'&&versionRef.current<0)load();};document.addEventListener('visibilitychange',v);return()=>document.removeEventListener('visibilitychange',v);},[load]);
