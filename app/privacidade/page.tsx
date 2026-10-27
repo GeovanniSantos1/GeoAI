@@ -15,7 +15,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <li><strong>Dados de saúde, que são dados sensíveis:</strong> exames de laboratório (o arquivo e os valores), protocolo e aplicações de testosterona, ciclo menstrual, anticoncepcional, registros íntimos, preventivos e acompanhamento de vícios e recaídas.</li>
 <li><strong>Agenda conectada:</strong> eventos da agenda principal do Google ou do Outlook, de 30 dias atrás a 90 dias à frente, só para leitura.</li>
 <li><strong>Telegram e WhatsApp:</strong> se você conectar, guardamos o identificador da conversa, o nome do perfil, as últimas mensagens trocadas com o assistente (para dar contexto às respostas) e as respostas aos lembretes. Áudios são transcritos e descartados: só o texto fica.</li>
-<li><strong>Pagamentos:</strong> se você contratar um plano pago, os dados que a AbacatePay pede para a cobrança (como nome, e-mail, CPF ou CNPJ e telefone) e o status do pagamento. Não recebemos dados completos de cartão.</li>
+<li><strong>Assinatura e pagamentos:</strong> o fim do seu teste grátis e, se você assinar, o plano, a situação e as datas da assinatura e os identificadores da assinatura e do cliente na AbacatePay. Os dados que a AbacatePay pede para a cobrança (como nome, e-mail, CPF ou CNPJ e telefone) ficam com ela. Não recebemos dados completos de cartão.</li>
 <li><strong>Dados técnicos:</strong> endereço IP, navegador, data e hora de acesso e registros de erro, mantidos pela hospedagem e pelo provedor de login.</li>
 </ul></section>
 
@@ -49,7 +49,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <section><h2>6. Por quanto tempo guardamos</h2>
 <ul>
 <li>Seus registros ficam guardados enquanto sua conta existir.</li>
-<li>Em Configurações, “Apagar meus dados” apaga na hora seus registros, os arquivos dos exames, as agendas conectadas e o quadro do Foco.</li>
+<li>Em Configurações, “Apagar meus dados” apaga na hora seus registros, os arquivos dos exames, as agendas conectadas e o quadro do Foco. O registro da assinatura continua, porque serve à cobrança.</li>
 <li>Desconectar o Telegram ou o WhatsApp apaga o vínculo e o histórico daquela conversa.</li>
 <li>Para excluir a conta, peça pelos contatos do item 12. Apagamos a conta e os dados em até 15 dias.</li>
 </ul>

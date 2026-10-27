@@ -36,6 +36,13 @@
       "when": 1792556948359,
       "tag": "0004_late_dakota_north",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793128633773,
+      "tag": "0005_assinatura",
+      "breakpoints": true
     }
   ]
 }

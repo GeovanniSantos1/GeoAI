@@ -2,6 +2,7 @@
 // Ao mudar o texto de /termos ou /privacidade, atualize também updatedAt.
 export const LEGAL={
  product:'GeoAI',
+ site:'https://geo-ai-mocha.vercel.app',
  company:'63.938.480 Geovanni Santos de Oliveira',
  cnpj:'63.938.480/0001-56',
  city:'Belo Horizonte/MG',
