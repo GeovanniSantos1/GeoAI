@@ -1,2 +1,2 @@
-import {SignIn} from '@clerk/nextjs';
-export default function SignInPage(){return <main className="login-screen"><SignIn fallbackRedirectUrl="/"/></main>;}
+import {SignIn} from '@clerk/nextjs';import {PublicShell} from '@/components/legal';
+export default function SignInPage(){return <PublicShell><main className="login-screen"><SignIn fallbackRedirectUrl="/"/></main></PublicShell>;}

@@ -1,2 +1,2 @@
-import {SignUp} from '@clerk/nextjs';
-export default function SignUpPage(){return <main className="login-screen"><SignUp fallbackRedirectUrl="/"/></main>;}
+import {SignUp} from '@clerk/nextjs';import Link from 'next/link';import {PublicShell} from '@/components/legal';
+export default function SignUpPage(){return <PublicShell><main className="login-screen"><SignUp fallbackRedirectUrl="/"/><p className="signup-consent">Ao criar sua conta, você concorda com os <Link href="/termos">Termos de uso</Link> e a <Link href="/privacidade">Política de privacidade</Link>.</p></main></PublicShell>;}
