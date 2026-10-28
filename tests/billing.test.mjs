@@ -71,7 +71,7 @@ test('annualSaving e isFreeEmail',()=>{
  assert.equal(isFreeEmail('Geo@Exemplo.com',' outra@x.com , geo@exemplo.com'),true);
  assert.equal(isFreeEmail('geo@exemplo.com',undefined),false);
  assert.equal(isFreeEmail('',','),false);
- assert.match(EXPIRED_TEXT,/venceu.*https:\/\/geo-ai-mocha\.vercel\.app/);
+ assert.match(EXPIRED_TEXT,/venceu.*https:\/\/geochat\.ia\.br/);
 });
 
 // Payloads de exemplo da documentação da AbacatePay (Webhooks → Eventos), resumidos aos campos lidos.
