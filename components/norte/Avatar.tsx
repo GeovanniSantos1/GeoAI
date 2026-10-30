@@ -1,14 +1,14 @@
-'use client';import {useId} from 'react';import type {Gender,Profile} from '@/lib/types';import {HAIR_STYLES,HAIR_CUTS} from '@/lib/gender';
-// Avatar desenhado em camadas (arte própria): o mesmo personagem aparece como busto (topo e escolha de gênero) ou de corpo inteiro num quarto (Sua jornada).
-// O tema escuro troca as cores pelas classes av-bg/av-halo e mostra o quarto à noite (grupos sc-day/sc-night).
+'use client';import {useId} from 'react';import type {Gender,Profile} from '@/lib/types';import {HAIR_STYLES,HAIR_CUTS} from '@/lib/gender';import {Scene} from './avatar-scenes';
+// Avatar desenhado em camadas (arte própria): o mesmo personagem aparece como busto (topo e escolha de gênero) ou de corpo inteiro num cenário (Sua jornada).
+// O tema escuro troca as cores pelas classes av-bg/av-halo e mostra o cenário à noite (grupos sc-day/sc-night, em avatar-scenes.tsx).
 type Look=Profile['avatar'];
 export const SKINS=['#f1cfb2','#e1b28c','#c48b68','#9b6347','#633d2e'],HAIRS=['#302c28','#725140','#b99865','#a4532e','#82807b'],OUTFITS=['#24594c','#31495e','#8a5544','#b9606f','#3f4140'];
 const pick=<T,>(list:readonly T[])=>list[Math.floor(Math.random()*list.length)];
-export function randomLook(gender:Gender):Partial<Look>{const look={skin:pick(SKINS),hair:pick(HAIRS),shirt:pick(OUTFITS)};return gender==='female'?{...look,style:pick(HAIR_STYLES)[0],earrings:Math.random()<.5}:{...look,cut:pick(HAIR_CUTS)[0],beard:Math.random()<.5};}
+export function randomLook(gender:Gender):Partial<Look>{const look={skin:pick(SKINS),hair:pick(HAIRS),shirt:pick(OUTFITS),glasses:Math.random()<.25};return gender==='female'?{...look,style:pick(HAIR_STYLES)[0],earrings:Math.random()<.5}:{...look,cut:pick(HAIR_CUTS)[0],beard:Math.random()<.5};}
 // Escurece (t>0) ou clareia (t<0) uma cor #rrggbb.
 const tone=(hex:string,t:number)=>'#'+[1,3,5].map(i=>{const c=parseInt(hex.slice(i,i+2),16);return Math.round(t>0?c*(1-t):c+(255-c)*-t).toString(16).padStart(2,'0');}).join('');
 export default function Avatar({profile,small=false,stage=false}:{profile:Profile;small?:boolean;stage?:boolean}){const id=useId(),female=profile.gender==='female';
- if(stage)return <svg className="person-avatar stage" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Seu avatar GeoAI no quarto"><Room id={id}/><g transform="translate(600 50) scale(1.1)"><ellipse cx="0" cy="463" rx="70" ry="9" fill="#000" opacity=".16"/><Person a={profile.avatar} female={female} full/></g></svg>;
+ if(stage)return <svg className="person-avatar stage" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Seu avatar GeoAI"><Scene id={id} name={profile.avatar.scene}/><g transform="translate(600 50) scale(1.1)"><ellipse cx="0" cy="463" rx="70" ry="9" fill="#000" opacity=".16"/><Person a={profile.avatar} female={female} full/></g></svg>;
  return <svg className={'person-avatar '+(small?'small':'')} viewBox="-80 -8 160 180" role="img" aria-label="Seu avatar GeoAI"><defs><clipPath id={id}><rect x="-80" y="-8" width="160" height="180" rx="66"/></clipPath></defs><g clipPath={'url(#'+id+')'}><rect className="av-bg" x="-80" y="-8" width="160" height="180" fill="#e8eadf"/><circle className="av-halo" cx="0" cy="70" r="62" fill="#d8dfcb"/><Person a={profile.avatar} female={female}/></g></svg>;}
 
 // No palco o braço direito dobra segurando a garrafa d'água (antebraço, garrafa e mão vêm por cima do cabelo); no busto os dois braços ficam soltos.
@@ -37,6 +37,7 @@ function Person({a,female,full=false}:{a:Look;female:boolean;full?:boolean}){con
    {!female&&a.beard&&<path fillRule="evenodd" d="M-37 64V78C-37 100-20 116 0 117S37 100 37 78V64C34 76 30 86 22 90C14 92-14 92-22 90C-30 86-34 76-37 64ZM0 93.5a9.5 5.5 0 1 0 .1 0Z" fill={hair}/>}
    <g className="av-eyes"><ellipse cx="-14" cy="74" rx="4.8" ry="5.8" fill="#2a221e"/><ellipse cx="14" cy="74" rx="4.8" ry="5.8" fill="#2a221e"/><circle cx="-12.3" cy="71.8" r="1.7" fill="#fff"/><circle cx="15.7" cy="71.8" r="1.7" fill="#fff"/></g>
    {female&&<path d="M-18 71.5l-3.6-2.6M18 71.5l3.6-2.6" stroke="#2a221e" strokeWidth="1.8" strokeLinecap="round"/>}
+   {a.glasses&&<g fill="none" stroke="#2a221e" strokeWidth="2.4" strokeLinecap="round"><rect x="-25" y="65" width="21" height="17" rx="7" fill="#fff" fillOpacity=".18"/><rect x="4" y="65" width="21" height="17" rx="7" fill="#fff" fillOpacity=".18"/><path d="M-4 72q4-3 8 0M-25 71l-11-3M25 71l11-3"/></g>}
    <path d={female?'M-21 62Q-14 57.5-7 60.5M7 60.5Q14 57.5 21 62':'M-22 61Q-14 56-6 59M6 59Q14 56 22 61'} fill="none" stroke={tone(hair,.25)} strokeWidth={female?2.6:4} strokeLinecap="round"/>
    <path d="M-3 87q3 2 6 0" fill="none" stroke={shade} strokeOpacity=".22" strokeWidth="2" strokeLinecap="round"/>
    {female?<path d="M-8 96q8 8 16 0q-8 3-16 0z" fill="#b4574f"/>:<path d="M-7 97q7 5 14 0" fill="none" stroke="#5d362b" strokeWidth="2.6" strokeLinecap="round"/>}
@@ -59,59 +60,7 @@ function FrontHair({a}:{a:Look}){const h=a.hair,s=a.style,shine=<path d="M-26 25
  if(s==='coque')return <><path d="M-39 66C-41 30-20 16 0 16S41 30 39 66C36 50 26 38 12 36C4 35-4 35-12 36C-26 38-36 50-39 66Z" fill={h}/><rect x="-9" y="14" width="18" height="5" rx="2.5" fill={a.shirt}/><path d="M-36 58q-4 14 0 26" fill="none" stroke={h} strokeWidth="2" strokeLinecap="round"/>{shine}</>;
  return <><path d="M0 10C-28 10-44 30-41 66C-41 84-39 98-35 108C-33 86-31 66-24 50C-16 36-6 28 0 20C6 28 16 36 24 50C31 66 33 86 35 108C39 98 41 84 41 66C44 30 28 10 0 10Z" fill={h}/><path d="M-38 100C-42 130-40 160-32 182C-28 186-22 184-22 178C-28 156-30 128-30 104ZM38 100C42 130 40 160 32 182C28 186 22 184 22 178C28 156 30 128 30 104Z" fill={h}/>{shine}</>;}
 function Cut({a}:{a:Look}){const h=a.hair;
+ if(a.cut==='careca')return <><path d="M-38 80C-40 66-38 55-33 47C-31 56-32 66-31 80ZM38 80C40 66 38 55 33 47C31 56 32 66 31 80Z" fill={h} opacity=".9"/><ellipse cx="-13" cy="33" rx="12" ry="6" fill="#fff" opacity=".2" transform="rotate(-22 -13 33)"/></>;
  if(a.cut==='raspado')return <path d="M-37 66C-39 30-20 18 0 18S39 30 37 66C35 54 30 46 22 42C10 38-10 38-22 42C-30 46-35 54-37 66Z" fill={h} opacity=".88"/>;
  if(a.cut==='cacheado')return <><path d="M-39 70C-41 40-32 26 0 26S41 40 39 70C37 60 35 54 32 50H-32C-35 54-37 60-39 70Z" fill={h}/>{[[-30,36,11],[-20,24,12],[-6,18,12],[8,17,12],[22,22,12],[32,34,11],[-34,46,8],[34,46,8],[-16,36,9],[0,32,9],[16,34,9]].map(([x,y,r])=><circle key={x+'.'+y} cx={x} cy={y} r={r} fill={h}/>)}</>;
  return <><path d="M-39 70C-43 26-20 8 3 9C27 10 43 28 39 70C37 60 35 52 31 46C22 46 10 42 0 34C-8 42-20 46-31 47C-35 54-37 62-39 70Z" fill={h}/><path d="M-24 22Q-8 14 12 16" fill="none" stroke="#fff" strokeOpacity=".18" strokeWidth="3" strokeLinecap="round"/></>;}
-
-// Quarto em 1200x600: o personagem fica no centro; no celular o corte (slice) mostra só o miolo, por isso relógio, quadro e abajur ficam perto dele.
-const leaf=(x:number,y:number,angle:number,len:number,w:number)=>({d:`M0 0C${w} ${-len*.3} ${w*.8} ${-len*.8} 0 ${-len}C${-w*.8} ${-len*.8} ${-w} ${-len*.3} 0 0Z`,transform:`translate(${x} ${y}) rotate(${angle})`});
-const PLANT=[[-62,150,30,'#4d7a59'],[-34,170,32,'#5d8b68'],[-10,182,30,'#6f9c78'],[14,176,30,'#5d8b68'],[38,160,32,'#4d7a59'],[60,138,28,'#6f9c78']] as const;
-const STARS=[[880,110],[930,150],[968,104],[900,230],[1000,200],[952,262],[870,180]];
-function Room({id}:{id:string}){const g=(n:string)=>id+n,u=(n:string)=>'url(#'+id+n+')';
- return <>
-  <defs>
-   <linearGradient id={g('wall')} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f1f2e9"/><stop offset="1" stopColor="#e2e7d8"/></linearGradient>
-   <linearGradient id={g('floor')} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e3d1b2"/><stop offset="1" stopColor="#d2bc98"/></linearGradient>
-   <linearGradient id={g('sky')} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c8e0e4"/><stop offset="1" stopColor="#eef4e8"/></linearGradient>
-   <linearGradient id={g('night')} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0d1824"/><stop offset="1" stopColor="#1f3445"/></linearGradient>
-   <radialGradient id={g('glow')}><stop offset="0" stopColor="#ffd894" stopOpacity=".5"/><stop offset="1" stopColor="#ffd894" stopOpacity="0"/></radialGradient>
-  </defs>
-  <rect width="1200" height="440" fill={u('wall')}/>
-  <rect y="446" width="1200" height="154" fill={u('floor')}/>
-  <path d="M0 482H1200M0 524H1200M0 572H1200M180 446l-8 36M520 482l-6 42M860 446l6 36M300 524l-8 48M1010 524l8 48M700 572l-4 28" stroke="#000" strokeOpacity=".05" strokeWidth="2"/>
-  <rect y="430" width="1200" height="16" fill="#f8f7f0"/><path d="M0 446H1200" stroke="#000" strokeOpacity=".07" strokeWidth="2"/>
-  <g className="sc-day"><path d="M862 446H1010L930 600H690Z" fill="#fff" opacity=".22"/></g>
-  {/* janela com cortinas */}
-  <rect x="806" y="54" width="262" height="6" rx="3" fill="#b59368"/>
-  <rect x="836" y="70" width="200" height="270" rx="6" fill="#fffefa"/><rect x="850" y="84" width="172" height="242" fill={u('sky')}/>
-  <circle cx="988" cy="128" r="18" fill="#fbe7b8"/><path d="M850 300Q890 254 940 292Q980 262 1022 294V326H850Z" fill="#b6ceb0"/>
-  <path d="M932 84h8v242h-8zM850 200h172v8H850z" fill="#fffefa"/><rect x="826" y="338" width="220" height="12" rx="3" fill="#f6f4ec"/>
-  <path d="M820 58H862C854 150 858 250 848 362H812C822 250 816 150 820 58ZM1052 58H1010C1018 150 1014 250 1024 362H1060C1050 250 1056 150 1052 58Z" fill="#f4efe1" opacity=".95"/>
-  {/* poltrona */}
-  <path d="M972 332Q972 302 1004 300H1128Q1160 302 1160 332V428H972Z" fill="#b5c6ab"/><path d="M952 424Q952 402 976 402H1156Q1180 402 1180 424V472H952Z" fill="#a4b799"/>
-  <rect x="944" y="390" width="34" height="84" rx="14" fill="#b5c6ab"/><rect x="1154" y="390" width="34" height="84" rx="14" fill="#b5c6ab"/><path d="M962 472v18M1170 472v18" stroke="#8b6f4e" strokeWidth="6" strokeLinecap="round"/>
-  <rect x="1010" y="340" width="70" height="56" rx="18" fill="#e7d4b0" transform="rotate(-8 1045 368)"/>
-  {/* quadro, prateleira e planta à esquerda */}
-  <path d="M440 104L398 118M440 104L482 118" stroke="#b59368" strokeOpacity=".7" strokeWidth="2"/>
-  <rect x="390" y="116" width="100" height="130" rx="4" fill="#b99567"/><rect x="398" y="124" width="84" height="114" fill="#f6f3e6"/>
-  <circle cx="452" cy="158" r="11" fill="#e8b97a"/><path d="M398 238L424 186L444 212L462 180L482 238Z" fill="#7fa489"/><path d="M398 238Q432 212 482 228V238Z" fill="#5e8a6b"/>
-  <rect x="150" y="236" width="180" height="9" rx="3" fill="#c9a57b"/>
-  {[[166,16,52,'#285442'],[184,12,44,'#a77d4e'],[198,15,48,'#8a5544'],[215,12,40,'#31495e'],[229,14,46,'#e1d3b4']].map(([x,w,h,c])=><rect key={x} x={x as number} y={236-(h as number)} width={w as number} height={h as number} rx="2" fill={c as string}/>)}
-  <path d="M290 236l-6-24h30l-6 24z" fill="#e9e2d0"/>{[-30,0,30].map(r=><path key={r} {...leaf(299,212,r,26,8)} fill="#6f9c78"/>)}
-  {PLANT.map(([r,len,w,c])=><path key={r} {...leaf(190,396,r,len,w)} fill={c}/>)}
-  <path d="M150 398H230L220 470H160Z" fill="#c98f69"/><rect x="144" y="390" width="92" height="14" rx="4" fill="#d39e78"/>
-  {/* relógio, mesinha e abajur à direita do personagem */}
-  <circle cx="762" cy="178" r="25" fill="#fffefa" stroke="#b99567" strokeWidth="5"/><path d="M762 178v-14M762 178l9 6" stroke="#26382f" strokeWidth="3" strokeLinecap="round"/>
-  <path d="M722 414v56M798 414v56" stroke="#a9875f" strokeWidth="6" strokeLinecap="round"/><rect x="714" y="404" width="92" height="12" rx="4" fill="#c9a27a"/><rect x="722" y="416" width="76" height="30" rx="4" fill="#d9bc95"/><circle cx="760" cy="431" r="3" fill="#a9875f"/>
-  <path d="M752 404Q748 384 760 376Q772 384 768 404Z" fill="#a77d4e"/><path d="M738 376H782L773 336H747Z" fill="#f5ecd8"/><rect x="778" y="392" width="22" height="12" rx="2" fill="#285442"/>
-  {/* tapete */}
-  <ellipse cx="600" cy="560" rx="270" ry="44" fill="#c3d1b8"/><ellipse cx="600" cy="560" rx="238" ry="35" fill="none" stroke="#adbf9f" strokeWidth="3" strokeDasharray="10 8"/>
-  {/* noite: escurece o quarto, mostra lua e estrelas e acende o abajur */}
-  <g className="sc-night">
-   <rect width="1200" height="600" fill="#081009" opacity=".6"/>
-   <rect x="850" y="84" width="172" height="242" fill={u('night')}/>{STARS.map(([x,y])=><circle key={x+'.'+y} cx={x} cy={y} r="2" fill="#f4ecd2" opacity=".85"/>)}
-   <circle cx="988" cy="128" r="16" fill="#f4ecd2"/><circle cx="996" cy="122" r="14" fill="#0f1c28"/>
-   <path d="M932 84h8v242h-8zM850 200h172v8H850z" fill="#3a4540"/>
-   <circle cx="760" cy="372" r="210" fill={u('glow')}/><path d="M738 376H782L773 336H747Z" fill="#fbe2ad"/>
-  </g>
- </>;}
