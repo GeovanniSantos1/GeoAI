@@ -13,6 +13,11 @@ test('perfil aceita só gênero, penteado e brincos válidos',()=>{let s=emptyWo
  s=applyCommand(s,{type:'profile',profile:{gender:'outro',avatar:{style:'moicano',earrings:'sim'}}},'2026-10-18');assert.equal(s.profile.gender,'female');assert.deepEqual([s.profile.avatar.style,s.profile.avatar.earrings],['cacheado',false]);
  s=applyCommand(s,{type:'profile',profile:{gender:''}},'2026-10-18');assert.equal(s.profile.gender,'female');
  assert.equal(validateWorkspace(s).profile.gender,'female');});
+test('avatar masculino tem corte de cabelo: padrão curto, só cortes válidos, e o feminino ganhou o curto',()=>{assert.equal(emptyWorkspace('Geo').profile.avatar.cut,'curto');
+ const old=emptyWorkspace('Geo');delete old.profile.avatar.cut;const before=structuredClone(old.profile);assert.equal(upgradeWorkspace({...old}).profile.avatar.cut,'curto');assert.deepEqual(old.profile,before);
+ let s=applyCommand(emptyWorkspace('Geo'),{type:'profile',profile:{gender:'male',avatar:{cut:'raspado'}}},'2026-10-29');assert.equal(s.profile.avatar.cut,'raspado');
+ s=applyCommand(s,{type:'profile',profile:{avatar:{cut:'moicano',style:'curto'}}},'2026-10-29');assert.deepEqual([s.profile.avatar.cut,s.profile.avatar.style],['raspado','curto']);
+ s=applyCommand(s,{type:'profile',profile:{gender:'female'}},'2026-10-29');s=applyCommand(s,{type:'profile',profile:{gender:'male'}},'2026-10-29');assert.equal(s.profile.avatar.cut,'raspado');});
 test('trocar de gênero mantém barba, penteado e registros',()=>{let s=emptyWorkspace('Geo');s.profile.gender='male';s.trtProtocols=[{id:'p1',title:'Durateston',dose:250,unit:'mg',intervalDays:14,startDate:'2026-09-01',status:'active',remind:true}];
  s=applyCommand(s,{type:'profile',profile:{gender:'female'}},'2026-10-18');s=applyCommand(s,{type:'profile',profile:{gender:'male'}},'2026-10-18');assert.equal(s.profile.avatar.beard,true);assert.equal(s.trtProtocols.length,1);});
 test('textos e menus mudam com o gênero; sem escolha vale o masculino',()=>{assert.equal(byGender('female','Você mesmo','Você mesma'),'Você mesma');assert.equal(byGender('male','Você mesmo','Você mesma'),'Você mesmo');assert.equal(byGender('','Você mesmo','Você mesma'),'Você mesmo');

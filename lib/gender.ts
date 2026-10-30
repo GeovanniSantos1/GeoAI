@@ -1,7 +1,8 @@
 import type { Gender } from './types.ts';
 // Versão feminina: textos, categorias e menus que mudam com o gênero do perfil.
 // Sem escolha ainda (conta nova antes da pergunta do primeiro acesso), vale o masculino, padrão do app.
-export const HAIR_STYLES=[['longo','Longo'],['cacheado','Cacheado'],['coque','Coque']] as const;
+export const HAIR_STYLES=[['longo','Longo'],['curto','Curto'],['cacheado','Cacheado'],['coque','Coque']] as const;
+export const HAIR_CUTS=[['curto','Curto'],['cacheado','Cacheado'],['raspado','Raspado']] as const;
 export const byGender=(gender:Gender,male:string,female:string)=>gender==='female'?female:male;
 export const hiddenSections=(gender:Gender)=>gender==='female'?['testosterona']:['saude-feminina'];
 const CARE_MALE=['Pele','Cabelo & barba','Higiene','Autocuidado'],CARE_FEMALE=['Pele','Cabelo','Unhas','Maquiagem','Higiene','Autocuidado'];
