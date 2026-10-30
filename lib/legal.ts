@@ -9,7 +9,7 @@ export const LEGAL={
  email:'geovanni.oliveira.dev@gmail.com',
  whatsapp:'(31) 98433-7637',
  whatsappUrl:'https://wa.me/5531984337637',
- updatedAt:'27 de outubro de 2026',
+ updatedAt:'30 de outubro de 2026',
 } as const;
 
 // O endereço antigo da Vercel leva as páginas ao domínio próprio, onde fica o login do Clerk de produção.

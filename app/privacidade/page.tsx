@@ -11,6 +11,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <ul>
 <li><strong>Conta:</strong> nome, e-mail, foto (quando você entra com login social) e um identificador interno. A senha fica com o provedor de login, e nós não temos acesso a ela.</li>
 <li><strong>O que você registra:</strong> tarefas, agenda, hábitos, metas, notas, diário, sono, treinos, medidas e peso, alimentação, água, estudos, cards do quadro Foco e suas preferências, como fuso horário, tema e forma de tratamento.</li>
+<li><strong>Foto para o avatar:</strong> se você usar “Usar uma foto” em Sua jornada, a foto é reduzida no seu aparelho e enviada à IA só para escolher o tom de pele, a cor e o estilo do cabelo, a barba, os brincos e os óculos do avatar. A foto não é guardada nem usada para reconhecer você: só o visual escolhido fica no seu perfil.</li>
 <li><strong>Finanças:</strong> receitas, despesas, contas, cartões, parcelas e investimentos. A fatura em PDF é lida no seu aparelho. Só o texto extraído vai para a IA, e o arquivo não é enviado nem guardado.</li>
 <li><strong>Dados de saúde, que são dados sensíveis:</strong> exames de laboratório (o arquivo e os valores), protocolo e aplicações de testosterona, ciclo menstrual, anticoncepcional, registros íntimos, preventivos e acompanhamento de vícios e recaídas.</li>
 <li><strong>Agenda conectada:</strong> eventos da agenda principal do Google ou do Outlook, de 30 dias atrás a 90 dias à frente, só para leitura.</li>
@@ -35,7 +36,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <li><strong>Clerk:</strong> login e conta.</li>
 <li><strong>Vercel:</strong> hospedagem do app, arquivos de exames (em armazenamento privado, separado por usuário) e registros técnicos.</li>
 <li><strong>Neon:</strong> banco de dados.</li>
-<li><strong>OpenAI:</strong> assistente, leitura de exames e de faturas e transcrição de áudio, quando necessário. Pedimos que o conteúdo não fique guardado do lado deles sempre que a opção existe.</li>
+<li><strong>OpenAI:</strong> assistente, leitura de exames e de faturas, avatar a partir de foto e transcrição de áudio, quando necessário. Pedimos que o conteúdo não fique guardado do lado deles sempre que a opção existe.</li>
 <li><strong>Groq:</strong> transcrição de áudio.</li>
 <li><strong>Telegram e WhatsApp:</strong> só se você conectar. O {LEGAL.product} no WhatsApp funciona num número administrado por nós, e as mensagens dessa conversa ficam visíveis para quem administra esse número.</li>
 <li><strong>Google e Microsoft:</strong> só se você conectar sua agenda.</li>

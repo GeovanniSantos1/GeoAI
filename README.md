@@ -8,7 +8,7 @@ Aplicativo em português para organização pessoal do público masculino, recon
 - Finanças com receitas, despesas, orçamento, contas mensais, cartões e parcelas com valores exatos em centavos.
 - Diário, sono, treinos, medidas, rotinas de alimentação e cuidados, acompanhamento de vícios e recaídas.
 - Cursos, estudos e livros com progresso de leitura; casa, compras, trabalho, clientes e metas.
-- Notas, revisão semanal, Pomodoro, recompensas e avatar personalizável, masculino ou feminino.
+- Notas, revisão semanal, Pomodoro, recompensas e avatar personalizável, masculino ou feminino: em Sua jornada ele aparece de corpo inteiro num cenário (à noite no tema escuro), com selo de nível, tom de pele, cor e estilo do cabelo, cor da roupa e botão Aleatório. No masculino, corte curto, cacheado, raspado ou careca, com ou sem barba; óculos nos dois. Cinco cenários (quarto, parque, academia, praia e escritório) e “Usar uma foto”: a IA olha a foto (sem guardar) e sugere pele, cabelo, barba, brincos e óculos, que a pessoa confere antes de aplicar.
 - Perfil e fuso horário, temas claro/escuro, backup JSON validado, calendário ICS para importar/exportar eventos e agenda sincronizada (só leitura) com Outlook/Teams e Google Agenda.
 - Assistente de IA em conversa: consulta agenda, finanças e registros e sugere ações, sempre confirmadas pelo usuário; sem chave de IA, modo guiado que transforma texto em propostas de ações.
 - Menu Músicas com músicas instrumentais livres e ondas binaurais (alfa para foco e relaxamento, teta para dormir) geradas no navegador, mixer, timer para desligar e um mini-player que continua tocando entre as telas.
@@ -68,7 +68,7 @@ Os scripts de navegador (`npm run test:e2e` e `tests/smoke-ui.mjs`) foram escrit
 ## Versão feminina
 
 - O perfil guarda como a pessoa quer ser tratada (`gender`: `male`, `female` ou vazio). Contas novas respondem no primeiro acesso; contas criadas antes desta versão seguem no masculino. Dá para trocar em Configurações e em Sua jornada.
-- No feminino: avatar com penteado (longo, cacheado ou coque) e brincos opcionais, textos no feminino, categorias Cabelo, Unhas e Maquiagem em Cuidados pessoais, e o assistente (app e Telegram) fala no feminino.
+- No feminino: avatar com penteado (longo, curto, cacheado ou coque) e brincos opcionais, textos no feminino, categorias Cabelo, Unhas e Maquiagem em Cuidados pessoais, e o assistente (app e Telegram) fala no feminino.
 - O menu Testosterona fica oculto para mulheres. Os dados continuam salvos e voltam a aparecer se o perfil for trocado para masculino.
 
 ## Menu Saúde feminina
