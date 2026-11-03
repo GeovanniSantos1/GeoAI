@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {ChevronDown,ChevronLeft,ChevronRight,MoreHorizontal,Plus,Check,Trophy,TrendingUp,TrendingDown,Pause,Play,SkipForward,Timer,Trash2,Repeat,NotebookPen,BookOpen,History,ArrowUp,ArrowDown,Pencil,Sparkles,X} from 'lucide-react';
+import {ChevronDown,ChevronLeft,ChevronRight,MoreHorizontal,Plus,Check,Trophy,TrendingUp,TrendingDown,Pause,Play,SkipForward,Timer,Trash2,Repeat,NotebookPen,BookOpen,History,ArrowUp,ArrowDown,Pencil,Sparkles,X,PlayCircle} from 'lucide-react';
 import {fmtWeight,fmtNumber,toUnit,type Effort} from '@/lib/gym';
 import {doneSets,totalSets,volumeOf,restLeft,groupOf,SET_KIND_LABEL,SET_KINDS,type ActiveExercise,type GymSet,type Workout,type SetKind} from '@/lib/gym-active';
 import {exerciseOf,bodyweight,defaultIncrement,EQUIPMENT,type Exercise} from '@/lib/gym-catalog';
@@ -9,6 +9,7 @@ import {looseExercise} from '@/lib/gym-plan';
 import {platesFor,KG_PLATES,LB_PLATES} from '@/lib/gym-plates';
 import {levelOfExercises} from '@/lib/gym-muscles';
 import {BodyMap} from './gym-body';
+import {ExerciseVideo} from './gym-video';
 import {useApp} from './context';
 import {Modal} from './primitives';
 import {useGym} from './gym-context';
@@ -73,7 +74,7 @@ function RestBar({left,paused,total}:{left:number;paused:boolean;total:number}){
  </div>;}
 
 function ExerciseCard({ex,index}:{ex:ActiveExercise;index:number}){const g=useGym(),view=g.view!,settings=view.profile.settings,unit=settings.unit,e=exerciseOf(ex.exerciseId,view.profile.custom);
- const [menu,setMenu]=useState<'menu'|'swap'|'note'|'how'|'history'|null>(null),[effortFor,setEffortFor]=useState<string|null>(null),[setMenuFor,setSetMenuFor]=useState<string|null>(null),[showBest,setShowBest]=useState(false);
+ const [menu,setMenu]=useState<'menu'|'swap'|'note'|'how'|'video'|'history'|null>(null),[effortFor,setEffortFor]=useState<string|null>(null),[setMenuFor,setSetMenuFor]=useState<string|null>(null),[showBest,setShowBest]=useState(false);
  const history=useMemo(()=>sessionsOf(view.workouts,ex.exerciseId),[view.workouts,ex.exerciseId]);const best=useMemo(()=>bestOf(history),[history]),heavy=useMemo(()=>heaviestOf(history),[history]);
  const last=history[0],timed=!!ex.target?.timeSec||(!!e?.timed&&ex.sets.every(s=>s.reps===null)),bw=bodyweight(e),inc=unit==='lb'?(bw?2.5:5):(defaultIncrement(e)||2.5);
  const a=view.active!,grp=groupOf(a,index),linked=grp.end>grp.start;
@@ -106,20 +107,20 @@ function ExerciseCard({ex,index}:{ex:ActiveExercise;index:number}){const g=useGy
   {menu==='menu'&&<Modal title={e?.name||'Exercício'} eyebrow="EXERCÍCIO" onClose={()=>setMenu(null)}><div className="gy-menu">
    {ex.backupId&&<button onClick={()=>{const n=ex.backupId!,prev=sessionsOf(view.workouts,n)[0];g.act({type:'swap',exId:ex.id,exerciseId:n,weight:prev?Math.max(0,...workSets(prev.sets).map(s=>s.weight||0))||null:null});setMenu(null);}}><Repeat size={17}/>Usar a reserva: {exerciseOf(ex.backupId,view.profile.custom)?.name}</button>}
    <button onClick={()=>setMenu('swap')}><Repeat size={17}/>Trocar exercício</button><button onClick={()=>setMenu('note')}><NotebookPen size={17}/>{ex.notes?'Editar nota':'Adicionar nota'}</button>
-   {!!e?.steps.length&&<button onClick={()=>setMenu('how')}><BookOpen size={17}/>Como fazer</button>}<button onClick={()=>setMenu('history')}><History size={17}/>Histórico deste exercício</button>
+   {e&&!e.custom&&<button onClick={()=>setMenu('video')}><PlayCircle size={17}/>Vídeo tutorial</button>}{!!e?.steps.length&&<button onClick={()=>setMenu('how')}><BookOpen size={17}/>Como fazer</button>}<button onClick={()=>setMenu('history')}><History size={17}/>Histórico deste exercício</button>
    <button onClick={()=>{g.act({type:'rest',action:'set',sec:ex.restSec||settings.restSec});setMenu(null);}}><Timer size={17}/>Iniciar descanso agora</button>
    <button disabled={index===0} onClick={()=>{g.act({type:'moveExercise',exId:ex.id,dir:-1});setMenu(null);}}><ArrowUp size={17}/>Mover para cima</button><button disabled={index>=a.exercises.length-1} onClick={()=>{g.act({type:'moveExercise',exId:ex.id,dir:1});setMenu(null);}}><ArrowDown size={17}/>Mover para baixo</button>
    <button className="danger" onClick={()=>{g.act({type:'removeExercise',exId:ex.id});setMenu(null);}}><Trash2 size={17}/>Tirar do treino</button></div></Modal>}
   {menu==='swap'&&<ExercisePicker title="Trocar por" subtitle="Séries e reps continuam; a carga vem da última vez que você fez o novo exercício." onClose={()=>setMenu(null)} onPick={n=>{const prev=sessionsOf(view.workouts,n.id)[0];g.act({type:'swap',exId:ex.id,exerciseId:n.id,weight:prev?Math.max(0,...workSets(prev.sets).map(s=>s.weight||0))||null:null});setMenu(null);}}/>}
   {menu==='note'&&<TextModal title="Nota do exercício" value={ex.notes} max={300} multiline onSave={v=>{g.act({type:'note',exId:ex.id,text:v});setMenu(null);}} onClose={()=>setMenu(null)}/>}
-  {menu==='how'&&e&&<HowTo exercise={e} onClose={()=>setMenu(null)}/>}
+  {(menu==='how'||menu==='video')&&e&&<HowTo exercise={e} autoVideo={menu==='video'} onClose={()=>setMenu(null)}/>}
   {menu==='history'&&<Modal title="Histórico" subtitle={e?.name} eyebrow="EXERCÍCIO" onClose={()=>setMenu(null)}>{history.length?<ul className="gy-history-mini">{history.slice(0,10).map(h=><li key={h.workoutId}><time>{fmtDate(h.date)}</time><span>{workSets(h.sets).map(fmtSet).join(' · ')}</span><small>{Math.max(...workSets(h.sets).map(s=>e1rm(s.weight,s.reps)))>0?'1RM '+fmtWeight(Math.max(...workSets(h.sets).map(s=>e1rm(s.weight,s.reps))),unit):''}</small></li>)}</ul>:<p className="quiet-copy">Primeira vez com este exercício.</p>}</Modal>}
  </article>;}
 
 // Anilhas da próxima série com carga: o que vai de cada lado e, se não fecha, o total que dá para montar.
 function PlateLine({sets,bar,unit}:{sets:GymSet[];bar:number;unit:'kg'|'lb'}){const s=sets.find(x=>!x.done&&x.weight)||[...sets].reverse().find(x=>x.weight);if(!s?.weight)return null;const r=platesFor(s.weight,bar,unit==='lb'?LB_PLATES:KG_PLATES);if(!r)return null;
  return <p className="gy-plates"><b>Anilhas por lado</b> {r.perSide.length?r.perSide.map(p=>fmtNumber(toUnit(p,unit),2)).join(' + '):'só a barra'} <small>· barra {fmtWeight(bar,unit)}{r.exact?'':' · dá '+fmtWeight(r.achieved,unit)}</small></p>;}
-export function HowTo({exercise,onClose}:{exercise:Exercise;onClose:()=>void}){const app=useApp();return <Modal title={exercise.name} subtitle={EQUIPMENT[exercise.equipment]||''} eyebrow="COMO FAZER" onClose={onClose}><div className="gy-ex-top"><BodyMap level={levelOfExercises([{exercise}])} gender={app.state.profile.gender} size="sm" label="Músculos do exercício"/><MuscleChips exercise={exercise} limit={6}/></div><ol className="gy-steps">{exercise.steps.map((s,i)=><li key={i}>{s}</li>)}</ol>{exercise.tip&&<p className="gy-tip"><Sparkles size={14}/>{exercise.tip}</p>}<p className="quiet-copy">Descreve o movimento, não substitui a orientação de um profissional. Se doer, pare.</p></Modal>;}
+export function HowTo({exercise,onClose,autoVideo=false}:{exercise:Exercise;onClose:()=>void;autoVideo?:boolean}){const app=useApp();return <Modal title={exercise.name} subtitle={EQUIPMENT[exercise.equipment]||''} eyebrow="COMO FAZER" onClose={onClose}>{!exercise.custom&&<ExerciseVideo exercise={exercise} auto={autoVideo}/>}<div className="gy-ex-top"><BodyMap level={levelOfExercises([{exercise}])} gender={app.state.profile.gender} size="sm" label="Músculos do exercício"/><MuscleChips exercise={exercise} limit={6}/></div><ol className="gy-steps">{exercise.steps.map((s,i)=><li key={i}>{s}</li>)}</ol>{exercise.tip&&<p className="gy-tip"><Sparkles size={14}/>{exercise.tip}</p>}<p className="quiet-copy">Descreve o movimento, não substitui a orientação de um profissional. Se doer, pare.</p></Modal>;}
 function EffortPicker({scale,value,onPick,onClose}:{scale:Effort;value:number|null;onPick:(v:number|null)=>void;onClose:()=>void}){
  return <Modal title="Quanto sobrou no tanque?" subtitle={scale==='rpe'?'RPE: 10 é o máximo; cada ponto abaixo é uma rep que ainda sairia.':'RIR: quantas reps ainda sairiam com boa técnica.'} eyebrow="ESFORÇO" onClose={onClose}>
   <div className="gy-effort-list">{RIR_LEVELS.map(([rir,text])=><button key={rir} className={effortTone(rir)+(value===rir?' active':'')} onClick={()=>onPick(rir)}><b>{scale==='rpe'?(rir>=5?'≤5':fmtNumber(10-rir)):rir===5?'5+':rir}</b><span>{text}</span></button>)}</div>

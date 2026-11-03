@@ -995,3 +995,22 @@ button.gy-row:hover{border-color:var(--subtle)}
  .gy-body.lg{height:280px}
  .gy-today .gy-body.xs{display:none}
 }
+/* Gym: vídeo do exercício (YouTube). */
+.gy-video-start{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;border-radius:14px;border:1px dashed var(--border);background:var(--surface-2);text-align:left;color:var(--text);margin-bottom:12px}
+.gy-video-start:hover{border-color:var(--green);color:var(--green)}
+.gy-video-start>svg{color:var(--green);flex-shrink:0}
+.gy-video-start span{display:flex;flex-direction:column;gap:2px}
+.gy-video-start strong{font-size:14px}
+.gy-video-start small{font-size:12px;color:var(--muted)}
+.gy-video-box{margin:0 0 12px}
+.gy-video{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:var(--surface-2)}
+.gy-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.gy-video.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13px;margin-bottom:12px}
+.gy-video-box figcaption{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px}
+.gy-video-box figcaption>span:first-child{flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.gy-video-box figcaption strong{font-size:13px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.gy-video-box figcaption small{font-size:11px;color:var(--muted)}
+.gy-video-actions{display:flex;gap:4px;flex-wrap:wrap}
+.gy-video-note{font-size:11px;color:var(--subtle);margin-top:6px}
+.gy-video-none{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;background:var(--surface-2);margin-bottom:12px}
+.gy-video-none p{font-size:13px;color:var(--muted)}

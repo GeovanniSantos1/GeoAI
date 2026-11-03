@@ -36,6 +36,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <li><strong>Clerk:</strong> login e conta.</li>
 <li><strong>Vercel:</strong> hospedagem do app, arquivos de exames (em armazenamento privado, separado por usuário) e registros técnicos.</li>
 <li><strong>Neon:</strong> banco de dados.</li>
+<li><strong>YouTube (Google):</strong> vídeos dos exercícios do Gym. A busca é feita pelo nosso servidor e só envia o nome do exercício. O player só carrega quando você toca em “Ver vídeo tutorial”, no modo de privacidade aprimorada (youtube-nocookie.com); a partir daí, valem as regras de privacidade do Google.</li>
 <li><strong>OpenAI:</strong> assistente, leitura de exames e de faturas, avatar a partir de foto e transcrição de áudio, quando necessário. Pedimos que o conteúdo não fique guardado do lado deles sempre que a opção existe.</li>
 <li><strong>Groq:</strong> transcrição de áudio.</li>
 <li><strong>Telegram e WhatsApp:</strong> só se você conectar. O {LEGAL.product} no WhatsApp funciona num número administrado por nós, e as mensagens dessa conversa ficam visíveis para quem administra esse número.</li>

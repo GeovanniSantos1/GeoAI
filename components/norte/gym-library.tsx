@@ -8,6 +8,7 @@ import {Modal} from './primitives';
 import {useGym} from './gym-context';
 import {MuscleChips,Switch,fmtDate,fmtSecs,plural} from './gym-ui';
 import {BodyMap} from './gym-body';
+import {ExerciseVideo} from './gym-video';
 import {levelOfExercises,SLUG_MUSCLE,MUSCLE_SLUGS} from '@/lib/gym-muscles';
 import {workoutsCsv,gymJson} from '@/lib/gym-export';
 import {useApp} from './context';
@@ -39,6 +40,7 @@ export function ExerciseDetail({exercise:e,onClose}:{exercise:Exercise;onClose:(
  return <Modal title={e.name} subtitle={[EQUIPMENT[e.equipment],CATEGORIES[e.category],LEVELS[e.level]].filter(Boolean).join(' · ')} eyebrow="EXERCÍCIO" wide onClose={onClose}>
   <div className="gy-ex-top"><BodyMap level={levelOfExercises([{exercise:e}])} gender={app.state.profile.gender} size="md" label={'Músculos: '+[...e.primary,...e.secondary].map(m=>MUSCLES[m]||m).join(', ')}/><MuscleChips exercise={e} limit={8}/></div>
   {best&&<div className="gy-summary"><div><small>Melhor série</small><strong>{best.weight?fmtWeight(best.weight,unit)+' × '+best.reps:best.timeSec?fmtSecs(best.timeSec):best.reps+' reps'}</strong></div><div><small>1RM estimado</small><strong>{best.e1rm?fmtWeight(best.e1rm,unit):'–'}</strong></div><div><small>Treinos</small><strong>{sessions.length}</strong></div><div><small>Última vez</small><strong>{fmtDate(sessions[0].date,{day:'numeric',month:'short'})}</strong></div></div>}
+  <h4 className="gy-sub">Vídeo</h4><ExerciseVideo key={e.id} exercise={e}/>
   {e.steps.length>0&&<><h4 className="gy-sub">Como fazer</h4><ol className="gy-steps">{e.steps.map((s,i)=><li key={i}>{s}</li>)}</ol>{e.tip&&<p className="gy-tip"><Sparkles size={14}/>{e.tip}</p>}</>}
   {sessions.length>0&&<><h4 className="gy-sub">Seu histórico</h4><ul className="gy-history-mini">{sessions.slice(0,8).map(h=>{const top=Math.max(...workSets(h.sets).map(s=>e1rm(s.weight,s.reps)));return <li key={h.workoutId}><time>{fmtDate(h.date)}</time><span>{workSets(h.sets).map(s=>(s.weight?fmtNumber(toUnit(s.weight,unit),1)+'×':'')+(s.timeSec?fmtSecs(s.timeSec):s.reps)).join(' · ')}</span><small>{top>0?'1RM '+fmtWeight(top,unit):''}{best&&h.date===best.date?<Trophy size={12}/>:null}</small></li>;})}</ul></>}
   {inRoutines.length>0&&<p className="quiet-copy">Está em: {inRoutines.map(r=>r.name+' ('+describeItem(r.items.find(i=>i.exerciseId===e.id)!)+')').join(', ')}.</p>}
