@@ -58,7 +58,7 @@ export function exerciseFrom(item:RoutineItem,routine:Pick<Routine,'progression'
  const ex=exerciseOf(item.exerciseId,p.custom),rule=item.progression||routine?.progression||'none',increment=item.increment??defaultIncrement(ex);
  const target=nextTarget(item,rule,sessionsOf(workouts,item.exerciseId),increment);
  const sets:GymSet[]=Array.from({length:target.sets},()=>({id:newId(),kind:'work',weight:target.weight,reps:target.timeSec?null:target.reps,timeSec:target.timeSec,effort:null,done:false,doneAt:null}));
- return {id:newId(),exerciseId:item.exerciseId,restSec:item.restSec??p.settings.restSec,superset:item.superset,notes:item.notes,target,sets};}
+ return {id:newId(),exerciseId:item.exerciseId,restSec:item.restSec??p.settings.restSec,superset:item.superset,notes:item.notes,target,sets,...(item.backupId?{backupId:item.backupId}:{})};}
 export function buildActive(p:GymProfile,workouts:Workout[],routine:Routine|null,o:BuildOptions):ActiveWorkout{
  return {id:o.id,routineId:routine?.id||null,name:o.name||routine?.name||'Treino livre',date:o.date,startedAt:o.at.toISOString(),cursor:0,notes:'',noProgression:!!routine?.deload,exercises:(routine?.items||[]).map(item=>exerciseFrom(item,routine,p,workouts,o.newId)),rest:null};}
 // Exercício avulso (adicionado no meio do treino ou no treino livre): 3 séries, com a carga da última vez.

@@ -39,13 +39,16 @@ const optInt=(v:unknown,min:number,max:number,label:string)=>v===null||v===undef
 // Peso com até duas casas (kg internamente), de 0 a 1000.
 export const cleanWeight=(v:unknown,label='Peso')=>{if(v===null||v===undefined||v==='')return null;const n=Number(v);if(!Number.isFinite(n)||n<0||n>LIMITS.weight)throw new GymError(label+': use de 0 a '+LIMITS.weight+'.');return Math.round(n*100)/100;};
 const oneOf=<T extends string>(v:unknown,list:readonly T[],fallback:T):T=>list.includes(v as T)?v as T:fallback;
+// Entrada vinda da rede ou do banco: um objeto qualquer, lido campo a campo.
+export type Raw=Record<string,unknown>;
+export const rec=(v:unknown):Raw=>v&&typeof v==='object'&&!Array.isArray(v)?v as Raw:{};
 
 export const DEFAULT_SETTINGS:GymSettings={unit:'kg',effort:'rir',restSec:90,sound:true,vibrate:true,keepAwake:true};
 export const emptySchedule=():Schedule=>({mode:'week',weekStart:'mon',days:{mon:null,tue:null,wed:null,thu:null,fri:null,sat:null,sun:null},rotation:[],moved:{}});
 export const emptyProfile=():GymProfile=>({v:1,routines:[],schedule:emptySchedule(),settings:{...DEFAULT_SETTINGS},favorites:[],custom:[]});
 
-export function cleanItem(raw:any,known:(id:string)=>boolean):RoutineItem{
- if(!raw||typeof raw!=='object')throw new GymError('Exercício inválido na rotina.');
+export function cleanItem(input:unknown,known:(id:string)=>boolean):RoutineItem{const raw=rec(input);
+ if(!input||typeof input!=='object')throw new GymError('Exercício inválido na rotina.');
  if(!isId(raw.id))throw new GymError('Exercício sem identificador.');
  if(!isExerciseId(raw.exerciseId)||!known(raw.exerciseId))throw new GymError('Exercício desconhecido: '+String(raw.exerciseId).slice(0,40)+'.');
  const reps=int(raw.reps??10,1,LIMITS.reps,'Repetições'),repMax=optInt(raw.repMax,1,LIMITS.reps,'Topo da faixa');
@@ -54,33 +57,33 @@ export function cleanItem(raw:any,known:(id:string)=>boolean):RoutineItem{
  const increment=raw.increment===null||raw.increment===undefined||raw.increment===''?null:cleanWeight(raw.increment,'Incremento');
  return {id:raw.id,exerciseId:raw.exerciseId,sets:int(raw.sets??3,1,LIMITS.sets,'Séries'),reps,repMax:repMax===reps?null:repMax,timeSec:optInt(raw.timeSec,5,LIMITS.timeSec,'Tempo (s)'),weight:cleanWeight(raw.weight),restSec:optInt(raw.restSec,0,LIMITS.restSec,'Descanso (s)'),
   superset:raw.superset===true,increment:increment===0?null:increment,progression:raw.progression==null?null:oneOf(raw.progression,PROGRESSIONS,'none'),backupId,notes:text(raw.notes,LIMITS.notes,'Nota')};}
-export function cleanRoutine(raw:any,known:(id:string)=>boolean):Routine{
- if(!raw||typeof raw!=='object'||!isId(raw.id))throw new GymError('Rotina inválida.');
+export function cleanRoutine(input:unknown,known:(id:string)=>boolean):Routine{const raw=rec(input);
+ if(!isId(raw.id))throw new GymError('Rotina inválida.');
  const items=Array.isArray(raw.items)?raw.items:[];if(items.length>LIMITS.items)throw new GymError('Uma rotina tem até '+LIMITS.items+' exercícios.');
- const clean=items.map((x:any)=>cleanItem(x,known));if(new Set(clean.map((x:RoutineItem)=>x.id)).size!==clean.length)throw new GymError('Exercício repetido na rotina.');
+ const clean=items.map((x:unknown)=>cleanItem(x,known));if(new Set(clean.map((x:RoutineItem)=>x.id)).size!==clean.length)throw new GymError('Exercício repetido na rotina.');
  // O primeiro exercício não pode estar "junto com o anterior".
  if(clean[0])clean[0].superset=false;
  return {id:raw.id,name:text(raw.name,LIMITS.name,'Nome da rotina',true),icon:oneOf(raw.icon,ICONS,'dumbbell'),progression:oneOf(raw.progression,PROGRESSIONS,'linear'),deload:raw.deload===true,items:clean};}
-export function cleanSettings(raw:any,base:GymSettings=DEFAULT_SETTINGS):GymSettings{const r=raw&&typeof raw==='object'?raw:{};
+export function cleanSettings(input:unknown,base:GymSettings=DEFAULT_SETTINGS):GymSettings{const r=rec(input);
  return {unit:r.unit===undefined?base.unit:oneOf(r.unit,['kg','lb'] as const,base.unit),effort:r.effort===undefined?base.effort:oneOf(r.effort,['rir','rpe','off'] as const,base.effort),
   restSec:r.restSec===undefined?base.restSec:int(r.restSec,0,LIMITS.restSec,'Descanso padrão (s)'),sound:typeof r.sound==='boolean'?r.sound:base.sound,vibrate:typeof r.vibrate==='boolean'?r.vibrate:base.vibrate,keepAwake:typeof r.keepAwake==='boolean'?r.keepAwake:base.keepAwake};}
-export function cleanCustom(raw:any):CustomExercise{
- if(!raw||typeof raw!=='object'||typeof raw.id!=='string'||!/^c-[\w-]{1,60}$/.test(raw.id))throw new GymError('Exercício próprio inválido.');
+export function cleanCustom(input:unknown):CustomExercise{const raw=rec(input);
+ if(typeof raw.id!=='string'||!/^c-[\w-]{1,60}$/.test(raw.id))throw new GymError('Exercício próprio inválido.');
  const list=(v:unknown)=>(Array.isArray(v)?v:[]).filter((x):x is string=>typeof x==='string'&&/^[a-z ]{2,20}$/.test(x)).slice(0,6);
  const primary=list(raw.primary);if(!primary.length)throw new GymError('Escolha pelo menos um músculo principal.');
  return {id:raw.id,name:text(raw.name,LIMITS.name,'Nome do exercício',true),equipment:typeof raw.equipment==='string'&&/^[a-z -]{2,20}$/.test(raw.equipment)?raw.equipment:'other',primary,secondary:list(raw.secondary).filter(x=>!primary.includes(x)),category:typeof raw.category==='string'&&/^[a-z ]{2,24}$/.test(raw.category)?raw.category:'strength',timed:raw.timed===true};}
-function cleanSchedule(raw:any,routineIds:Set<string>,base:Schedule):Schedule{const r=raw&&typeof raw==='object'?raw:{};const ref=(v:unknown)=>typeof v==='string'&&routineIds.has(v)?v:null;
- const days={...base.days};if(r.days&&typeof r.days==='object')for(const d of WEEKDAYS)if(d in r.days)days[d]=ref(r.days[d]);
+function cleanSchedule(input:unknown,routineIds:Set<string>,base:Schedule):Schedule{const r=rec(input);const ref=(v:unknown)=>typeof v==='string'&&routineIds.has(v)?v:null;
+ const days={...base.days},rd=rec(r.days);for(const d of WEEKDAYS)if(d in rd)days[d]=ref(rd[d]);
  const rotation=Array.isArray(r.rotation)?r.rotation.filter((x:unknown)=>typeof x==='string'&&routineIds.has(x)).slice(0,LIMITS.rotation):base.rotation;
  return {mode:r.mode===undefined?base.mode:oneOf(r.mode,['week','rotation'] as const,base.mode),weekStart:r.weekStart===undefined?base.weekStart:oneOf(r.weekStart,['mon','sun'] as const,base.weekStart),days,rotation,moved:base.moved};}
 // Lê o documento gravado (ou vindo de um backup) e descarta o que não for válido, em vez de falhar o Gym inteiro.
-export function readProfile(raw:any):GymProfile{const p=emptyProfile();if(!raw||typeof raw!=='object')return p;const ok=()=>true;
- p.routines=(Array.isArray(raw.routines)?raw.routines:[]).slice(0,LIMITS.routines).flatMap((r:any)=>{try{return [cleanRoutine(r,ok)];}catch{return [];}});
+export function readProfile(input:unknown):GymProfile{const p=emptyProfile(),raw=rec(input),ok=()=>true;
+ p.routines=(Array.isArray(raw.routines)?raw.routines:[]).slice(0,LIMITS.routines).flatMap((r:unknown)=>{try{return [cleanRoutine(r,ok)];}catch{return [];}});
  const ids=new Set(p.routines.map(r=>r.id));p.schedule=cleanSchedule(raw.schedule,ids,p.schedule);
- if(raw.schedule?.moved&&typeof raw.schedule.moved==='object')for(const [d,v] of Object.entries(raw.schedule.moved).slice(-LIMITS.moved))if(isDate(d))p.schedule.moved[d]=typeof v==='string'&&ids.has(v)?v:null;
+ for(const [d,v] of Object.entries(rec(rec(raw.schedule).moved)).slice(-LIMITS.moved))if(isDate(d))p.schedule.moved[d]=typeof v==='string'&&ids.has(v)?v:null;
  try{p.settings=cleanSettings(raw.settings);}catch{}
  p.favorites=(Array.isArray(raw.favorites)?raw.favorites:[]).filter(isExerciseId).slice(0,LIMITS.favorites);
- p.custom=(Array.isArray(raw.custom)?raw.custom:[]).slice(0,LIMITS.custom).flatMap((c:any)=>{try{return [cleanCustom(c)];}catch{return [];}});
+ p.custom=(Array.isArray(raw.custom)?raw.custom:[]).slice(0,LIMITS.custom).flatMap((c:unknown)=>{try{return [cleanCustom(c)];}catch{return [];}});
  return p;}
 
 export type StarterKey='ppl'|'upperLower'|'fullBody'|'fiveByFive';
@@ -89,7 +92,7 @@ export type ProfileCommand=
  |{type:'deleteRoutine';id:string}
  |{type:'reorder';ids:string[]}
  |{type:'starter';key:StarterKey;seed:string}
- |{type:'schedule';schedule:Partial<Schedule>}
+ |{type:'schedule';schedule:Partial<Omit<Schedule,'days'|'moved'>>&{days?:Partial<Record<Weekday,string|null>>}}
  |{type:'move';date:string;routineId?:string|null}
  |{type:'settings';settings:Partial<GymSettings>}
  |{type:'favorite';exerciseId:string;on:boolean}
@@ -98,7 +101,7 @@ export type ProfileCommand=
 export type ProfileContext={known:(id:string)=>boolean;today:string;starter:(key:StarterKey,seed:string)=>{routines:Routine[];days:Partial<Record<Weekday,number>>}};
 
 export function applyProfile(current:GymProfile,command:ProfileCommand,ctx:ProfileContext):GymProfile{
- const p=structuredClone(current);const c=command as any;if(!c||typeof c!=='object')throw new GymError('Comando inválido.');
+ if(!command||typeof command!=='object')throw new GymError('Comando inválido.');const p=structuredClone(current),c=command;
  const known=(id:string)=>ctx.known(id)||p.custom.some(x=>x.id===id);
  const dropRoutine=(id:string)=>{p.routines=p.routines.filter(r=>r.id!==id);for(const d of WEEKDAYS)if(p.schedule.days[d]===id)p.schedule.days[d]=null;p.schedule.rotation=p.schedule.rotation.filter(x=>x!==id);for(const [d,v] of Object.entries(p.schedule.moved))if(v===id)delete p.schedule.moved[d];};
  switch(c.type){

@@ -58,3 +58,10 @@ test('instante do aparelho: aceita até 1 dia atrás e 10 min à frente; fora di
 
 test('store em memória: gravar por cima de outra versão dá conflito',async()=>{
  const s=memoryGymStore();await s.putProfile('u',{v:1},0);await assert.rejects(s.putProfile('u',{v:1},0),GymConflict);assert.equal(await s.putProfile('u',{v:1},1),2);});
+
+test('cada treino vira uma sessão do workspace; falha no espelho não desfaz o treino',async()=>{
+ const seen=[];const store=memoryGymStore();const d={...deps(store),sync:async c=>{seen.push(c.saved?'+'+c.saved.id:'-'+c.removed);}};
+ await addWorkout(d,{id:'m1',date:'2026-10-30',exercises:[{exerciseId:BENCH,sets:[{id:'a',weight:70,reps:8}]}]});
+ const w=(await workoutPage(d)).workouts[0];await editWorkout(d,'m1',{...w,name:'Outro'});await removeWorkout(d,'m1');assert.deepEqual(seen,['+m1','+m1','-m1']);
+ const broken={...deps(store),sync:async()=>{throw new Error('banco fora');}};const orig=console.error;console.error=()=>{};
+ try{const x=await addWorkout(broken,{id:'m2',date:'2026-10-30',exercises:[{exerciseId:BENCH,sets:[{id:'a',weight:70,reps:8}]}]});assert.equal(x.id,'m2');}finally{console.error=orig;}});

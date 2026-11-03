@@ -1,10 +1,12 @@
 // Casos de uso do Gym sobre um GymStore: ler tudo, comandos do plano, do treino em andamento e do histórico.
-import {GymError,emptyProfile,applyProfile,isId,type GymProfile,type ProfileCommand} from './gym.ts';
+import {GymError,emptyProfile,applyProfile,isId,rec,type GymProfile,type ProfileCommand} from './gym.ts';
 import {applyActive,cleanActive,finishWorkout,cleanWorkout,type ActiveWorkout,type ActiveCommand,type Workout} from './gym-active.ts';
 import {isCatalogId} from './gym-catalog.ts';
 import {starterPlan} from './gym-plan.ts';
 import {GymConflict,cursorOf,type GymStore} from './gym-store.ts';
-export type GymDeps={userId:string;store:GymStore;now:()=>Date};
+// sync espelha cada treino como uma sessão do workspace (pontos, meta de água em dia de treino, busca do assistente); uma falha ali não desfaz o treino.
+export type GymDeps={userId:string;store:GymStore;now:()=>Date;sync?:(change:{saved?:Workout;removed?:string})=>Promise<void>};
+const mirror=async(d:GymDeps,change:{saved?:Workout;removed?:string})=>{try{await d.sync?.(change);}catch(e){console.error('gym:sync',e instanceof Error?e.message:'erro');}};
 export const PAGE=200;
 export type GymView={profile:GymProfile;rev:number;active:ActiveWorkout|null;activeRev:number;workouts:Workout[];next:string|null};
 const knownIn=(p:GymProfile)=>(id:string)=>isCatalogId(id)||p.custom.some(c=>c.id===id);
@@ -22,7 +24,7 @@ export async function profileCommand(d:GymDeps,command:ProfileCommand,today:stri
 
 export type ActiveRequest={type:'start';workout:unknown;replace?:boolean}|{type:'finish';id:string;prs?:number}|{type:'discard'}|ActiveCommand;
 export type ActiveResult={active:ActiveWorkout|null;activeRev:number;workout?:Workout;existing?:boolean};
-export async function activeCommand(d:GymDeps,req:ActiveRequest,at:Date):Promise<ActiveResult>{const r=req as any;if(!r||typeof r!=='object')throw new GymError('Comando inválido.');
+export async function activeCommand(d:GymDeps,req:ActiveRequest,at:Date):Promise<ActiveResult>{if(!req||typeof req!=='object')throw new GymError('Comando inválido.');const r=req;
  const {doc:profile}=await profileOf(d),known=knownIn(profile);
  for(let i=0;i<3;i++){const cur=await d.store.active(d.userId);
   try{
@@ -35,7 +37,7 @@ export async function activeCommand(d:GymDeps,req:ActiveRequest,at:Date):Promise
    if(r.type==='finish'){
     // Finalizar duas vezes (rede instável) devolve o treino já salvo.
     if(!cur||cur.doc.id!==r.id){const saved=isId(r.id)?await d.store.workout(d.userId,r.id):null;if(saved)return {active:cur?.doc??null,activeRev:cur?.rev??0,workout:saved};throw new GymError('Esse treino já foi fechado ou descartado em outro aparelho.',409);}
-    const w=finishWorkout(cur.doc,at,r.prs);await d.store.finish(d.userId,w,cur.rev);return {active:null,activeRev:0,workout:w};}
+    const w=finishWorkout(cur.doc,at,r.prs);await d.store.finish(d.userId,w,cur.rev);await mirror(d,{saved:w});return {active:null,activeRev:0,workout:w};}
    if(r.type==='discard'){await d.store.dropActive(d.userId);return {active:null,activeRev:0};}
    if(!cur)throw new GymError('Nenhum treino em andamento. Comece um treino primeiro.',409);
    const next=applyActive(cur.doc,r as ActiveCommand,at,known);const rev=await d.store.putActive(d.userId,next,cur.rev);return {active:next,activeRev:rev};}
@@ -44,9 +46,9 @@ export async function activeCommand(d:GymDeps,req:ActiveRequest,at:Date):Promise
 
 // Histórico: lançar um treino feito no papel, corrigir um salvo, excluir.
 export async function addWorkout(d:GymDeps,raw:unknown){const {doc}=await profileOf(d);const w=cleanWorkout(raw,knownIn(doc));w.rev=1;
- if(!await d.store.addWorkout(d.userId,w)){const saved=await d.store.workout(d.userId,w.id);if(saved)return saved;throw new GymError('Não foi possível salvar o treino.');}return w;}
-export async function editWorkout(d:GymDeps,id:string,raw:any){if(!isId(id))throw new GymError('Treino não encontrado.',404);const cur=await d.store.workout(d.userId,id);if(!cur)throw new GymError('Treino não encontrado.',404);
- if(!raw||raw.rev!==cur.rev)throw new GymError('Esse treino mudou em outro aparelho. Abra de novo para editar.',409);
+ if(!await d.store.addWorkout(d.userId,w)){const saved=await d.store.workout(d.userId,w.id);if(saved)return saved;throw new GymError('Não foi possível salvar o treino.');}await mirror(d,{saved:w});return w;}
+export async function editWorkout(d:GymDeps,id:string,input:unknown){const raw=rec(input);if(!isId(id))throw new GymError('Treino não encontrado.',404);const cur=await d.store.workout(d.userId,id);if(!cur)throw new GymError('Treino não encontrado.',404);
+ if(raw.rev!==cur.rev)throw new GymError('Esse treino mudou em outro aparelho. Abra de novo para editar.',409);
  const {doc}=await profileOf(d);const w=cleanWorkout({...raw,id},knownIn(doc));w.rev=cur.rev+1;
- try{await d.store.putWorkout(d.userId,w);}catch(e){if(e instanceof GymConflict)throw new GymError('Esse treino mudou em outro aparelho. Abra de novo para editar.',409);throw e;}return w;}
-export async function removeWorkout(d:GymDeps,id:string){if(!isId(id)||!await d.store.removeWorkout(d.userId,id))throw new GymError('Treino não encontrado.',404);return {ok:true};}
+ try{await d.store.putWorkout(d.userId,w);}catch(e){if(e instanceof GymConflict)throw new GymError('Esse treino mudou em outro aparelho. Abra de novo para editar.',409);throw e;}await mirror(d,{saved:w});return w;}
+export async function removeWorkout(d:GymDeps,id:string){if(!isId(id)||!await d.store.removeWorkout(d.userId,id))throw new GymError('Treino não encontrado.',404);await mirror(d,{removed:id});return {ok:true};}

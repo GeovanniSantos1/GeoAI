@@ -1,5 +1,5 @@
 'use client';
-import {useState,useEffect,useCallback,useRef} from 'react';
+import {useState,useEffect,useCallback,useRef,lazy,Suspense} from 'react';
 import {useChat} from '@ai-sdk/react';
 import {DefaultChatTransport} from 'ai';
 import {ArrowUpRight,ArrowRight,Plus,Menu,Search,X,Check,LoaderCircle,ChevronDown,Compass,PanelLeftClose,PanelLeftOpen, Bell, Sparkles,Mic,Send,TriangleAlert,RefreshCw,LogOut,Moon,Sun} from 'lucide-react';
@@ -16,7 +16,9 @@ import {Context,useApp,type CalendarResult} from './context';import {budgetAlert
 import {Modal,Editor} from './primitives';
 import Avatar from './Avatar';import {LEGAL} from '@/lib/legal';import Link from 'next/link';import {Paywall,TrialBar,CheckoutReturn,PlansPicker} from './billing';import {BILLING_OFF,type BillingView} from '@/lib/billing';
 import {HomeView,AgendaView,GoalsView,TrackerView} from './planning';import {FocusView} from './focus';
-import {FinanceView,JournalView,SleepView,VicesView,TrainingView,LearningView,HouseView,WorkView,NotesView,RoutineView,JourneyView,ReviewView,SettingsView} from './life';
+import {FinanceView,JournalView,SleepView,VicesView,LearningView,HouseView,WorkView,NotesView,RoutineView,JourneyView,ReviewView,SettingsView} from './life';
+// O Gym traz o catálogo de exercícios (cerca de 400 KB): só baixa quando o menu é aberto.
+const GymView=lazy(()=>import('./gym'));
 type EditState={collection:Collection;item?:Item;defaults?:any;installments?:boolean};
 const resolveTheme=(theme:string)=>theme==='system'?(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):theme;
 function applyTheme(theme:string){document.documentElement.dataset.theme=theme;try{localStorage.setItem('geoai-theme',theme);}catch{}}
@@ -65,7 +67,7 @@ export default function NorteApp(){
  const dark=resolveTheme(state.profile.theme)==='dark';
  const toggleTheme=async()=>{const next=dark?'light':'dark';applyTheme(next);if(!await mutate({type:'profile',profile:{theme:next}}))applyTheme(dark?'dark':'light');};
  const context={state,today,date:date||today,setDate,navigate,mutate,edit,sync:(r:{state:Workspace;version:number})=>setData(prev=>prev&&{...prev,state:r.state,version:r.version}),remove:(collection:Collection,item:Item)=>setConfirm({collection,item}),toast,openAssistant:()=>setAssistant(true),busy,user:data.user,calendar:{...calendar,refresh:refreshCalendar,reload:reloadCalendar,disconnect:disconnectCalendar},billing,setBilling,openPlans:()=>setPlans(true)};
- const views:Record<string,React.ReactNode>={inicio:<HomeView/>,agenda:<AgendaView/>,plano:<GoalsView/>,tracker:<TrackerView/>,foco:<FocusView/>,financas:<FinanceView/>,journal:<JournalView/>,sono:<SleepView/>,musicas:<MusicView/>,testosterona:<TestosteroneView/>,'saude-feminina':<FemaleHealthView/>,vicios:<VicesView/>,treinos:<TrainingView/>,estudos:<LearningView/>,casa:<HouseView/>,trabalho:<WorkView/>,notas:<NotesView/>,alimentacao:<RoutineView section="alimentacao"/>,cuidados:<RoutineView section="cuidados"/>,avatar:<JourneyView/>,revisao:<ReviewView/>,perfil:<SettingsView/>};
+ const views:Record<string,React.ReactNode>={inicio:<HomeView/>,agenda:<AgendaView/>,plano:<GoalsView/>,tracker:<TrackerView/>,foco:<FocusView/>,financas:<FinanceView/>,journal:<JournalView/>,sono:<SleepView/>,musicas:<MusicView/>,testosterona:<TestosteroneView/>,'saude-feminina':<FemaleHealthView/>,vicios:<VicesView/>,treinos:<Suspense fallback={<section className="gy-loading" aria-busy="true"><LoaderCircle className="spin"/><p>Abrindo o Gym…</p></section>}><GymView/></Suspense>,estudos:<LearningView/>,casa:<HouseView/>,trabalho:<WorkView/>,notas:<NotesView/>,alimentacao:<RoutineView section="alimentacao"/>,cuidados:<RoutineView section="cuidados"/>,avatar:<JourneyView/>,revisao:<ReviewView/>,perfil:<SettingsView/>};
  const searchResults=query.trim()?Object.entries(state).filter(([k,v])=>Array.isArray(v)&&!['rewarded'].includes(k)).flatMap(([k,v])=>(v as Item[]).filter(x=>x.title?.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))).map(item=>({collection:k as Collection,item}))).slice(0,20):[];
  return <Context.Provider value={context}><SoundProvider onNotice={toast}><div className={'app-shell '+(mobile?'menu-open':'')+(collapsed?' sidebar-collapsed':'')}>
  {mobile&&<button className="sidebar-shade" aria-label="Fechar menu" onClick={()=>setMobile(false)}/>}

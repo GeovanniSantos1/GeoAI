@@ -10,7 +10,7 @@ export const NAV=[
 {id:'plano',path:'/habits',label:'Meus objetivos',icon:Target,group:'SEU DIA'},
 {id:'tracker',path:'/tracker',label:'Habit tracker',icon:ChartNoAxesCombined,group:'SEU DIA'},
 {id:'foco',path:'/pomodoro',label:'Foco',icon:Timer,group:'SEU DIA'},
-{id:'treinos',path:'/treinos',label:'Treinos',icon:Dumbbell,group:'CUIDE DE VOCÊ'},
+{id:'treinos',path:'/treinos',label:'Gym',icon:Dumbbell,group:'CUIDE DE VOCÊ'},
 {id:'alimentacao',path:'/alimentacao',label:'Alimentação',icon:Utensils,group:'CUIDE DE VOCÊ'},
 {id:'cuidados',path:'/beleza',label:'Cuidados pessoais',icon:Sparkles,group:'CUIDE DE VOCÊ'},
 {id:'journal',path:'/journal',label:'Bem-estar',icon:Heart,group:'CUIDE DE VOCÊ'},
