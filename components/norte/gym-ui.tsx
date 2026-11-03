@@ -3,6 +3,7 @@ import {useMemo,useState} from 'react';
 import {Minus,Plus,Search,Star,Check,Dumbbell,ArrowUp,ArrowDown,Footprints,HeartPulse,PersonStanding,Flame,Activity,StretchHorizontal,type LucideIcon} from 'lucide-react';
 import {toUnit,fromUnit,type Unit,type RoutineIcon} from '@/lib/gym';
 import {searchExercises,BODY_PARTS,EQUIPMENT,MUSCLES,type Exercise} from '@/lib/gym-catalog';
+import {REST_PRESETS} from '@/lib/gym-active';
 import {Modal} from './primitives';
 import {useGym} from './gym-context';
 export const ROUTINE_ICONS:Record<RoutineIcon,LucideIcon>={dumbbell:Dumbbell,push:ArrowUp,pull:ArrowDown,legs:Footprints,core:Flame,cardio:HeartPulse,full:PersonStanding,stretch:StretchHorizontal};
@@ -23,6 +24,9 @@ export function Stepper({value,onChange,step,min=0,max=9999,label,unit,decimals=
   <input inputMode="decimal" aria-label={label} value={draft??String(shown).replace('.',',')} onFocus={e=>{setDraft(String(shown).replace('.',','));e.currentTarget.select();}} onChange={e=>setDraft(e.target.value)}
    onBlur={()=>{if(draft!==null){const t=draft.replace(',','.').trim();commit(t===''?null:Number.isFinite(Number(t))?Number(t):null);}setDraft(null);}} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/>
   <button type="button" aria-label={'Aumentar '+label} onClick={()=>bump(1)}><Plus size={15}/></button></div>;}
+// Descanso entre séries em minutos, como se fala na academia: 1, 1,5, 2, 2,5 e 3 min.
+export const restLabel=(s:number)=>(s/60).toLocaleString('pt-BR',{maximumFractionDigits:2})+' min';
+export function RestChips({value,onPick,label}:{value:number|null;onPick:(sec:number)=>void;label:string}){return <div className="gy-rest-pick" role="radiogroup" aria-label={label}>{REST_PRESETS.map(s=><button key={s} type="button" role="radio" aria-checked={value===s} className={value===s?'active':''} onClick={()=>onPick(s)}>{restLabel(s)}</button>)}</div>;}
 export function Switch({checked,onChange,label,hint}:{checked:boolean;onChange:(v:boolean)=>void;label:string;hint?:string}){return <label className="gy-switch"><span><strong>{label}</strong>{hint&&<small>{hint}</small>}</span><input type="checkbox" role="switch" checked={checked} onChange={e=>onChange(e.target.checked)}/><i aria-hidden/></label>;}
 export function Segmented<T extends string>({value,options,onChange,label}:{value:T;options:[T,string][];onChange:(v:T)=>void;label:string}){return <div className="gy-segmented" role="radiogroup" aria-label={label}>{options.map(([v,l])=><button key={v} type="button" role="radio" aria-checked={value===v} className={value===v?'active':''} onClick={()=>onChange(v)}>{l}</button>)}</div>;}
 export function MuscleChips({exercise,limit=4}:{exercise?:Exercise;limit?:number}){if(!exercise)return null;const list=[...exercise.primary.map(m=>[m,true] as const),...exercise.secondary.map(m=>[m,false] as const)].slice(0,limit);

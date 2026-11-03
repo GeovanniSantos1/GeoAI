@@ -11,6 +11,8 @@ export type ActiveWorkout={id:string;routineId:string|null;name:string;date:stri
 export type LoggedExercise={exerciseId:string;notes:string;sets:GymSet[]};
 export type Workout={id:string;routineId:string|null;name:string;date:string;startedAt:string;durationMin:number;notes:string;noProgression:boolean;exercises:LoggedExercise[];prs:number;rev:number};
 export const MAX_EXERCISES=40,MAX_SETS=30;
+// Tempos de descanso à mão no treino e na rotina: 1, 1,5, 2, 2,5 e 3 minutos.
+export const REST_PRESETS=[60,90,120,150,180];
 export type ActiveCommand=
  |{type:'set';exId:string;setId:string;field:'weight'|'reps'|'timeSec'|'effort';value:number|null}
  |{type:'done';exId:string;setId:string;done:boolean}
@@ -23,7 +25,8 @@ export type ActiveCommand=
  |{type:'moveExercise';exId:string;dir:-1|1}
  |{type:'note';exId?:string;text:string}
  |{type:'cursor';index:number}
- |{type:'rest';action:'add'|'pause'|'resume'|'skip'|'set';sec?:number}
+ |{type:'rest';action:'add'|'pause'|'resume'|'skip'|'set'|'length';sec?:number}
+ |{type:'restSec';exId:string;sec:number}
  |{type:'rename';name:string}
  |{type:'flag';noProgression:boolean};
 
@@ -89,9 +92,15 @@ export function applyActive(current:ActiveWorkout,command:ActiveCommand,at:Date,
    if(!r)return a;
    if(c.action==='pause'){if(r.pausedLeft===null){r.pausedLeft=restLeft(r,at.getTime());r.endsAt=null;}return a;}
    if(c.action==='resume'){if(r.pausedLeft!==null){r.endsAt=new Date(at.getTime()+r.pausedLeft*1000).toISOString();r.pausedLeft=null;}return a;}
+   // length muda a duração do descanso que já corre, contando de quando ele começou (a série feita), não de agora.
+   if(c.action==='length'){const sec=num(c.sec,0,LIMITS.restSec,'Descanso')??0;if(!sec){a.rest=null;return a;}
+    if(r.pausedLeft!==null){const elapsed=Math.max(0,r.total-r.pausedLeft);r.pausedLeft=Math.max(0,sec-elapsed);}else{const start=Date.parse(r.endsAt!)-r.total*1000;r.endsAt=new Date(start+sec*1000).toISOString();}
+    r.total=sec;return a;}
    if(c.action==='add'){const sec=num(c.sec,-LIMITS.restSec,LIMITS.restSec,'Descanso')??0;const left=Math.min(LIMITS.restSec,restLeft(r,at.getTime())+sec);
     if(left<=0){a.rest=null;return a;}r.total=Math.max(r.total,left);if(r.pausedLeft!==null)r.pausedLeft=left;else r.endsAt=new Date(at.getTime()+left*1000).toISOString();return a;}
    throw new GymError('Ação de descanso inválida.');}
+  // Descanso do exercício (e do grupo de superset inteiro, que descansa junto) para as próximas séries.
+  case 'restSec':{const i=exIndex(c.exId),sec=num(c.sec,0,LIMITS.restSec,'Descanso')??0,g=groupOf(a,i);for(let k=g.start;k<=g.end;k++)a.exercises[k].restSec=sec;return a;}
   case 'rename':{const n=str(c.name,LIMITS.name);if(!n)throw new GymError('Dê um nome ao treino.');a.name=n;return a;}
   case 'flag':{a.noProgression=c.noProgression===true;return a;}
  }
