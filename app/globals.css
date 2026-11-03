@@ -922,3 +922,76 @@ button.gy-row:hover{border-color:var(--subtle)}
  .gy-sets{padding:8px}
 }
 @media(prefers-reduced-motion:reduce){.gy-banner-dot{animation:none}.gy-workout,.gy-rest-track span,.gy-wo-progress span{transition:none}}
+/* Gym: mapa de músculos, estatísticas e anilhas. */
+:root{--gy-body:#dfe3d7;--gy-body-line:#c9cfc1}
+:root[data-theme=dark]{--gy-body:#26302a;--gy-body-line:#34403a}
+.gy-body{display:flex;justify-content:center;gap:4%;width:100%}
+.gy-body svg{height:100%;width:auto;max-width:48%}
+.gy-body.xs{height:76px;width:auto;flex-shrink:0}
+.gy-body.sm{height:150px;margin:4px 0 10px}
+.gy-body.md{height:230px;margin:6px 0 12px}
+.gy-body.lg{height:330px;margin:8px 0}
+.gy-part path{fill:var(--gy-body);stroke:var(--gy-body-line);stroke-width:2}
+.gy-part.decor path{fill:var(--surface-2);stroke:var(--border)}
+.gy-part.on path{fill:color-mix(in srgb,var(--green) var(--lv),var(--gy-body))}
+.gy-part.pick{cursor:pointer}
+.gy-part.pick:hover path,.gy-part.pick:focus-visible path{fill:color-mix(in srgb,var(--gold) 55%,var(--gy-body))}
+.gy-part.pick:focus-visible{outline:none}
+.gy-part.picked path{fill:var(--gold)}
+.gy-ex-top{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:6px}
+.gy-explore{padding:16px 18px;margin:6px 0 12px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.gy-today .gy-body.xs{display:flex}
+.button.outline.active{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+.stats-grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.gy-panel{padding:20px 22px;margin-bottom:16px}
+.gy-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.gy-panel-head h2{font-size:16px}
+.gy-panel-head select{min-height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:6px 10px;font-size:13px;max-width:100%}
+.gy-heat{display:grid;grid-template-columns:repeat(52,minmax(9px,1fr));gap:3px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.gy-heat>div{display:flex;flex-direction:column;gap:3px}
+.gy-heat i{display:block;width:100%;aspect-ratio:1;max-height:18px;border-radius:3px;background:var(--surface-2)}
+.gy-heat i.on{background:color-mix(in srgb,var(--green) var(--lv),var(--surface-2))}
+.gy-heat i.future{background:none}
+.gy-heat-legend{display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:11px;color:var(--muted);margin-top:6px}
+.gy-heat-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;background:var(--surface-2)}
+.gy-heat-legend i.on{background:color-mix(in srgb,var(--green) var(--lv),var(--surface-2))}
+.gy-chart{margin:12px auto 8px;max-width:760px}
+.gy-chart svg{width:100%;height:auto;display:block}
+.gy-chart .grid{stroke:var(--border);stroke-dasharray:4 4}
+.gy-chart .lbl{font-size:12px;fill:var(--muted)}
+.gy-chart .line{fill:none;stroke:var(--green);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.gy-chart .pt{fill:var(--surface);stroke:var(--green);stroke-width:2.5}
+.gy-chart .pt.half{fill:color-mix(in srgb,var(--green) 50%,var(--surface))}
+.gy-chart .pt.full{fill:var(--green)}
+.gy-chart figcaption{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 4px}
+.gy-chart-empty{margin:14px 0}
+.gy-muscles{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}
+.gy-muscles ul,.gy-effort-dist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.gy-muscles li,.gy-effort-dist li{display:grid;grid-template-columns:130px minmax(0,1fr) 40px;align-items:center;gap:10px;font-size:12px}
+.gy-muscles li b,.gy-effort-dist li b{text-align:right;font-variant-numeric:tabular-nums}
+.gy-bar{position:relative;height:8px;border-radius:8px;background:var(--surface-2)}
+.gy-bar>span{position:absolute;left:0;top:0;bottom:0;border-radius:8px;background:var(--green)}
+.gy-bar>span.low{background:var(--gy-t2)}
+.gy-bar>span.high{background:var(--gy-t1)}
+.gy-bar>span.t0{background:var(--gy-t0)}
+.gy-bar>span.t1{background:var(--gy-t1)}
+.gy-bar>span.t2{background:var(--gy-t2)}
+.gy-bar>span.t3{background:var(--gy-t3)}
+.gy-bar>span.t4{background:var(--gy-t4)}
+.gy-bar>i{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--subtle);border-radius:2px}
+.gy-records-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.gy-records-list button{display:flex;align-items:center;gap:12px;width:100%;padding:10px 4px;border-bottom:1px solid var(--border);text-align:left;color:var(--text)}
+.gy-records-list button>svg{color:var(--gold);flex-shrink:0}
+.gy-records-list span{flex:1;min-width:0;display:flex;flex-direction:column}
+.gy-records-list strong{font-size:13px}
+.gy-records-list small{font-size:11px;color:var(--muted)}
+.gy-records-list b{font-size:13px;white-space:nowrap}
+.gy-plates{margin:10px 2px 0;font-size:12px;color:var(--muted)}
+.gy-plates b{color:var(--text);font-weight:600;margin-right:4px}
+@media(max-width:800px){
+ .stats-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .gy-muscles{grid-template-columns:1fr}
+ .gy-muscles li,.gy-effort-dist li{grid-template-columns:110px minmax(0,1fr) 36px}
+ .gy-body.lg{height:280px}
+ .gy-today .gy-body.xs{display:none}
+}

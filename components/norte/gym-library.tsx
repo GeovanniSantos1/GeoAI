@@ -1,23 +1,31 @@
 'use client';
 import {useMemo,useState} from 'react';
-import {Search,Star,Plus,Check,Sparkles,Trophy,Trash2} from 'lucide-react';
+import {Search,Star,Plus,Check,Sparkles,Trophy,Trash2,Download,PersonStanding,X} from 'lucide-react';
 import {fmtWeight,toUnit,fmtNumber,type CustomExercise} from '@/lib/gym';
 import {searchExercises,BODY_PARTS,EQUIPMENT,MUSCLES,CATEGORIES,LEVELS,type Exercise} from '@/lib/gym-catalog';
 import {sessionsOf,bestOf,e1rm,workSets} from '@/lib/gym-stats';
 import {Modal} from './primitives';
 import {useGym} from './gym-context';
 import {MuscleChips,Switch,fmtDate,fmtSecs,plural} from './gym-ui';
+import {BodyMap} from './gym-body';
+import {levelOfExercises,SLUG_MUSCLE,MUSCLE_SLUGS} from '@/lib/gym-muscles';
+import {workoutsCsv,gymJson} from '@/lib/gym-export';
+import {useApp} from './context';
 import {describeItem} from './gym-routines';
 
-export function LibraryTab(){const g=useGym(),p=g.view!.profile;
+export function LibraryTab(){const g=useGym(),app=useApp(),p=g.view!.profile;
+ const [muscle,setMuscle]=useState(''),[explore,setExplore]=useState(false);
  const [query,setQuery]=useState(''),[part,setPart]=useState(''),[equipment,setEquipment]=useState(''),[fav,setFav]=useState(false),[limit,setLimit]=useState(60),[open,setOpen]=useState<Exercise|null>(null),[create,setCreate]=useState(false);
- const list=useMemo(()=>searchExercises(g.exercises,{query,part,equipment,favorites:p.favorites,onlyFavorites:fav}),[g.exercises,query,part,equipment,p.favorites,fav]);
+ const list=useMemo(()=>searchExercises(g.exercises,{query,part,muscle,equipment,favorites:p.favorites,onlyFavorites:fav}),[g.exercises,query,part,muscle,equipment,p.favorites,fav]);
  const done=useMemo(()=>{const m=new Map<string,number>();for(const w of g.view!.workouts)for(const e of w.exercises)m.set(e.exerciseId,(m.get(e.exerciseId)||0)+1);return m;},[g.view]);
  return <>
-  <div className="gy-lib-head"><label className="search-field gy-search"><Search size={18}/><input value={query} onChange={e=>{setQuery(e.target.value);setLimit(60);}} placeholder={'Buscar entre '+g.exercises.length+' exercícios'} aria-label="Buscar exercício"/></label><button className="button outline" onClick={()=>setCreate(true)}><Plus size={16}/>Criar exercício</button></div>
+  <div className="gy-lib-head"><label className="search-field gy-search"><Search size={18}/><input value={query} onChange={e=>{setQuery(e.target.value);setLimit(60);}} placeholder={'Buscar entre '+g.exercises.length+' exercícios'} aria-label="Buscar exercício"/></label><div className="button-group"><button className={'button outline'+(explore?' active':'')} aria-pressed={explore} onClick={()=>setExplore(v=>!v)}><PersonStanding size={16}/>Por músculo</button><button className="button outline" onClick={()=>setCreate(true)}><Plus size={16}/>Criar exercício</button></div></div>
+  {explore&&<section className="panel gy-explore"><p className="quiet-copy">Toque num músculo para ver os exercícios que o trabalham.</p><BodyMap level={muscle?Object.fromEntries((MUSCLE_SLUGS[muscle]||[]).map(([s,w])=>[s,w])):{}} gender={app.state.profile.gender} size="lg" onPick={slug=>{setMuscle(m=>m===SLUG_MUSCLE[slug]?'':SLUG_MUSCLE[slug]);setPart('');setLimit(60);}} label="Escolha um músculo"/>{muscle&&<button className="gy-filter active" onClick={()=>setMuscle('')}>{MUSCLES[muscle]}<X size={13}/></button>}</section>}
+  <div className="gy-lib-tail">
   <div className="gy-filter-row"><button className={'gy-filter'+(fav?' active':'')} aria-pressed={fav} onClick={()=>setFav(v=>!v)}><Star size={13}/>Favoritos</button>{BODY_PARTS.map(b=><button key={b.id} className={'gy-filter'+(part===b.id?' active':'')} aria-pressed={part===b.id} onClick={()=>{setPart(x=>x===b.id?'':b.id);setLimit(60);}}>{b.label}</button>)}
    <select className="gy-filter-select" aria-label="Equipamento" value={equipment} onChange={e=>setEquipment(e.target.value)}><option value="">Todo equipamento</option>{Object.entries(EQUIPMENT).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
-  <p className="gy-count" role="status">{list.length?plural(list.length,'exercício','exercícios'):'Nada encontrado. Tente outra palavra ou tire um filtro.'}</p>
+  </div>
+  <p className="gy-count" role="status">{list.length?plural(list.length,'exercício','exercícios')+(muscle?' para '+MUSCLES[muscle]:''):'Nada encontrado. Tente outra palavra ou tire um filtro.'}</p>
   <ul className="gy-lib">{list.slice(0,limit).map(e=><li key={e.id} className="panel"><button className="gy-lib-main" onClick={()=>setOpen(e)}><strong>{e.name}{e.custom&&<span className="pill">seu</span>}</strong><MuscleChips exercise={e} limit={3}/>{done.get(e.id)?<small>{plural(done.get(e.id)!,'treino','treinos')}</small>:null}</button>
    <button className={'icon-button gy-star'+(p.favorites.includes(e.id)?' on':'')} aria-pressed={p.favorites.includes(e.id)} aria-label={(p.favorites.includes(e.id)?'Tirar dos':'Pôr nos')+' favoritos: '+e.name} onClick={()=>g.profile({type:'favorite',exerciseId:e.id,on:!p.favorites.includes(e.id)})}><Star size={16}/></button></li>)}</ul>
   {list.length>limit&&<button className="button outline full-width" onClick={()=>setLimit(l=>l+60)}>Mostrar mais</button>}
@@ -25,11 +33,11 @@ export function LibraryTab(){const g=useGym(),p=g.view!.profile;
   {open&&<ExerciseDetail exercise={open} onClose={()=>setOpen(null)}/>}{create&&<CustomEditor onClose={()=>setCreate(false)}/>}
  </>;}
 
-export function ExerciseDetail({exercise:e,onClose}:{exercise:Exercise;onClose:()=>void}){const g=useGym(),view=g.view!,p=view.profile,unit=p.settings.unit;
+export function ExerciseDetail({exercise:e,onClose}:{exercise:Exercise;onClose:()=>void}){const g=useGym(),app=useApp(),view=g.view!,p=view.profile,unit=p.settings.unit;
  const sessions=useMemo(()=>sessionsOf(view.workouts,e.id),[view.workouts,e.id]),best=bestOf(sessions);const [add,setAdd]=useState(false);
  const inRoutines=p.routines.filter(r=>r.items.some(i=>i.exerciseId===e.id));
  return <Modal title={e.name} subtitle={[EQUIPMENT[e.equipment],CATEGORIES[e.category],LEVELS[e.level]].filter(Boolean).join(' · ')} eyebrow="EXERCÍCIO" wide onClose={onClose}>
-  <MuscleChips exercise={e} limit={8}/>
+  <div className="gy-ex-top"><BodyMap level={levelOfExercises([{exercise:e}])} gender={app.state.profile.gender} size="md" label={'Músculos: '+[...e.primary,...e.secondary].map(m=>MUSCLES[m]||m).join(', ')}/><MuscleChips exercise={e} limit={8}/></div>
   {best&&<div className="gy-summary"><div><small>Melhor série</small><strong>{best.weight?fmtWeight(best.weight,unit)+' × '+best.reps:best.timeSec?fmtSecs(best.timeSec):best.reps+' reps'}</strong></div><div><small>1RM estimado</small><strong>{best.e1rm?fmtWeight(best.e1rm,unit):'–'}</strong></div><div><small>Treinos</small><strong>{sessions.length}</strong></div><div><small>Última vez</small><strong>{fmtDate(sessions[0].date,{day:'numeric',month:'short'})}</strong></div></div>}
   {e.steps.length>0&&<><h4 className="gy-sub">Como fazer</h4><ol className="gy-steps">{e.steps.map((s,i)=><li key={i}>{s}</li>)}</ol>{e.tip&&<p className="gy-tip"><Sparkles size={14}/>{e.tip}</p>}</>}
   {sessions.length>0&&<><h4 className="gy-sub">Seu histórico</h4><ul className="gy-history-mini">{sessions.slice(0,8).map(h=>{const top=Math.max(...workSets(h.sets).map(s=>e1rm(s.weight,s.reps)));return <li key={h.workoutId}><time>{fmtDate(h.date)}</time><span>{workSets(h.sets).map(s=>(s.weight?fmtNumber(toUnit(s.weight,unit),1)+'×':'')+(s.timeSec?fmtSecs(s.timeSec):s.reps)).join(' · ')}</span><small>{top>0?'1RM '+fmtWeight(top,unit):''}{best&&h.date===best.date?<Trophy size={12}/>:null}</small></li>;})}</ul></>}
@@ -61,4 +69,15 @@ export function GymSettingsTab(){const g=useGym(),s=g.view!.profile.settings;con
   <Switch label="Som no fim do descanso" checked={s.sound} onChange={sound=>set({sound})}/>
   <Switch label="Vibrar no fim do descanso" hint="No celular, quando o navegador permite." checked={s.vibrate} onChange={vibrate=>set({vibrate})}/>
   <Switch label="Manter a tela acesa durante o treino" checked={s.keepAwake} onChange={keepAwake=>set({keepAwake})}/>
+  <h4 className="gy-sub">Barra e anilhas</h4>
+  <div className="gy-set-row"><span><strong>Peso da barra</strong><small>Usado na conta das anilhas e no aquecimento.</small></span><select value={s.bar} onChange={e=>set({bar:Number(e.target.value)})}>{([[0,'Sem barra (Smith, máquina)'],[10,'10 kg'],[15,'15 kg (feminina)'],[20,'20 kg (olímpica)'],[20.41,'45 lb']] as [number,string][]).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
+  <Switch label="Mostrar as anilhas por lado" hint="Nos exercícios com barra, a conta aparece embaixo das séries." checked={s.plates} onChange={plates=>set({plates})}/>
+  <Switch label="Aquecimento automático" hint="Nos compostos com barra: só a barra, 40%, 60% e 80% da carga antes das séries de trabalho." checked={s.warmups} onChange={warmups=>set({warmups})}/>
+  <h4 className="gy-sub">Seus dados</h4><ExportRow/>
  </section>;}
+// Exporta o histórico inteiro: CSV para planilha (uma linha por série) ou JSON com tudo.
+function ExportRow(){const g=useGym();const [busy,setBusy]=useState(false);
+ const save=async(kind:'csv'|'json')=>{setBusy(true);await g.loadAll();setBusy(false);const v=g.view!;const now=new Date();
+  const text=kind==='csv'?workoutsCsv(v.workouts,v.profile):gymJson(v.workouts,v.profile,now);const url=URL.createObjectURL(new Blob([kind==='csv'?'\ufeff'+text:text],{type:kind==='csv'?'text/csv;charset=utf-8':'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='geoai-gym-'+g.today+'.'+kind;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);};
+ return <div className="gy-set-row"><span><strong>Exportar treinos</strong><small>CSV abre em planilhas (uma linha por série); JSON leva também as rotinas e os ajustes.</small></span><div className="button-group"><button className="button outline small" disabled={busy} onClick={()=>save('csv')}><Download size={15}/>CSV</button><button className="button outline small" disabled={busy} onClick={()=>save('json')}><Download size={15}/>JSON</button></div></div>;}

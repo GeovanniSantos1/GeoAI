@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {Play,LoaderCircle,RefreshCw,House,CalendarRange,History,Dumbbell,Ruler,Settings2,Plus} from 'lucide-react';
+import {Play,LoaderCircle,RefreshCw,House,CalendarRange,History,Dumbbell,Ruler,Settings2,Plus,ChartNoAxesCombined} from 'lucide-react';
 import {doneSets,totalSets,type Workout} from '@/lib/gym-active';
 import {PageHeading,Tabs,MiniChart} from './primitives';
 import {Records} from './records';
@@ -11,8 +11,9 @@ import {PlanTab} from './gym-routines';
 import {HistoryTab,WorkoutDetail} from './gym-history';
 import {LibraryTab,GymSettingsTab} from './gym-library';
 import {GymWorkout,WorkoutSummary} from './gym-workout';
+import {StatsTab} from './gym-stats';
 // Modo Gym (menu Treinos): plano, treino guiado, histórico, exercícios e corpo. Carregado sob demanda, com o catálogo.
-const TABS=[{id:'hoje',label:'Hoje',icon:House},{id:'plano',label:'Plano',icon:CalendarRange},{id:'historico',label:'Histórico',icon:History},{id:'exercicios',label:'Exercícios',icon:Dumbbell},{id:'corpo',label:'Corpo',icon:Ruler},{id:'ajustes',label:'Ajustes',icon:Settings2}];
+const TABS=[{id:'hoje',label:'Hoje',icon:House},{id:'plano',label:'Plano',icon:CalendarRange},{id:'historico',label:'Histórico',icon:History},{id:'estatisticas',label:'Estatísticas',icon:ChartNoAxesCombined},{id:'exercicios',label:'Exercícios',icon:Dumbbell},{id:'corpo',label:'Corpo',icon:Ruler},{id:'ajustes',label:'Ajustes',icon:Settings2}];
 export default function GymView(){return <GymProvider><GymShell/></GymProvider>;}
 function GymShell(){const g=useGym();const [tab,setTab]=useState('hoje'),[detail,setDetail]=useState<Workout|null>(null),[sheet,setSheet]=useState(false);
  if(!g.view)return g.error?<section className="panel gy-loading"><p role="alert">{g.error}</p><button className="button primary" onClick={g.reload}><RefreshCw size={16}/>Tentar de novo</button></section>:<section className="gy-loading" aria-busy="true"><LoaderCircle className="spin"/><p>Abrindo o Gym…</p></section>;
@@ -24,6 +25,7 @@ function GymShell(){const g=useGym();const [tab,setTab]=useState('hoje'),[detail
   {tab==='hoje'&&<TodayTab onPlan={()=>setTab('plano')} onWorkout={setDetail}/>}
   {tab==='plano'&&<PlanTab/>}
   {tab==='historico'&&<HistoryTab onOpen={setDetail}/>}
+  {tab==='estatisticas'&&<StatsTab onOpen={id=>setDetail(g.view!.workouts.find(w=>w.id===id)||null)}/>}
   {tab==='exercicios'&&<LibraryTab/>}
   {tab==='corpo'&&<BodyTab/>}
   {tab==='ajustes'&&<GymSettingsTab/>}

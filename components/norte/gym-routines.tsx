@@ -8,6 +8,9 @@ import {Modal,Empty} from './primitives';
 import {useGym} from './gym-context';
 import {Icon,ICON_LABEL,Segmented,Switch,Stepper,ExercisePicker,MuscleChips,musclesWorked,fmtSecs,plural} from './gym-ui';
 import {StarterPlans} from './gym-today';
+import {BodyMap} from './gym-body';
+import {levelOfExercises} from '@/lib/gym-muscles';
+import {useApp} from './context';
 const uid=()=>crypto.randomUUID();
 export const describeItem=(i:RoutineItem)=>i.timeSec?i.sets+' × '+fmtSecs(i.timeSec):i.sets+' × '+(i.repMax?i.reps+'–'+i.repMax:i.reps);
 
@@ -43,7 +46,7 @@ function RoutineList({onEdit,onNew}:{onEdit:(r:Routine)=>void;onNew:()=>void}){c
  return <div className="gy-routines">{p.routines.map((r,i)=><article key={r.id} className="panel gy-routine"><button className="gy-routine-main" onClick={()=>onEdit(r)}><span className="gy-today-icon"><Icon name={r.icon}/></span><span><strong>{r.name}</strong><small>{plural(r.items.length,'exercício','exercícios')}{days(r.id).length?' · '+days(r.id).join(', '):''} · {PROGRESSION_LABEL[r.progression]}</small><span className="gy-chips">{musclesWorked(r.items.map(x=>exerciseOf(x.exerciseId,p.custom))).slice(0,4).map(m=><span key={m} className="gy-chip">{m}</span>)}</span></span><ChevronRight size={18}/></button>
   <div className="gy-routine-actions"><button className="icon-button" disabled={i===0} aria-label={'Subir '+r.name} onClick={()=>{const ids=p.routines.map(x=>x.id);[ids[i-1],ids[i]]=[ids[i],ids[i-1]];g.profile({type:'reorder',ids});}}><ArrowUp size={15}/></button><button className="icon-button" disabled={i===p.routines.length-1} aria-label={'Descer '+r.name} onClick={()=>{const ids=p.routines.map(x=>x.id);[ids[i+1],ids[i]]=[ids[i],ids[i+1]];g.profile({type:'reorder',ids});}}><ArrowDown size={15}/></button></div></article>)}</div>;}
 
-function RoutineEditor({routine,isNew,onClose}:{routine:Routine;isNew:boolean;onClose:()=>void}){const g=useGym(),p=g.view!.profile;
+function RoutineEditor({routine,isNew,onClose}:{routine:Routine;isNew:boolean;onClose:()=>void}){const g=useGym(),app=useApp(),p=g.view!.profile;
  const [r,setR]=useState<Routine>(routine),[picker,setPicker]=useState(false),[item,setItem]=useState<RoutineItem|null>(null),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false);
  const items=(f:(list:RoutineItem[])=>RoutineItem[])=>setR(x=>{const list=f([...x.items]);if(list[0])list[0]={...list[0],superset:false};return {...x,items:list};});
  const move=(i:number,d:number)=>items(l=>{const j=i+d;if(j<0||j>=l.length)return l;[l[i],l[j]]=[l[j],l[i]];return l;});
@@ -62,6 +65,7 @@ function RoutineEditor({routine,isNew,onClose}:{routine:Routine;isNew:boolean;on
    <div className="gy-item-actions">{i>0&&<button className={'icon-button'+(it.superset?' active':'')} aria-pressed={it.superset} aria-label={it.superset?'Separar do exercício de cima':'Fazer em superset com o de cima'} title={it.superset?'Separar do de cima':'Superset com o de cima'} onClick={()=>items(l=>{l[i]={...l[i],superset:!l[i].superset};return l;})}>{it.superset?<Unlink size={15}/>:<Link2 size={15}/>}</button>}
     <button className="icon-button" disabled={i===0} aria-label="Subir" onClick={()=>move(i,-1)}><ArrowUp size={15}/></button><button className="icon-button" disabled={i===r.items.length-1} aria-label="Descer" onClick={()=>move(i,1)}><ArrowDown size={15}/></button><button className="icon-button" aria-label={'Tirar '+(e?.name||'')} onClick={()=>items(l=>l.filter(x=>x.id!==it.id))}><Trash2 size={15}/></button></div></li>;})}</ol>
   :<p className="quiet-copy">Nenhum exercício ainda. Toque em Adicionar.</p>}
+  {r.items.length>0&&<BodyMap level={levelOfExercises(r.items.map(x=>({exercise:exerciseOf(x.exerciseId,p.custom),sets:x.sets})))} gender={app.state.profile.gender} size="sm" label="Músculos que esta rotina trabalha"/>}
   {r.items.length>0&&<p className="gy-chips gy-hits"><b>Trabalha:</b>{musclesWorked(r.items.map(x=>exerciseOf(x.exerciseId,p.custom))).slice(0,8).map(m=><span key={m} className="gy-chip">{m}</span>)}</p>}
   <div className="modal-footer gy-editor-foot">{!isNew&&<><button className="button ghost small" onClick={copy}><Copy size={15}/>Copiar</button><button className="button ghost small" onClick={print}><Printer size={15}/>Imprimir</button><button className="button ghost small danger-text" onClick={()=>setConfirm(true)}><Trash2 size={15}/>Excluir</button></>}
    <span className="gy-grow"/><button className="button ghost" onClick={onClose}>Cancelar</button><button className="button primary" disabled={busy||!r.name.trim()} onClick={save}><Check size={16}/>{isNew?'Criar rotina':'Salvar'}</button></div>

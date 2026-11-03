@@ -4,6 +4,7 @@ import type {ActiveWorkout,ActiveExercise,GymSet,Workout} from './gym-active.ts'
 import {exerciseOf,defaultIncrement} from './gym-catalog.ts';
 import {sessionsOf} from './gym-stats.ts';
 import {nextTarget} from './gym-progression.ts';
+import {warmupRamp} from './gym-plates.ts';
 
 type Spec=[exerciseId:string,sets:number,reps:number,repMax?:number|null,restSec?:number];
 const PLANS:Record<StarterKey,{label:string;description:string;progression:Progression;routines:{name:string;icon:Routine['icon'];items:Spec[]}[];days:Partial<Record<Weekday,number>>}>={
@@ -57,7 +58,8 @@ export type BuildOptions={id:string;date:string;at:Date;newId:()=>string;name?:s
 export function exerciseFrom(item:RoutineItem,routine:Pick<Routine,'progression'>|null,p:GymProfile,workouts:Workout[],newId:()=>string):ActiveExercise{
  const ex=exerciseOf(item.exerciseId,p.custom),rule=item.progression||routine?.progression||'none',increment=item.increment??defaultIncrement(ex);
  const target=nextTarget(item,rule,sessionsOf(workouts,item.exerciseId),increment);
- const sets:GymSet[]=Array.from({length:target.sets},()=>({id:newId(),kind:'work',weight:target.weight,reps:target.timeSec?null:target.reps,timeSec:target.timeSec,effort:null,done:false,doneAt:null}));
+ const warm=p.settings.warmups&&ex?.equipment==='barbell'&&ex.mechanic==='compound'&&target.weight&&!target.timeSec?warmupRamp(target.weight,p.settings.bar,increment):[];
+ const sets:GymSet[]=[...warm.map(w=>({id:newId(),kind:'warmup' as const,weight:w.weight,reps:w.reps,timeSec:null,effort:null,done:false,doneAt:null})),...Array.from({length:target.sets},()=>({id:newId(),kind:'work' as const,weight:target.weight,reps:target.timeSec?null:target.reps,timeSec:target.timeSec,effort:null,done:false,doneAt:null}))];
  return {id:newId(),exerciseId:item.exerciseId,restSec:item.restSec??p.settings.restSec,superset:item.superset,notes:item.notes,target,sets,...(item.backupId?{backupId:item.backupId}:{})};}
 export function buildActive(p:GymProfile,workouts:Workout[],routine:Routine|null,o:BuildOptions):ActiveWorkout{
  return {id:o.id,routineId:routine?.id||null,name:o.name||routine?.name||'Treino livre',date:o.date,startedAt:o.at.toISOString(),cursor:0,notes:'',noProgression:!!routine?.deload,exercises:(routine?.items||[]).map(item=>exerciseFrom(item,routine,p,workouts,o.newId)),rest:null};}

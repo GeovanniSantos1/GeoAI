@@ -6,6 +6,10 @@ import {doneSets,totalSets,volumeOf,restLeft,groupOf,SET_KIND_LABEL,SET_KINDS,ty
 import {exerciseOf,bodyweight,defaultIncrement,EQUIPMENT,type Exercise} from '@/lib/gym-catalog';
 import {sessionsOf,bestOf,heaviestOf,isRecord,e1rm,recordsIn,workSets} from '@/lib/gym-stats';
 import {looseExercise} from '@/lib/gym-plan';
+import {platesFor,KG_PLATES,LB_PLATES} from '@/lib/gym-plates';
+import {levelOfExercises} from '@/lib/gym-muscles';
+import {BodyMap} from './gym-body';
+import {useApp} from './context';
 import {Modal} from './primitives';
 import {useGym} from './gym-context';
 import {Stepper,MuscleChips,ExercisePicker,fmtClock,fmtMinutes,fmtVolume,fmtDate,fmtSecs,plural,musclesWorked} from './gym-ui';
@@ -94,6 +98,7 @@ function ExerciseCard({ex,index}:{ex:ActiveExercise;index:number}){const g=useGy
      {record&&s.done&&<span className="gy-pr" title="Recorde"><Trophy size={12}/>Recorde</span>}
     </div>;})}
    <button className="gy-add-set" onClick={()=>g.act({type:'addSet',exId:ex.id,setId:uid()})}><Plus size={15}/>Adicionar série</button></div>
+  {settings.plates&&e?.equipment==='barbell'&&<PlateLine sets={ex.sets} bar={settings.bar} unit={unit}/>}
   {effortFor&&<EffortPicker scale={settings.effort} value={ex.sets.find(s=>s.id===effortFor)?.effort??null} onPick={v=>{const s=ex.sets.find(x=>x.id===effortFor);if(s)set(s,'effort',v);setEffortFor(null);}} onClose={()=>setEffortFor(null)}/>}
   {setMenuFor&&<Modal title="Tipo da série" eyebrow="SÉRIE" onClose={()=>setSetMenuFor(null)}><div className="gy-menu">{SET_KINDS.map(k=><button key={k} className={ex.sets.find(s=>s.id===setMenuFor)?.kind===k?'active':''} onClick={()=>{g.act({type:'setKind',exId:ex.id,setId:setMenuFor,kind:k as SetKind});setSetMenuFor(null);}}>{SET_KIND_LABEL[k]}</button>)}
    <button onClick={()=>{const s=ex.sets.find(x=>x.id===setMenuFor);g.act({type:'addSet',exId:ex.id,setId:uid(),kind:s?.kind});setSetMenuFor(null);}}><Plus size={16}/>Copiar esta série</button>
@@ -111,7 +116,10 @@ function ExerciseCard({ex,index}:{ex:ActiveExercise;index:number}){const g=useGy
   {menu==='history'&&<Modal title="Histórico" subtitle={e?.name} eyebrow="EXERCÍCIO" onClose={()=>setMenu(null)}>{history.length?<ul className="gy-history-mini">{history.slice(0,10).map(h=><li key={h.workoutId}><time>{fmtDate(h.date)}</time><span>{workSets(h.sets).map(fmtSet).join(' · ')}</span><small>{Math.max(...workSets(h.sets).map(s=>e1rm(s.weight,s.reps)))>0?'1RM '+fmtWeight(Math.max(...workSets(h.sets).map(s=>e1rm(s.weight,s.reps))),unit):''}</small></li>)}</ul>:<p className="quiet-copy">Primeira vez com este exercício.</p>}</Modal>}
  </article>;}
 
-export function HowTo({exercise,onClose}:{exercise:Exercise;onClose:()=>void}){return <Modal title={exercise.name} subtitle={EQUIPMENT[exercise.equipment]||''} eyebrow="COMO FAZER" onClose={onClose}><MuscleChips exercise={exercise} limit={6}/><ol className="gy-steps">{exercise.steps.map((s,i)=><li key={i}>{s}</li>)}</ol>{exercise.tip&&<p className="gy-tip"><Sparkles size={14}/>{exercise.tip}</p>}<p className="quiet-copy">Descreve o movimento, não substitui a orientação de um profissional. Se doer, pare.</p></Modal>;}
+// Anilhas da próxima série com carga: o que vai de cada lado e, se não fecha, o total que dá para montar.
+function PlateLine({sets,bar,unit}:{sets:GymSet[];bar:number;unit:'kg'|'lb'}){const s=sets.find(x=>!x.done&&x.weight)||[...sets].reverse().find(x=>x.weight);if(!s?.weight)return null;const r=platesFor(s.weight,bar,unit==='lb'?LB_PLATES:KG_PLATES);if(!r)return null;
+ return <p className="gy-plates"><b>Anilhas por lado</b> {r.perSide.length?r.perSide.map(p=>fmtNumber(toUnit(p,unit),2)).join(' + '):'só a barra'} <small>· barra {fmtWeight(bar,unit)}{r.exact?'':' · dá '+fmtWeight(r.achieved,unit)}</small></p>;}
+export function HowTo({exercise,onClose}:{exercise:Exercise;onClose:()=>void}){const app=useApp();return <Modal title={exercise.name} subtitle={EQUIPMENT[exercise.equipment]||''} eyebrow="COMO FAZER" onClose={onClose}><div className="gy-ex-top"><BodyMap level={levelOfExercises([{exercise}])} gender={app.state.profile.gender} size="sm" label="Músculos do exercício"/><MuscleChips exercise={exercise} limit={6}/></div><ol className="gy-steps">{exercise.steps.map((s,i)=><li key={i}>{s}</li>)}</ol>{exercise.tip&&<p className="gy-tip"><Sparkles size={14}/>{exercise.tip}</p>}<p className="quiet-copy">Descreve o movimento, não substitui a orientação de um profissional. Se doer, pare.</p></Modal>;}
 function EffortPicker({scale,value,onPick,onClose}:{scale:Effort;value:number|null;onPick:(v:number|null)=>void;onClose:()=>void}){
  return <Modal title="Quanto sobrou no tanque?" subtitle={scale==='rpe'?'RPE: 10 é o máximo; cada ponto abaixo é uma rep que ainda sairia.':'RIR: quantas reps ainda sairiam com boa técnica.'} eyebrow="ESFORÇO" onClose={onClose}>
   <div className="gy-effort-list">{RIR_LEVELS.map(([rir,text])=><button key={rir} className={effortTone(rir)+(value===rir?' active':'')} onClick={()=>onPick(rir)}><b>{scale==='rpe'?(rir>=5?'≤5':fmtNumber(10-rir)):rir===5?'5+':rir}</b><span>{text}</span></button>)}</div>
@@ -120,12 +128,12 @@ export function TextModal({title,value,max,multiline=false,onSave,onClose}:{titl
  return <Modal title={title} eyebrow="GYM" onClose={onClose}><form onSubmit={ev=>{ev.preventDefault();onSave(v.trim());}}><label className="field"><span>{title}</span>{multiline?<textarea autoFocus rows={4} maxLength={max} value={v} onChange={ev=>setV(ev.target.value)}/>:<input autoFocus maxLength={max} value={v} onChange={ev=>setV(ev.target.value)}/>}</label><div className="modal-footer"><button type="button" className="button ghost" onClick={onClose}>Cancelar</button><button className="button primary">Salvar</button></div></form></Modal>;}
 
 // Resumo depois de finalizar (e no detalhe do histórico): duração, volume, séries, recordes e músculos.
-export function WorkoutSummary({workout,onClose,fresh=false}:{workout:Workout;onClose:()=>void;fresh?:boolean}){const g=useGym(),view=g.view!,unit=view.profile.settings.unit;
+export function WorkoutSummary({workout,onClose,fresh=false}:{workout:Workout;onClose:()=>void;fresh?:boolean}){const g=useGym(),app=useApp(),view=g.view!,unit=view.profile.settings.unit;
  const records=useMemo(()=>recordsIn(workout,view.workouts),[workout,view.workouts]),list=workout.exercises.map(e=>exerciseOf(e.exerciseId,view.profile.custom));
  const sets=workout.exercises.reduce((n,e)=>n+workSets(e.sets).length,0);
  return <Modal title={fresh?'Treino feito!':workout.name} subtitle={fresh?workout.name+' · '+fmtDate(workout.date):fmtDate(workout.date,{weekday:'long',day:'numeric',month:'long'})} eyebrow={fresh?'MANDOU BEM':'TREINO'} onClose={onClose}>
   <div className="gy-summary"><div><small>Duração</small><strong>{fmtMinutes(workout.durationMin)}</strong></div><div><small>Volume</small><strong>{fmtVolume(volumeOf(workout),unit)}</strong></div><div><small>Séries</small><strong>{sets}</strong></div><div><small>Recordes</small><strong>{records.length||'–'}</strong></div></div>
   {records.length>0&&<p className="gy-records"><Trophy size={15}/>Recorde em {records.map(id=>exerciseOf(id,view.profile.custom)?.name).join(', ')}.</p>}
-  <h4 className="gy-sub">O que você treinou</h4><p className="gy-chips">{musclesWorked(list).slice(0,8).map(m=><span key={m} className="gy-chip main">{m}</span>)}</p>
+  <h4 className="gy-sub">O que você treinou</h4><BodyMap level={levelOfExercises(workout.exercises.map(e=>({exercise:exerciseOf(e.exerciseId,view.profile.custom),sets:workSets(e.sets).length})))} gender={app.state.profile.gender} size="sm" label="Músculos trabalhados neste treino"/><p className="gy-chips">{musclesWorked(list).slice(0,8).map(m=><span key={m} className="gy-chip main">{m}</span>)}</p>
   {fresh&&<p className="quiet-copy">Também entrou nos seus treinos do GeoAI, com os pontos da sua jornada.</p>}
   <div className="modal-footer"><button className="button primary" onClick={onClose}><Check size={16}/>{fresh?'Boa!':'Fechar'}</button></div></Modal>;}

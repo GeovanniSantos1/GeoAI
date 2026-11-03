@@ -11,8 +11,10 @@ import {Modal,Stat} from './primitives';
 import {useApp} from './context';
 import {useGym} from './gym-context';
 import {Icon,fmtDate,fmtMinutes,fmtVolume,plural,musclesWorked,Stepper} from './gym-ui';
+import {BodyMap} from './gym-body';
+import {levelOfExercises} from '@/lib/gym-muscles';
 
-export function TodayTab({onPlan,onWorkout}:{onPlan:()=>void;onWorkout:(w:Workout)=>void}){const g=useGym(),view=g.view!,p=view.profile,unit=p.settings.unit;
+export function TodayTab({onPlan,onWorkout}:{onPlan:()=>void;onWorkout:(w:Workout)=>void}){const g=useGym(),app=useApp(),view=g.view!,p=view.profile,unit=p.settings.unit;
  const [offset,setOffset]=useState(0),[sheet,setSheet]=useState(false),[weigh,setWeigh]=useState(false);
  const today=todayOf(p,view.workouts,g.today),week=weekOf(p,view.workouts,g.today,offset),done=week.filter(d=>d.status==='done').length,planned=week.filter(d=>d.routine).length;
  const streak=weekStreak(view.workouts.map(w=>w.date),g.today,p.schedule.weekStart),t=totals(view.workouts,g.today);
@@ -27,6 +29,7 @@ export function TodayTab({onPlan,onWorkout}:{onPlan:()=>void;onWorkout:(w:Workou
    <p className="gy-week-foot">{planned?done+' de '+planned+' treinos nesta semana':plural(done,'treino','treinos')+' nesta semana'}</p></section>
   {today.kind==='routine'&&<section className="panel gy-today"><div className="gy-today-icon"><Icon name={today.routine.icon} size={22}/></div><div className="gy-today-main"><span className="eyebrow">{today.done?'HOJE · FEITO':today.moved?'HOJE · REMARCADO':'TREINO DE HOJE'}</span><h2>{today.routine.name}</h2>
     <p>{plural(today.routine.items.length,'exercício','exercícios')} · {musclesWorked(today.routine.items.map(i=>exerciseOf(i.exerciseId,p.custom))).slice(0,4).join(', ')||'sem exercícios ainda'}</p></div>
+   <BodyMap level={levelOfExercises(today.routine.items.map(i=>({exercise:exerciseOf(i.exerciseId,p.custom),sets:i.sets})))} gender={app.state.profile.gender} size="xs" label={'Músculos de '+today.routine.name}/>
    <div className="gy-today-actions">{cta||(today.done?<button className="button outline" onClick={()=>setSheet(true)}><Plus size={16}/>Treinar de novo</button>:<button className="button primary" onClick={()=>g.start(today.routine)} disabled={!today.routine.items.length}><Play size={16}/>Começar</button>)}<button className="text-button" onClick={()=>setSheet(true)}><Repeat size={14}/>Escolher outro treino</button></div></section>}
   {today.kind==='rest'&&<section className="panel gy-today rest"><div className="gy-today-icon"><Moon size={22}/></div><div className="gy-today-main"><span className="eyebrow">{today.done?'HOJE · TREINO FEITO':'HOJE É DESCANSO'}</span><h2>{today.done?'Missão cumprida':'Recuperar também é treino'}</h2>
     <p>{today.next?'Próximo: '+today.next.routine.name+' '+(today.next.date===shiftDate(g.today,1)?'amanhã':'na '+fmtDate(today.next.date,{weekday:'long'})):'Nada planejado nos próximos dias.'}</p></div>

@@ -21,7 +21,7 @@ export type Effort='rir'|'rpe'|'off';
 export type RoutineItem={id:string;exerciseId:string;sets:number;reps:number;repMax:number|null;timeSec:number|null;weight:number|null;restSec:number|null;superset:boolean;increment:number|null;progression:Progression|null;backupId:string|null;notes:string};
 export type Routine={id:string;name:string;icon:RoutineIcon;progression:Progression;deload:boolean;items:RoutineItem[]};
 export type Schedule={mode:'week'|'rotation';weekStart:'mon'|'sun';days:Record<Weekday,string|null>;rotation:string[];moved:Record<string,string|null>};
-export type GymSettings={unit:Unit;effort:Effort;restSec:number;sound:boolean;vibrate:boolean;keepAwake:boolean};
+export type GymSettings={unit:Unit;effort:Effort;restSec:number;sound:boolean;vibrate:boolean;keepAwake:boolean;bar:number;warmups:boolean;plates:boolean};
 export type CustomExercise={id:string;name:string;equipment:string;primary:string[];secondary:string[];category:string;timed:boolean};
 export type GymProfile={v:1;routines:Routine[];schedule:Schedule;settings:GymSettings;favorites:string[];custom:CustomExercise[]};
 
@@ -43,7 +43,7 @@ const oneOf=<T extends string>(v:unknown,list:readonly T[],fallback:T):T=>list.i
 export type Raw=Record<string,unknown>;
 export const rec=(v:unknown):Raw=>v&&typeof v==='object'&&!Array.isArray(v)?v as Raw:{};
 
-export const DEFAULT_SETTINGS:GymSettings={unit:'kg',effort:'rir',restSec:90,sound:true,vibrate:true,keepAwake:true};
+export const DEFAULT_SETTINGS:GymSettings={unit:'kg',effort:'rir',restSec:90,sound:true,vibrate:true,keepAwake:true,bar:20,warmups:false,plates:true};
 export const emptySchedule=():Schedule=>({mode:'week',weekStart:'mon',days:{mon:null,tue:null,wed:null,thu:null,fri:null,sat:null,sun:null},rotation:[],moved:{}});
 export const emptyProfile=():GymProfile=>({v:1,routines:[],schedule:emptySchedule(),settings:{...DEFAULT_SETTINGS},favorites:[],custom:[]});
 
@@ -66,7 +66,9 @@ export function cleanRoutine(input:unknown,known:(id:string)=>boolean):Routine{c
  return {id:raw.id,name:text(raw.name,LIMITS.name,'Nome da rotina',true),icon:oneOf(raw.icon,ICONS,'dumbbell'),progression:oneOf(raw.progression,PROGRESSIONS,'linear'),deload:raw.deload===true,items:clean};}
 export function cleanSettings(input:unknown,base:GymSettings=DEFAULT_SETTINGS):GymSettings{const r=rec(input);
  return {unit:r.unit===undefined?base.unit:oneOf(r.unit,['kg','lb'] as const,base.unit),effort:r.effort===undefined?base.effort:oneOf(r.effort,['rir','rpe','off'] as const,base.effort),
-  restSec:r.restSec===undefined?base.restSec:int(r.restSec,0,LIMITS.restSec,'Descanso padrão (s)'),sound:typeof r.sound==='boolean'?r.sound:base.sound,vibrate:typeof r.vibrate==='boolean'?r.vibrate:base.vibrate,keepAwake:typeof r.keepAwake==='boolean'?r.keepAwake:base.keepAwake};}
+  restSec:r.restSec===undefined?base.restSec:int(r.restSec,0,LIMITS.restSec,'Descanso padrão (s)'),sound:typeof r.sound==='boolean'?r.sound:base.sound,vibrate:typeof r.vibrate==='boolean'?r.vibrate:base.vibrate,keepAwake:typeof r.keepAwake==='boolean'?r.keepAwake:base.keepAwake,
+  bar:r.bar===undefined?base.bar:barOf(r.bar),warmups:typeof r.warmups==='boolean'?r.warmups:base.warmups,plates:typeof r.plates==='boolean'?r.plates:base.plates};}
+const barOf=(v:unknown)=>{const n=cleanWeight(v,'Peso da barra');if(n===null||n>50)throw new GymError('Peso da barra: use de 0 a 50 kg.');return n;};
 export function cleanCustom(input:unknown):CustomExercise{const raw=rec(input);
  if(typeof raw.id!=='string'||!/^c-[\w-]{1,60}$/.test(raw.id))throw new GymError('Exercício próprio inválido.');
  const list=(v:unknown)=>(Array.isArray(v)?v:[]).filter((x):x is string=>typeof x==='string'&&/^[a-z ]{2,20}$/.test(x)).slice(0,6);
