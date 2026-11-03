@@ -1014,3 +1014,19 @@ button.gy-row:hover{border-color:var(--subtle)}
 .gy-video-note{font-size:11px;color:var(--subtle);margin-top:6px}
 .gy-video-none{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;background:var(--surface-2);margin-bottom:12px}
 .gy-video-none p{font-size:13px;color:var(--muted)}
+
+/* Gym: escolha do descanso entre séries (1 a 3 min) no exercício, na barra e nos ajustes. */
+.gy-rest-pick{display:flex;gap:6px;flex-wrap:wrap}
+.gy-rest-pick button{min-height:34px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:650;color:var(--muted);font-variant-numeric:tabular-nums}
+.gy-rest-pick button:hover{border-color:var(--green);color:var(--green)}
+.gy-rest-pick button.active{background:var(--green);border-color:var(--green);color:var(--surface)}
+.gy-ex-rest{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 2px 0}
+.gy-ex-rest>span:first-child{font-size:12px;font-weight:600;color:var(--muted)}
+.gy-settings>.gy-rest-pick{padding:0 0 14px;border-bottom:1px solid var(--border)}
+.gy-rest{flex-direction:column;align-items:stretch;gap:10px}
+.gy-rest-row{display:flex;align-items:center;gap:12px}
+.gy-rest .gy-rest-pick{justify-content:center}
+.gy-rest.over .gy-rest-time strong{color:var(--green)}
+.gy-rest-grid .button.active{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+.gy-workout{padding-bottom:190px}
+@media(max-width:480px){.gy-rest .gy-rest-pick button{padding:4px 9px;min-height:30px;font-size:11px}.gy-rest-row{gap:8px}}

@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyProfile,applyProfile,readProfile,toUnit,fromUnit,weekdayOf} from '../lib/gym.ts';
 import {EXERCISES,isCatalogId,searchExercises,exerciseOf,defaultIncrement} from '../lib/gym-catalog.ts';
-import {applyActive,finishWorkout,cleanActive,cleanWorkout,volumeOf,restLeft} from '../lib/gym-active.ts';
+import {applyActive,finishWorkout,cleanActive,cleanWorkout,volumeOf,restLeft,REST_PRESETS} from '../lib/gym-active.ts';
 import {e1rm,sessionsOf,bestSet,recordsIn,weekStreak,totals} from '../lib/gym-stats.ts';
 import {nextTarget,stalls} from '../lib/gym-progression.ts';
 import {starterPlan,STARTERS,todayOf,weekOf,buildActive,rotationNext,looseExercise} from '../lib/gym-plan.ts';
@@ -118,3 +118,16 @@ test('plano: treino de hoje na semana fixa, descanso aponta o próximo, rotaçã
 test('treino lançado depois: só séries com dados, limites e datas válidas',()=>{
  const w=cleanWorkout({id:'p1',date:'2026-10-30',name:'No papel',durationMin:40,exercises:[{exerciseId:BENCH,sets:[{id:'s1',weight:70,reps:8}]}]},isCatalogId);assert.equal(w.exercises[0].sets[0].done,true);assert.equal(w.startedAt,'2026-10-30T12:00:00.000Z');
  assert.throws(()=>cleanWorkout({id:'p2',date:'2026-13-01',exercises:[]},isCatalogId),/Data/);assert.throws(()=>cleanWorkout({id:'p3',date:'2026-10-30',exercises:[]},isCatalogId),/pelo menos/);});
+
+test('descanso escolhido no treino: vale para as próximas séries e muda o descanso que já corre, contando da série feita',()=>{
+ const p=applyProfile(emptyProfile(),{type:'routine',routine:routine({items:[{id:'a',exerciseId:BENCH,sets:3,reps:5},{id:'b',exerciseId:'Bent_Over_Barbell_Row',sets:3,reps:5,superset:true},{id:'c',exerciseId:'Barbell_Curl',sets:2,reps:10}]})},ctx);
+ assert.deepEqual(REST_PRESETS,[60,90,120,150,180]);
+ let a=buildActive(p,[],p.routines[0],{id:'r',date:TODAY,at:at(),newId:id});const [A,B,C]=a.exercises;
+ a=applyActive(a,{type:'restSec',exId:A.id,sec:120},at(),isCatalogId);assert.deepEqual(a.exercises.map(e=>e.restSec),[120,120,90],'o superset descansa junto');
+ a=applyActive(a,{type:'restSec',exId:C.id,sec:60},at(),isCatalogId);a=applyActive(a,{type:'done',exId:C.id,setId:C.sets[0].id,done:true},at(1),isCatalogId);assert.equal(restLeft(a.rest,at(1).getTime()),60);
+ a=applyActive(a,{type:'rest',action:'length',sec:150},new Date(at(1).getTime()+20000),isCatalogId);assert.equal(restLeft(a.rest,at(1).getTime()+20000),130,'2,5 min contados de quando a série terminou');assert.equal(a.rest.total,150);
+ a=applyActive(a,{type:'rest',action:'pause'},new Date(at(1).getTime()+30000),isCatalogId);assert.equal(a.rest.pausedLeft,120);
+ a=applyActive(a,{type:'rest',action:'length',sec:60},new Date(at(1).getTime()+40000),isCatalogId);assert.equal(a.rest.pausedLeft,30,'pausado: tira o que já passou');
+ assert.deepEqual(cleanActive(JSON.parse(JSON.stringify(a)),isCatalogId).rest,a.rest);
+ a=applyActive(a,{type:'rest',action:'length',sec:0},at(3),isCatalogId);assert.equal(a.rest,null);
+ assert.throws(()=>applyActive(a,{type:'restSec',exId:A.id,sec:2000},at(3),isCatalogId),/Descanso/);void B;});

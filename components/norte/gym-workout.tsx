@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronDown,ChevronLeft,ChevronRight,MoreHorizontal,Plus,Check,Trophy,TrendingUp,TrendingDown,Pause,Play,SkipForward,Timer,Trash2,Repeat,NotebookPen,BookOpen,History,ArrowUp,ArrowDown,Pencil,Sparkles,X,PlayCircle} from 'lucide-react';
 import {fmtWeight,fmtNumber,toUnit,type Effort} from '@/lib/gym';
-import {doneSets,totalSets,volumeOf,restLeft,groupOf,SET_KIND_LABEL,SET_KINDS,type ActiveExercise,type GymSet,type Workout,type SetKind} from '@/lib/gym-active';
+import {doneSets,totalSets,volumeOf,restLeft,groupOf,SET_KIND_LABEL,SET_KINDS,REST_PRESETS,type ActiveExercise,type GymSet,type Workout,type SetKind,type Rest} from '@/lib/gym-active';
 import {exerciseOf,bodyweight,defaultIncrement,EQUIPMENT,type Exercise} from '@/lib/gym-catalog';
 import {sessionsOf,bestOf,heaviestOf,isRecord,e1rm,recordsIn,workSets} from '@/lib/gym-stats';
 import {looseExercise} from '@/lib/gym-plan';
@@ -13,7 +13,7 @@ import {ExerciseVideo} from './gym-video';
 import {useApp} from './context';
 import {Modal} from './primitives';
 import {useGym} from './gym-context';
-import {Stepper,MuscleChips,ExercisePicker,fmtClock,fmtMinutes,fmtVolume,fmtDate,fmtSecs,plural,musclesWorked} from './gym-ui';
+import {Stepper,MuscleChips,ExercisePicker,RestChips,restLabel,fmtClock,fmtMinutes,fmtVolume,fmtDate,fmtSecs,plural,musclesWorked} from './gym-ui';
 const uid=()=>crypto.randomUUID();
 // Esforço fica guardado como RIR (reps que sobravam); quem prefere RPE vê 10 − RIR.
 export const RIR_LEVELS:[number,string][]=[[0,'Falha: não sairia mais nenhuma'],[1,'Sobrava 1 rep'],[2,'Sobravam 2 reps'],[3,'Sobravam 3 reps'],[4,'Sobravam 4 reps'],[5,'5 ou mais: bem leve']];
@@ -28,7 +28,7 @@ function beep(){if(!audio)return;try{const t=audio.currentTime;for(let i=0;i<3;i
 
 export function GymWorkout(){const g=useGym(),a=g.view?.active,settings=g.view?.profile.settings,now=useNow();
  const [menu,setMenu]=useState<'options'|'finish'|'add'|'note'|'rename'|null>(null),[flash,setFlash]=useState(false);
- const rest=a?.rest??null,left=restLeft(rest,now||0);
+ const rest=a?.rest??null,left=restLeft(rest,now||0),over=rest?.endsAt&&now?Math.max(0,Math.floor((now-Date.parse(rest.endsAt))/1000)):0;
  // Fim do descanso: som, vibração e um piscar da tela, uma vez por descanso e só com a aba visível.
  const alerted=useRef('');useEffect(()=>{if(!rest?.endsAt||!settings)return;const key=rest.endsAt,ms=Date.parse(rest.endsAt)-Date.now();if(ms<-3000)return;
   const t=setTimeout(()=>{if(alerted.current===key||document.visibilityState!=='visible')return;alerted.current=key;if(settings.sound)beep();if(settings.vibrate)navigator.vibrate?.([220,90,220]);setFlash(true);setTimeout(()=>setFlash(false),1200);},Math.max(0,ms));return()=>clearTimeout(t);},[rest?.endsAt,settings]);
@@ -51,7 +51,7 @@ export function GymWorkout(){const g=useGym(),a=g.view?.active,settings=g.view?.
    {ex&&<div className="gy-prevnext"><button className="button ghost" disabled={a.cursor===0} onClick={()=>g.act({type:'cursor',index:a.cursor-1})}><ChevronLeft size={17}/>Anterior</button><button className="button ghost" disabled={a.cursor>=a.exercises.length-1} onClick={()=>g.act({type:'cursor',index:a.cursor+1})}>Próximo<ChevronRight size={17}/></button></div>}
    <div className="panel gy-wo-extra"><button onClick={()=>setMenu('add')}><Plus size={17}/>Adicionar exercício</button><button onClick={()=>setMenu('note')}><NotebookPen size={17}/>{a.notes?'Nota da sessão: '+a.notes.slice(0,40):'Nota da sessão'}</button></div>
   </div>
-  {rest&&<RestBar left={left} paused={rest.pausedLeft!==null} total={rest.total}/>}
+  {rest&&<RestBar rest={rest} left={left} over={over}/>}
   {menu==='options'&&<Modal title="Opções do treino" eyebrow="TREINO" onClose={()=>setMenu(null)}><div className="gy-menu">
    <button onClick={()=>setMenu('rename')}><Pencil size={17}/>Renomear treino</button><button onClick={()=>setMenu('add')}><Plus size={17}/>Adicionar exercício</button><button onClick={()=>setMenu('note')}><NotebookPen size={17}/>Nota da sessão</button>
    <label className="gy-menu-check"><input type="checkbox" checked={a.noProgression} onChange={e=>g.act({type:'flag',noProgression:e.target.checked})}/><span><strong>Não contar para a progressão</strong><small>Para deload, teste ou treino diferente. Fica no histórico.</small></span></label>
@@ -64,13 +64,17 @@ export function GymWorkout(){const g=useGym(),a=g.view?.active,settings=g.view?.
     :<><button className="button ghost" onClick={()=>setMenu(null)}>Continuar treinando</button><button className="button primary" onClick={async()=>{setMenu(null);await g.finish();}}><Check size={16}/>Finalizar e salvar</button></>}</div></Modal>}
  </div>;}
 
-function RestBar({left,paused,total}:{left:number;paused:boolean;total:number}){const g=useGym();const [edit,setEdit]=useState(false);
- return <div className={'gy-rest'+(left===0?' over':'')} role="status" aria-live="off">
-  <div className="gy-rest-track" aria-hidden><span style={{width:(total?Math.min(100,left/total*100):0)+'%'}}/></div>
-  <button className="gy-rest-time" onClick={()=>setEdit(true)} aria-label={'Descanso: '+fmtClock(left)+'. Mudar o tempo'}><Timer size={18}/><strong>{left===0?'Bora!':fmtClock(left)}</strong><small>{left===0?'Descanso feito':paused?'Pausado':'Descanso'}</small></button>
-  <div className="gy-rest-actions"><button onClick={()=>g.act({type:'rest',action:'add',sec:-15})} aria-label="Menos 15 segundos">−15s</button><button onClick={()=>g.act({type:'rest',action:'add',sec:15})} aria-label="Mais 15 segundos">+15s</button>
-   <button onClick={()=>g.act({type:'rest',action:paused?'resume':'pause'})} aria-label={paused?'Continuar o descanso':'Pausar o descanso'}>{paused?<Play size={17}/>:<Pause size={17}/>}</button><button onClick={()=>g.act({type:'rest',action:'skip'})} aria-label="Pular o descanso"><SkipForward size={17}/></button></div>
-  {edit&&<Modal title="Tempo de descanso" eyebrow="DESCANSO" onClose={()=>setEdit(false)}><div className="gy-rest-grid">{[30,45,60,90,120,150,180,240,300,420,600,900].map(s=><button key={s} className="button outline" onClick={()=>{g.act({type:'rest',action:'set',sec:s});setEdit(false);}}>{fmtSecs(s)}</button>)}</div></Modal>}
+// Barra do descanso: contagem, ±15 s, pausar, pular e os tempos de 1 a 3 min. Escolher um tempo ajusta este descanso (desde a série feita)
+// e fica para as próximas séries do exercício. Acabado o descanso, conta o tempo extra.
+function RestBar({rest,left,over}:{rest:Rest;left:number;over:number}){const g=useGym();const [edit,setEdit]=useState(false);const paused=rest.pausedLeft!==null,done=left===0;
+ const pick=(s:number)=>{g.act({type:'restSec',exId:rest.exId,sec:s});g.act({type:'rest',action:'length',sec:s});setEdit(false);};
+ return <div className={'gy-rest'+(done?' over':'')} role="status" aria-live="off">
+  <div className="gy-rest-track" aria-hidden><span style={{width:(rest.total?Math.min(100,left/rest.total*100):0)+'%'}}/></div>
+  <div className="gy-rest-row"><button className="gy-rest-time" onClick={()=>setEdit(true)} aria-label={(done?'Descanso acabou há '+fmtClock(over):'Descanso: '+fmtClock(left))+'. Mudar o tempo'}><Timer size={18}/><strong>{done?'+'+fmtClock(over):fmtClock(left)}</strong><small>{done?'Descanso acabou · bora!':paused?'Pausado':'Descanso de '+restLabel(rest.total)}</small></button>
+   <div className="gy-rest-actions"><button onClick={()=>g.act({type:'rest',action:'add',sec:-15})} aria-label="Menos 15 segundos">−15s</button><button onClick={()=>g.act({type:'rest',action:'add',sec:15})} aria-label="Mais 15 segundos">+15s</button>
+    <button onClick={()=>g.act({type:'rest',action:paused?'resume':'pause'})} aria-label={paused?'Continuar o descanso':'Pausar o descanso'}>{paused?<Play size={17}/>:<Pause size={17}/>}</button><button onClick={()=>g.act({type:'rest',action:'skip'})} aria-label={done?'Fechar o cronômetro':'Pular o descanso'}><SkipForward size={17}/></button></div></div>
+  <RestChips value={rest.total} onPick={pick} label="Tempo deste descanso"/>
+  {edit&&<Modal title="Tempo de descanso" subtitle="Conta a partir de quando a série terminou e vale para as próximas séries deste exercício." eyebrow="DESCANSO" onClose={()=>setEdit(false)}><div className="gy-rest-grid">{[30,45,60,75,90,105,120,150,180,240,300,420,600,900].map(s=><button key={s} className={'button outline'+(rest.total===s?' active':'')} onClick={()=>pick(s)}>{REST_PRESETS.includes(s)?restLabel(s):fmtSecs(s)}</button>)}</div></Modal>}
  </div>;}
 
 function ExerciseCard({ex,index}:{ex:ActiveExercise;index:number}){const g=useGym(),view=g.view!,settings=view.profile.settings,unit=settings.unit,e=exerciseOf(ex.exerciseId,view.profile.custom);
@@ -100,6 +104,7 @@ function ExerciseCard({ex,index}:{ex:ActiveExercise;index:number}){const g=useGy
     </div>;})}
    <button className="gy-add-set" onClick={()=>g.act({type:'addSet',exId:ex.id,setId:uid()})}><Plus size={15}/>Adicionar série</button></div>
   {settings.plates&&e?.equipment==='barbell'&&<PlateLine sets={ex.sets} bar={settings.bar} unit={unit}/>}
+  <div className="gy-ex-rest"><span>Descanso entre séries{linked?' (superset)':''}</span><RestChips value={ex.restSec} onPick={s=>g.act({type:'restSec',exId:ex.id,sec:s})} label={'Descanso entre séries de '+(e?.name||'este exercício')}/>{ex.restSec>0&&!REST_PRESETS.includes(ex.restSec)&&<span className="gy-chip">{fmtSecs(ex.restSec)}</span>}</div>
   {effortFor&&<EffortPicker scale={settings.effort} value={ex.sets.find(s=>s.id===effortFor)?.effort??null} onPick={v=>{const s=ex.sets.find(x=>x.id===effortFor);if(s)set(s,'effort',v);setEffortFor(null);}} onClose={()=>setEffortFor(null)}/>}
   {setMenuFor&&<Modal title="Tipo da série" eyebrow="SÉRIE" onClose={()=>setSetMenuFor(null)}><div className="gy-menu">{SET_KINDS.map(k=><button key={k} className={ex.sets.find(s=>s.id===setMenuFor)?.kind===k?'active':''} onClick={()=>{g.act({type:'setKind',exId:ex.id,setId:setMenuFor,kind:k as SetKind});setSetMenuFor(null);}}>{SET_KIND_LABEL[k]}</button>)}
    <button onClick={()=>{const s=ex.sets.find(x=>x.id===setMenuFor);g.act({type:'addSet',exId:ex.id,setId:uid(),kind:s?.kind});setSetMenuFor(null);}}><Plus size={16}/>Copiar esta série</button>

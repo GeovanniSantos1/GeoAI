@@ -6,7 +6,7 @@ import {searchExercises,BODY_PARTS,EQUIPMENT,MUSCLES,CATEGORIES,LEVELS,type Exer
 import {sessionsOf,bestOf,e1rm,workSets} from '@/lib/gym-stats';
 import {Modal} from './primitives';
 import {useGym} from './gym-context';
-import {MuscleChips,Switch,fmtDate,fmtSecs,plural} from './gym-ui';
+import {MuscleChips,Switch,RestChips,fmtDate,fmtSecs,plural} from './gym-ui';
 import {BodyMap} from './gym-body';
 import {ExerciseVideo} from './gym-video';
 import {levelOfExercises,SLUG_MUSCLE,MUSCLE_SLUGS} from '@/lib/gym-muscles';
@@ -67,7 +67,8 @@ export function GymSettingsTab(){const g=useGym(),s=g.view!.profile.settings;con
  return <section className="panel gy-settings">
   <div className="gy-set-row"><span><strong>Unidade de peso</strong><small>Os pesos ficam guardados em kg; a troca só muda como aparecem.</small></span><select value={s.unit} onChange={e=>set({unit:e.target.value as 'kg'|'lb'})}><option value="kg">Quilos (kg)</option><option value="lb">Libras (lb)</option></select></div>
   <div className="gy-set-row"><span><strong>Esforço por série</strong><small>RIR: reps que ainda sairiam. RPE: de 1 a 10. Desligado esconde a coluna.</small></span><select value={s.effort} onChange={e=>set({effort:e.target.value as 'rir'|'rpe'|'off'})}><option value="rir">RIR</option><option value="rpe">RPE</option><option value="off">Desligado</option></select></div>
-  <div className="gy-set-row"><span><strong>Descanso padrão</strong><small>Para exercícios sem descanso próprio na rotina.</small></span><select value={s.restSec} onChange={e=>set({restSec:Number(e.target.value)})}>{[0,30,45,60,75,90,120,150,180,240,300].map(v=><option key={v} value={v}>{v?fmtSecs(v):'Sem descanso'}</option>)}</select></div>
+  <div className="gy-set-row"><span><strong>Descanso padrão entre séries</strong><small>Começa sozinho quando você marca uma série. Vale para exercícios sem descanso próprio na rotina; no treino dá para trocar por exercício.</small></span><select value={s.restSec} onChange={e=>set({restSec:Number(e.target.value)})}>{[0,30,45,60,75,90,120,150,180,240,300].map(v=><option key={v} value={v}>{v?fmtSecs(v):'Sem descanso'}</option>)}</select></div>
+  <RestChips value={s.restSec} onPick={restSec=>set({restSec})} label="Descanso padrão entre séries"/>
   <Switch label="Som no fim do descanso" checked={s.sound} onChange={sound=>set({sound})}/>
   <Switch label="Vibrar no fim do descanso" hint="No celular, quando o navegador permite." checked={s.vibrate} onChange={vibrate=>set({vibrate})}/>
   <Switch label="Manter a tela acesa durante o treino" checked={s.keepAwake} onChange={keepAwake=>set({keepAwake})}/>

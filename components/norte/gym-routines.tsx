@@ -6,7 +6,7 @@ import {exerciseOf,defaultIncrement} from '@/lib/gym-catalog';
 import {orderedWeekdays,rotationNext} from '@/lib/gym-plan';
 import {Modal,Empty} from './primitives';
 import {useGym} from './gym-context';
-import {Icon,ICON_LABEL,Segmented,Switch,Stepper,ExercisePicker,MuscleChips,musclesWorked,fmtSecs,plural} from './gym-ui';
+import {Icon,ICON_LABEL,Segmented,Switch,Stepper,ExercisePicker,MuscleChips,RestChips,musclesWorked,fmtSecs,plural} from './gym-ui';
 import {StarterPlans} from './gym-today';
 import {BodyMap} from './gym-body';
 import {levelOfExercises} from '@/lib/gym-muscles';
@@ -83,6 +83,7 @@ function ItemEditor({item,onSave,onClose}:{item:RoutineItem;onSave:(i:RoutineIte
    :<><label><span>{range?'Reps de':'Reps'}</span><Stepper label="Repetições" value={x.reps} step={1} min={1} max={100} decimals={0} onChange={v=>setX({...x,reps:v||1,repMax:x.repMax&&x.repMax<(v||1)?v:x.repMax})}/></label>{range&&<label><span>até</span><Stepper label="Topo da faixa" value={x.repMax} step={1} min={x.reps} max={100} decimals={0} onChange={v=>setX({...x,repMax:v})}/></label>}</>}
    <label><span>Descanso (s)</span><Stepper label="Descanso em segundos" value={x.restSec??p.settings.restSec} step={15} min={0} max={900} decimals={0} onChange={v=>setX({...x,restSec:v})}/></label>
    <label><span>Carga inicial ({unit})</span><Stepper label="Carga inicial" value={x.weight} unit={unit} step={unit==='lb'?5:2.5} max={unit==='lb'?2200:1000} onChange={v=>setX({...x,weight:v})}/></label></div>
+  <div className="gy-ex-rest"><span>Descanso entre séries</span><RestChips value={x.restSec??p.settings.restSec} onPick={s=>setX({...x,restSec:s})} label="Descanso entre séries"/></div>
   {!timed&&<Switch label="Faixa de repetições" hint="Ex.: 8 a 12. Usada pela progressão dupla." checked={range} onChange={v=>{setRange(v);setX({...x,repMax:v?Math.max(x.reps+4,x.repMax||0):null});}}/>}
   <label className="field"><span>Progressão deste exercício</span><select value={x.progression||''} onChange={ev=>setX({...x,progression:(ev.target.value||null) as Progression|null})}><option value="">A da rotina</option>{PROGRESSIONS.map(v=><option key={v} value={v}>{PROGRESSION_LABEL[v]}</option>)}</select></label>
   <label className="field"><span>Incremento ({unit})</span><Stepper label="Incremento" value={x.increment??defaultIncrement(e)} unit={unit} step={unit==='lb'?2.5:0.5} max={50} onChange={v=>setX({...x,increment:v})}/><small className="gy-hint">Quanto a carga sobe quando a progressão manda subir.</small></label>
