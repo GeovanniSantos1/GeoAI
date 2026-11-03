@@ -10,7 +10,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <section><h2>2. Dados que tratamos</h2>
 <ul>
 <li><strong>Conta:</strong> nome, e-mail, foto (quando você entra com login social) e um identificador interno. A senha fica com o provedor de login, e nós não temos acesso a ela.</li>
-<li><strong>O que você registra:</strong> tarefas, agenda, hábitos, metas, notas, diário, sono, treinos, medidas e peso, alimentação, água, estudos, cards do quadro Foco e suas preferências, como fuso horário, tema e forma de tratamento.</li>
+<li><strong>O que você registra:</strong> tarefas, agenda, hábitos, metas, notas, diário, sono, treinos (no modo Gym: rotinas, exercícios, séries, cargas, repetições, tempo e esforço de cada série, e os exercícios que você criar), medidas e peso, alimentação, água, estudos, cards do quadro Foco e suas preferências, como fuso horário, tema e forma de tratamento.</li>
 <li><strong>Foto para o avatar:</strong> se você usar “Usar uma foto” em Sua jornada, a foto é reduzida no seu aparelho e enviada à IA só para escolher o tom de pele, a cor e o estilo do cabelo, a barba, os brincos e os óculos do avatar. A foto não é guardada nem usada para reconhecer você: só o visual escolhido fica no seu perfil.</li>
 <li><strong>Finanças:</strong> receitas, despesas, contas, cartões, parcelas e investimentos. A fatura em PDF é lida no seu aparelho. Só o texto extraído vai para a IA, e o arquivo não é enviado nem guardado.</li>
 <li><strong>Dados de saúde, que são dados sensíveis:</strong> exames de laboratório (o arquivo e os valores), protocolo e aplicações de testosterona, ciclo menstrual, anticoncepcional, registros íntimos, preventivos e acompanhamento de vícios e recaídas.</li>
@@ -36,6 +36,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <li><strong>Clerk:</strong> login e conta.</li>
 <li><strong>Vercel:</strong> hospedagem do app, arquivos de exames (em armazenamento privado, separado por usuário) e registros técnicos.</li>
 <li><strong>Neon:</strong> banco de dados.</li>
+<li><strong>YouTube (Google):</strong> vídeos dos exercícios do Gym. A busca é feita pelo nosso servidor e só envia o nome do exercício. O player só carrega quando você toca em “Ver vídeo tutorial”, no modo de privacidade aprimorada (youtube-nocookie.com); a partir daí, valem as regras de privacidade do Google.</li>
 <li><strong>OpenAI:</strong> assistente, leitura de exames e de faturas, avatar a partir de foto e transcrição de áudio, quando necessário. Pedimos que o conteúdo não fique guardado do lado deles sempre que a opção existe.</li>
 <li><strong>Groq:</strong> transcrição de áudio.</li>
 <li><strong>Telegram e WhatsApp:</strong> só se você conectar. O {LEGAL.product} no WhatsApp funciona num número administrado por nós, e as mensagens dessa conversa ficam visíveis para quem administra esse número.</li>
@@ -50,7 +51,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <section><h2>6. Por quanto tempo guardamos</h2>
 <ul>
 <li>Seus registros ficam guardados enquanto sua conta existir.</li>
-<li>Em Configurações, “Apagar meus dados” apaga na hora seus registros, os arquivos dos exames, as agendas conectadas e o quadro do Foco. O registro da assinatura continua, porque serve à cobrança.</li>
+<li>Em Configurações, “Apagar meus dados” apaga na hora seus registros, os arquivos dos exames, as agendas conectadas, o quadro do Foco e o Gym (plano e histórico de treinos). O registro da assinatura continua, porque serve à cobrança.</li>
 <li>Desconectar o Telegram ou o WhatsApp apaga o vínculo e o histórico daquela conversa.</li>
 <li>Para excluir a conta, peça pelos contatos do item 12. Apagamos a conta e os dados em até 15 dias.</li>
 </ul>

@@ -43,6 +43,20 @@
       "when": 1793128633773,
       "tag": "0005_assinatura",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793731233584,
+      "tag": "0006_gym",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793735176251,
+      "tag": "0007_gym_videos",
+      "breakpoints": true
     }
   ]
 }
