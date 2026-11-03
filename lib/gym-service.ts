@@ -1,5 +1,5 @@
 // Casos de uso do Gym sobre um GymStore: ler tudo, comandos do plano, do treino em andamento e do histórico.
-import {GymError,emptyProfile,applyProfile,isId,rec,type GymProfile,type ProfileCommand} from './gym.ts';
+import {GymError,emptyProfile,applyProfile,readProfile,isId,rec,type GymProfile,type ProfileCommand} from './gym.ts';
 import {applyActive,cleanActive,finishWorkout,cleanWorkout,type ActiveWorkout,type ActiveCommand,type Workout} from './gym-active.ts';
 import {isCatalogId} from './gym-catalog.ts';
 import {starterPlan} from './gym-plan.ts';
@@ -51,4 +51,13 @@ export async function editWorkout(d:GymDeps,id:string,input:unknown){const raw=r
  if(raw.rev!==cur.rev)throw new GymError('Esse treino mudou em outro aparelho. Abra de novo para editar.',409);
  const {doc}=await profileOf(d);const w=cleanWorkout({...raw,id},knownIn(doc));w.rev=cur.rev+1;
  try{await d.store.putWorkout(d.userId,w);}catch(e){if(e instanceof GymConflict)throw new GymError('Esse treino mudou em outro aparelho. Abra de novo para editar.',409);throw e;}await mirror(d,{saved:w});return w;}
+// Restaurar o backup em pedaços: o primeiro (replace) apaga o Gym atual e grava o perfil; os seguintes só somam treinos.
+// Um treino com exercício que não existe mais é pulado e contado, sem derrubar o resto.
+export const IMPORT_MAX=400;
+export async function importGym(d:GymDeps,input:unknown){const r=rec(input),list=Array.isArray(r.workouts)?r.workouts:[];if(list.length>IMPORT_MAX)throw new GymError('Até '+IMPORT_MAX+' treinos por pedaço.',413);
+ if(r.replace===true)await d.store.clear(d.userId);
+ if(r.profile!==undefined){const cur=await d.store.profile(d.userId);await d.store.putProfile(d.userId,readProfile(r.profile),cur?.rev??0);}
+ const {doc}=await profileOf(d),known=knownIn(doc);let imported=0,skipped=0;
+ for(const x of list){try{if(await d.store.addWorkout(d.userId,cleanWorkout(x,known)))imported++;}catch(e){if(!(e instanceof GymError))throw e;skipped++;}}
+ return {imported,skipped};}
 export async function removeWorkout(d:GymDeps,id:string){if(!isId(id)||!await d.store.removeWorkout(d.userId,id))throw new GymError('Treino não encontrado.',404);await mirror(d,{removed:id});return {ok:true};}

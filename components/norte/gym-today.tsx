@@ -49,13 +49,15 @@ export function StarterPlans({onDone}:{onDone?:()=>void}){const g=useGym();const
   <strong>{s.label}</strong><small>{s.description}</small><span>{s.routines.join(' · ')}</span><em>{plural(s.days,'dia','dias')} por semana{busy===s.key?' · criando…':''}</em></button>)}</div>;}
 
 // Escolher o que treinar agora: o planejado de hoje, outra rotina ou treino livre.
-export function StartSheet({onClose}:{onClose:()=>void}){const g=useGym(),view=g.view!,p=view.profile,today=todayOf(p,view.workouts,g.today);
- const go=async(r:Routine|null)=>{if(await g.start(r))onClose();};const planned=today.kind==='routine'?today.routine:null;
+export function StartSheet({onClose}:{onClose:()=>void}){const g=useGym(),view=g.view!,p=view.profile,today=todayOf(p,view.workouts,g.today);const [swap,setSwap]=useState(false);
+ // Com 'remarcar', a rotina escolhida fica no lugar da de hoje (a semana não muda); sem, é só um treino a mais.
+ const go=async(r:Routine|null)=>{if(swap&&r&&!await g.profile({type:'move',date:g.today,routineId:r.id}))return;if(await g.start(r))onClose();};const planned=today.kind==='routine'?today.routine:null;
  return <Modal title="Começar treino" subtitle={planned?'Hoje está planejado '+planned.name+'.':'Nada planejado para hoje.'} eyebrow="TREINAR" onClose={onClose}>
   <div className="gy-start-list">{planned&&<button className="gy-start primary" onClick={()=>go(planned)}><Icon name={planned.icon}/><span><strong>{planned.name}</strong><small>Planejado para hoje · {plural(planned.items.length,'exercício','exercícios')}</small></span><Play size={17}/></button>}
    {p.routines.filter(r=>r.id!==planned?.id).map(r=><button key={r.id} className="gy-start" onClick={()=>go(r)} disabled={!r.items.length}><Icon name={r.icon}/><span><strong>{r.name}</strong><small>{plural(r.items.length,'exercício','exercícios')}</small></span><Play size={17}/></button>)}
    <button className="gy-start" onClick={()=>go(null)}><Sparkles size={18}/><span><strong>Treino livre</strong><small>Escolha os exercícios na hora</small></span><Play size={17}/></button></div>
-  <p className="quiet-copy">Treinar outra rotina não muda a sua semana. Para remarcar o plano, use Plano › Agenda.</p></Modal>;}
+  {p.routines.length>1&&<label className="gy-menu-check"><input type="checkbox" checked={swap} onChange={e=>setSwap(e.target.checked)}/><span><strong>Remarcar: a escolhida substitui a de hoje</strong><small>Só hoje muda. A semana planejada continua igual.</small></span></label>}
+  <p className="quiet-copy">Sem remarcar, treinar outra rotina não muda a sua semana.</p></Modal>;}
 
 function BodyWeightCard({onLog}:{onLog:()=>void}){const app=useApp(),g=useGym(),unit=g.view!.profile.settings.unit;
  const list=useMemo(()=>app.state.measurements.filter(m=>typeof m.weight==='number'&&m.weight>0).sort((a,b)=>String(a.date).localeCompare(String(b.date))),[app.state.measurements]);

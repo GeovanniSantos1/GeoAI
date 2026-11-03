@@ -17,7 +17,7 @@ export default function TermsPage(){return <LegalPage title="Termos de uso">
 
 <section><h2>4. Saúde, finanças e IA</h2>
 <p>O {LEGAL.product} não é um serviço médico, psicológico, nutricional nem de consultoria financeira ou de investimentos. Ele não substitui um profissional. Isso vale para:</p>
-<ul><li>a leitura de exames e o parecer da IA;</li><li>os lembretes de protocolo e de anticoncepcional;</li><li>as previsões do ciclo, que são estimativas e não servem como método contraceptivo;</li><li>as metas de água e os relatórios financeiros.</li></ul>
+<ul><li>a leitura de exames e o parecer da IA;</li><li>os lembretes de protocolo e de anticoncepcional;</li><li>as previsões do ciclo, que são estimativas e não servem como método contraceptivo;</li><li>as metas de água e os relatórios financeiros;</li><li>o modo Gym: as cargas sugeridas pela progressão, os passos dos exercícios e as estatísticas de treino. Treine dentro dos seus limites e procure um profissional de educação física, principalmente se tiver alguma lesão ou condição de saúde.</li></ul>
 <p>Decisões sobre saúde, medicamentos e doses, ou sobre investimentos, devem ser tomadas com um profissional habilitado.</p>
 <p>As respostas da IA podem conter erros: confira antes de confirmar. O assistente só grava algo depois da sua confirmação.</p></section>
 
@@ -35,7 +35,8 @@ export default function TermsPage(){return <LegalPage title="Termos de uso">
 <p>O que você registra no {LEGAL.product} é seu. Você nos autoriza a guardar e processar esse conteúdo só para prestar o serviço, como explica a <Link href="/privacidade">Política de privacidade</Link>. Em Configurações você pode baixar um backup e apagar seus dados quando quiser.</p></section>
 
 <section><h2>8. Propriedade intelectual</h2>
-<p>A marca, o código e o visual do {LEGAL.product} nos pertencem. As músicas do app são de domínio público ou de licença livre, com os créditos na tela.</p></section>
+<p>A marca, o código e o visual do {LEGAL.product} nos pertencem. As músicas do app são de domínio público ou de licença livre, com os créditos na tela.</p>
+<p>No modo Gym, a lista de exercícios parte da free-exercise-db, de domínio público (Unlicense); os nomes e passos em português foram escritos para o {LEGAL.product}. O mapa de músculos usa os contornos do MuscleMap, de Melih Colpan, sob a licença MIT: Copyright (c) 2026 Melih Colpan. A permissão é concedida, gratuitamente, a qualquer pessoa que obtenha uma cópia do software, para usá-lo sem restrição, desde que este aviso de copyright e de permissão acompanhe as cópias; o software é fornecido “no estado em que se encontra”, sem garantia de nenhum tipo.</p></section>
 
 <section><h2>9. Disponibilidade e responsabilidade</h2>
 <p>Trabalhamos para manter o {LEGAL.product} no ar e seguro, mas ele pode ficar fora do ar por manutenção, por falhas de fornecedores ou por causas fora do nosso controle.</p>

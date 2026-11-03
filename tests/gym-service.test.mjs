@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {memoryGymStore,GymConflict} from '../lib/gym-store.ts';
-import {loadGym,profileCommand,activeCommand,addWorkout,editWorkout,removeWorkout,workoutPage,instant,PAGE} from '../lib/gym-service.ts';
+import {loadGym,profileCommand,activeCommand,addWorkout,editWorkout,removeWorkout,workoutPage,instant,PAGE,importGym} from '../lib/gym-service.ts';
 import {buildActive} from '../lib/gym-plan.ts';
 
 const TODAY='2026-11-03';
@@ -65,3 +65,12 @@ test('cada treino vira uma sessão do workspace; falha no espelho não desfaz o 
  const w=(await workoutPage(d)).workouts[0];await editWorkout(d,'m1',{...w,name:'Outro'});await removeWorkout(d,'m1');assert.deepEqual(seen,['+m1','+m1','-m1']);
  const broken={...deps(store),sync:async()=>{throw new Error('banco fora');}};const orig=console.error;console.error=()=>{};
  try{const x=await addWorkout(broken,{id:'m2',date:'2026-10-30',exercises:[{exerciseId:BENCH,sets:[{id:'a',weight:70,reps:8}]}]});assert.equal(x.id,'m2');}finally{console.error=orig;}});
+
+test('restaurar backup: o primeiro pedaço substitui o Gym, os outros somam; treino com exercício desconhecido é pulado',async()=>{
+ const store=memoryGymStore(),d=deps(store);await profileCommand(d,{type:'starter',key:'ppl',seed:'old'},TODAY);await addWorkout(d,{id:'velho',date:'2026-10-01',exercises:[{exerciseId:BENCH,sets:[{id:'a',weight:60,reps:5}]}]});
+ const {profile}=await profileCommand(deps(memoryGymStore()),{type:'starter',key:'fiveByFive',seed:'new'},TODAY);
+ const ok={id:'b1',date:'2026-10-20',exercises:[{exerciseId:BENCH,sets:[{id:'s',weight:70,reps:5}]}]},bad={id:'b2',date:'2026-10-21',exercises:[{exerciseId:'Sumiu',sets:[{id:'s',weight:70,reps:5}]}]};
+ assert.deepEqual(await importGym(d,{replace:true,profile,workouts:[ok,bad]}),{imported:1,skipped:1});
+ assert.deepEqual(await importGym(d,{workouts:[{...ok,id:'b3',date:'2026-10-22'},ok]}),{imported:1,skipped:0},'repetir um treino não duplica');
+ const v=await loadGym(d);assert.equal(v.profile.routines[0].name,'5×5 A');assert.deepEqual(v.workouts.map(w=>w.id),['b3','b1']);
+ await assert.rejects(importGym(d,{workouts:Array.from({length:401},()=>ok)}),/pedaço/);});
