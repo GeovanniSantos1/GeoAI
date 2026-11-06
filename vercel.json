@@ -5,6 +5,7 @@
   "crons": [
     { "path": "/api/cron/trt-reminders", "schedule": "0 11 * * *" },
     { "path": "/api/cron/calendar-sync", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/boas-vindas", "schedule": "0 13 * * *" },
     { "path": "/api/cron/female-reminders", "schedule": "0 0 * * *" },
     { "path": "/api/cron/female-reminders", "schedule": "0 1 * * *" },
     { "path": "/api/cron/female-reminders", "schedule": "0 2 * * *" },

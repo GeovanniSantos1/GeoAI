@@ -26,6 +26,7 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <li><strong>Dados de saúde:</strong> a base é o seu consentimento (art. 11, I), que você dá ao cadastrar esses dados nos menus de saúde. Para retirá-lo, apague os registros ou peça a exclusão.</li>
 <li><strong>Segurança e prevenção de abusos:</strong> proteger contas, aplicar cotas de uso e investigar falhas. A base é o legítimo interesse (art. 7º, IX).</li>
 <li><strong>Cobrança e obrigações fiscais:</strong> a base é a execução do contrato e o cumprimento de obrigação legal (art. 7º, II e V).</li>
+<li><strong>E-mails da conta:</strong> um e-mail de boas-vindas com o guia para começar e outro quando a assinatura é confirmada. Não mandamos e-mails de propaganda. A base é a execução do contrato (art. 7º, V).</li>
 <li><strong>Atendimento:</strong> responder ao que você nos enviar pelos contatos.</li>
 </ul>
 <p>Não vendemos seus dados, não os usamos para publicidade e não os usamos para treinar modelos de IA.</p></section>
@@ -42,11 +43,12 @@ export default function PrivacyPage(){return <LegalPage title="Política de priv
 <li><strong>Telegram e WhatsApp:</strong> só se você conectar. O {LEGAL.product} no WhatsApp funciona num número administrado por nós, e as mensagens dessa conversa ficam visíveis para quem administra esse número.</li>
 <li><strong>Google e Microsoft:</strong> só se você conectar sua agenda.</li>
 <li><strong>AbacatePay:</strong> processamento de pagamentos.</li>
+<li><strong>Resend:</strong> envio dos e-mails da conta, com o seu nome e e-mail.</li>
 </ul>
 <p>Também podemos compartilhar dados com autoridades, quando a lei ou uma ordem judicial exigir.</p></section>
 
 <section><h2>5. Transferência internacional</h2>
-<p>Clerk, Vercel, Neon, OpenAI e Groq guardam ou processam dados em servidores nos Estados Unidos. A transferência é necessária para executar o contrato com você (art. 33, IX, da LGPD) e é feita com fornecedores que adotam cláusulas contratuais de proteção de dados.</p></section>
+<p>Clerk, Vercel, Neon, OpenAI, Groq e Resend guardam ou processam dados em servidores nos Estados Unidos. A transferência é necessária para executar o contrato com você (art. 33, IX, da LGPD) e é feita com fornecedores que adotam cláusulas contratuais de proteção de dados.</p></section>
 
 <section><h2>6. Por quanto tempo guardamos</h2>
 <ul>
