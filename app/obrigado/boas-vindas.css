@@ -1,0 +1,51 @@
+/* Página /obrigado (boas-vindas depois da compra). Usa os tokens do app (globals.css), então o tema escuro vem junto. */
+.welcome-ticker{overflow:hidden;background:var(--green);color:var(--surface);padding:11px 0}
+.welcome-ticker>div{display:flex;width:max-content;animation:welcome-roll 110s linear infinite}
+.welcome-ticker p{display:flex;gap:30px;padding-right:30px;margin:0}
+.welcome-ticker span{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:11px;font-weight:650;letter-spacing:.12em;text-transform:uppercase}
+.welcome-ticker svg{opacity:.7}
+@keyframes welcome-roll{to{transform:translateX(-50%)}}
+
+.welcome-page{flex:1;width:100%;max-width:620px;margin:0 auto;padding:34px 16px 56px;display:grid;gap:28px;align-content:start}
+.welcome-page em{font-family:Georgia,serif;font-style:italic;font-weight:400;color:var(--gold);letter-spacing:-.01em}
+.welcome-hero{display:grid;justify-items:center;gap:12px;text-align:center}
+.welcome-hero>.legal-mark{margin-bottom:4px}
+.welcome-hero h1{font-size:42px;font-weight:500;letter-spacing:-.045em;line-height:1.08}
+.welcome-lead{font-size:17px;font-weight:550;line-height:1.5;max-width:460px}
+.welcome-check{display:flex;gap:10px;align-items:flex-start;text-align:left;max-width:470px;font-size:13.5px;line-height:1.55;color:var(--muted);margin-top:4px}
+.welcome-check>span{flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--green);background:var(--green-soft);color:var(--green);display:inline-flex;align-items:center;justify-content:center}
+
+.welcome-video{display:grid;justify-items:center;gap:14px}
+.welcome-frame{position:relative;width:min(100%,340px);aspect-ratio:9/16;border-radius:26px;overflow:hidden;background:#060a08;border:1px solid var(--border);box-shadow:0 18px 50px #0b1f1633}
+.welcome-frame>video{display:block;width:100%;height:100%;object-fit:cover}
+/* Entre o conteúdo e a legenda do vídeo (a legenda fica livre: no mudo, é ela que a pessoa lê). */
+.welcome-sound{position:absolute;left:50%;top:62%;transform:translate(-50%,-50%);display:grid;justify-items:center;gap:3px;padding:12px 22px;border-radius:16px;background:color-mix(in srgb,var(--green) 90%,transparent);color:var(--surface);box-shadow:0 10px 30px #0004;white-space:nowrap;transition:transform .18s}
+.welcome-sound:hover{transform:translate(-50%,-50%) scale(1.04)}
+.welcome-sound>span{font-size:12px;opacity:.85}
+.welcome-sound>strong{font-size:15px;font-weight:650}
+.welcome-chapters{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.welcome-chapters>button{padding:7px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;transition:background .18s,color .18s,border-color .18s}
+.welcome-chapters>button:hover,.welcome-chapters>button.active{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+
+.welcome-card{background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:28px 22px;box-shadow:0 10px 34px #26382f0d}
+.welcome-card>h2{text-align:center;font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:20px}
+.welcome-card>h2>em{font-size:22px;text-transform:none;letter-spacing:0;margin-left:2px}
+.welcome-steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.welcome-steps>li{display:flex;gap:14px;align-items:flex-start;padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--canvas)}
+.welcome-num{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--green);color:var(--surface);display:inline-flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:18px}
+.welcome-steps>li>div>strong{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:650;line-height:1.35;margin:6px 0 5px}
+.welcome-steps>li>div>strong>svg{color:var(--gold);flex-shrink:0}
+.welcome-steps p{font-size:13.5px;line-height:1.6;color:var(--muted)}
+.welcome-steps p strong{color:var(--text);font-weight:600}
+.welcome-cta{width:100%;min-height:52px;margin-top:20px;border-radius:14px;font-size:14px;letter-spacing:.06em;text-transform:uppercase}
+.welcome-help ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.welcome-help li{position:relative;padding-left:20px;font-size:13.5px;line-height:1.6;color:var(--muted)}
+.welcome-help li::before{content:'';position:absolute;left:3px;top:.62em;width:7px;height:7px;border-radius:50%;background:var(--gold)}
+.welcome-actions{display:grid;gap:10px;margin-top:22px}
+.welcome-actions>.button{width:100%;min-height:50px;border-radius:14px}
+.welcome-ghost{border:1px solid var(--border);background:var(--canvas);color:var(--text)}
+.welcome-ghost:hover{border-color:var(--green);color:var(--green)}
+
+@media(min-width:700px){.welcome-page{padding-top:48px}.welcome-hero h1{font-size:52px}.welcome-actions{grid-template-columns:1fr 1fr}.welcome-card{padding:32px 30px}}
+@media(max-width:380px){.welcome-hero h1{font-size:34px}.welcome-card{padding:24px 16px}}
+@media(prefers-reduced-motion:reduce){.welcome-ticker>div{animation:none}.welcome-sound{transition:none}}

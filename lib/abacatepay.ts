@@ -26,7 +26,7 @@ export function readEvent(raw:unknown):BillingEvent|null{const r=obj(raw),event=
  const subscriptionId=str(s.id),checkoutId=str(c.id),key=checkoutId||subscriptionId,id=str(r.id)??(key?event+':'+key:null);if(!id)return null;
  return {id,event,devMode:r.devMode===true,subscriptionId,customerId:str(obj(d.customer).id)??str(c.customerId),checkoutId,frequency:str(s.frequency),productId:str(obj(items[0]).id),userId:meta};}
 
-export function subscriptionBody(plan:Plan,products:Products,userId:string,origin:string){return {items:[{id:products[plan],quantity:1}],methods:['CARD'],metadata:{userId,plan},returnUrl:origin+'/',completionUrl:origin+'/?assinatura=ok',retryPolicy:{maxRetry:3,retryEvery:1}};}
+export function subscriptionBody(plan:Plan,products:Products,userId:string,origin:string){return {items:[{id:products[plan],quantity:1}],methods:['CARD'],metadata:{userId,plan},returnUrl:origin+'/',completionUrl:origin+'/obrigado?assinatura=ok',retryPolicy:{maxRetry:3,retryEvery:1}};}
 
 export type AbacateProduct={id:string;name:string;price:number;cycle:string|null};
 export function abacateApi(apiKey:string,fetcher:typeof fetch=fetch){

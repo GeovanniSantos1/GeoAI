@@ -27,8 +27,8 @@ Sucesso:
    - o vídeo, que começa com `muted`, `autoPlay`, `playsInline` e `preload="metadata"`, usa uma imagem de capa e tem um botão "Toque para ouvir" que tira o mudo e volta ao começo;
    - os capítulos, que mudam o `currentTime`;
    - o botão "Entrar no app", que repassa `?assinatura=ok` só quando a página foi aberta com ele.
-4. CSS novo em `app/globals.css`, com prefixo `.welcome-`. Ele usa os tokens que já existem (`--canvas`, `--surface`, `--green`, `--gold`, `--border`…), e o tema escuro vem de graça por `:root[data-theme=dark]`. A faixa correndo para quando há `prefers-reduced-motion`.
-5. Arquivos em `public/boas-vindas/`: `tutorial.mp4` (720×1280, H.264 + AAC, por volta de 5 MB, com `+faststart`) e `capa.jpg`.
+4. CSS em `app/obrigado/boas-vindas.css` (importado pela página; o `globals.css` já passa de mil linhas), com prefixo `.welcome-`. Ele usa os tokens que já existem (`--canvas`, `--surface`, `--green`, `--gold`, `--border`…), e o tema escuro vem de graça por `:root[data-theme=dark]`. A faixa correndo para quando há `prefers-reduced-motion`.
+5. Arquivos em `public/boas-vindas/`: `tutorial.mp4` (720×1280, H.264 + AAC, 5,3 MB com CRF 32, com `+faststart`) e `capa.jpg`.
 
 ## Conteúdo da página (pt-BR)
 

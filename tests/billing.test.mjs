@@ -109,8 +109,8 @@ test('abacateConfig liga a cobrança só com as 4 variáveis',()=>{
  assert.equal(abacateConfig({...env,ABACATEPAY_API_KEY:''}),null);
 });
 
-test('subscriptionBody: um produto, só cartão, volta para o app e até 3 novas tentativas',()=>{
- assert.deepEqual(subscriptionBody('annual',PRODUCTS,'user_1','https://geo.example'),{items:[{id:'prod_anual',quantity:1}],methods:['CARD'],metadata:{userId:'user_1',plan:'annual'},returnUrl:'https://geo.example/',completionUrl:'https://geo.example/?assinatura=ok',retryPolicy:{maxRetry:3,retryEvery:1}});
+test('subscriptionBody: um produto, só cartão, volta para a página de boas-vindas e até 3 novas tentativas',()=>{
+ assert.deepEqual(subscriptionBody('annual',PRODUCTS,'user_1','https://geo.example'),{items:[{id:'prod_anual',quantity:1}],methods:['CARD'],metadata:{userId:'user_1',plan:'annual'},returnUrl:'https://geo.example/',completionUrl:'https://geo.example/obrigado?assinatura=ok',retryPolicy:{maxRetry:3,retryEvery:1}});
 });
 
 test('abacateApi envia a chave e lê o envelope {data,success}; erro vira exceção com a mensagem da API',async()=>{
