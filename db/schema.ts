@@ -22,6 +22,8 @@ export const billingAccounts=pgTable("billing_accounts",{userId:text("user_id").
 export const billingCheckouts=pgTable("billing_checkouts",{id:text("id").primaryKey(),userId:text("user_id").notNull(),plan:text("plan").notNull(),createdAt:text("created_at").notNull()});
 // Eventos de webhook já processados: as retentativas da AbacatePay reenviam o mesmo id.
 export const billingEvents=pgTable("billing_events",{id:text("id").primaryKey(),event:text("event").notNull(),receivedAt:text("received_at").notNull()});
+// E-mails da conta (lib/email.ts): um envio por pessoa e tipo ("boas-vindas", "compra:<subscriptionId>"); a linha é reservada antes do envio.
+export const emailSends=pgTable("email_sends",{userId:text("user_id").notNull(),kind:text("kind").notNull(),sentAt:text("sent_at").notNull()},t=>[primaryKey({columns:[t.userId,t.kind]})]);
 // Gym: o plano (rotinas, agenda, ajustes) é um documento por usuário; o treino em andamento, outro; cada treino finalizado, uma linha.
 export const gymProfiles=pgTable("gym_profiles",{userId:text("user_id").primaryKey(),data:text("data").notNull(),rev:integer("rev").notNull().default(1),updatedAt:text("updated_at").notNull()});
 export const gymActive=pgTable("gym_active",{userId:text("user_id").primaryKey(),data:text("data").notNull(),rev:integer("rev").notNull().default(1),updatedAt:text("updated_at").notNull()});

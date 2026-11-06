@@ -57,6 +57,13 @@
       "when": 1793735176251,
       "tag": "0007_gym_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793998182239,
+      "tag": "0008_emails",
+      "breakpoints": true
     }
   ]
 }
