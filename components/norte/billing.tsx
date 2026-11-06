@@ -37,7 +37,7 @@ export function PlansPicker(){
 export function TrialBar({billing,zone,onPlans}:{billing:BillingView;zone:string;onPlans:()=>void}){if(billing.status!=='trial')return null;
  return <div className="trial-bar" role="status"><span>Teste grátis até <strong>{when(billing.until,zone,true)}</strong></span><button className="text-button" onClick={onPlans}>Assinar<ArrowUpRight size={14}/></button></div>;}
 
-// Volta do checkout (/?assinatura=ok): o webhook pode levar alguns segundos, então o app consulta de novo até o acesso aparecer.
+// Volta do checkout (a AbacatePay leva a /obrigado, e "Entrar no app" abre /?assinatura=ok): o webhook pode levar alguns segundos, então o app consulta de novo até o acesso aparecer.
 export function CheckoutReturn({billing,reload,toast}:{billing:BillingView;reload:()=>unknown;toast:Toast}){
  const [active]=useState(()=>new URLSearchParams(window.location.search).get('assinatura')==='ok'),[done,setDone]=useState(false),handled=useRef(false);
 // Quem assina de novo com dias pagos sobrando já está 'active', mas cancelado: só conta como pago quando a assinatura nova chega.
