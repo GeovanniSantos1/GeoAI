@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {emailConfig,resendBody,sendEmail,sendOnce} from '../lib/email.ts';
+import {emailConfig,permitido,resendBody,sendEmail,sendOnce} from '../lib/email.ts';
 import {welcomeEmail,purchaseEmail,primeiroNome} from '../lib/email-templates.ts';
 import {PASSOS,abertura,partes} from '../lib/boas-vindas.ts';
 import {LEGAL} from '../lib/legal.ts';
@@ -70,12 +70,21 @@ test('assinatura confirmada: plano e data de renovação',()=>{
 test('configuração: sem chave não envia; remetente padrão contato@geochat.ia.br e respostas no e-mail do rodapé',()=>{
  assert.equal(emailConfig({}),null);
  assert.equal(emailConfig({RESEND_API_KEY:'  '}),null);
- assert.deepEqual(emailConfig({RESEND_API_KEY:'re_x'}),{apiKey:'re_x',from:'GeoAI <contato@geochat.ia.br>',replyTo:LEGAL.email});
+ assert.deepEqual(emailConfig({RESEND_API_KEY:'re_x'}),{apiKey:'re_x',from:'GeoAI <contato@geochat.ia.br>',replyTo:LEGAL.email,somente:null});
  assert.equal(emailConfig({RESEND_API_KEY:'re_x',EMAIL_FROM:'GeoAI <ola@geochat.ia.br>'}).from,'GeoAI <ola@geochat.ia.br>');
 });
 
+test('trava EMAIL_SOMENTE: enquanto existir, só esses endereços recebem',()=>{
+ const livre=emailConfig({RESEND_API_KEY:'re_x'}),trava=emailConfig({RESEND_API_KEY:'re_x',EMAIL_SOMENTE:' Dono@Exemplo.com , outra@exemplo.com '});
+ assert.deepEqual(trava.somente,['dono@exemplo.com','outra@exemplo.com']);
+ assert.equal(permitido(livre,'qualquer@exemplo.com'),true);
+ assert.equal(permitido(trava,'DONO@exemplo.com'),true);
+ assert.equal(permitido(trava,'cliente@exemplo.com'),false);
+ assert.equal(emailConfig({RESEND_API_KEY:'re_x',EMAIL_SOMENTE:' , '}).somente,null,'vazia = sem trava');
+});
+
 test('envio pelo Resend: endereço, chave, idempotência e corpo',async()=>{
- const cfg={apiKey:'re_teste',from:'GeoAI <contato@geochat.ia.br>',replyTo:LEGAL.email},m={subject:'Oi',html:'<p>Oi</p>',text:'Oi'};
+ const cfg={apiKey:'re_teste',from:'GeoAI <contato@geochat.ia.br>',replyTo:LEGAL.email,somente:null},m={subject:'Oi',html:'<p>Oi</p>',text:'Oi'};
  assert.deepEqual(resendBody(cfg,'ana@exemplo.com',m),{from:cfg.from,to:['ana@exemplo.com'],reply_to:LEGAL.email,subject:'Oi',html:'<p>Oi</p>',text:'Oi'});
  let chamada;const ok=async(url,init)=>{chamada={url,init};return new Response(JSON.stringify({id:'email_1'}),{status:200});};
  assert.equal(await sendEmail(cfg,'ana@exemplo.com',m,'boas-vindas/user_1',ok),'email_1');

@@ -25,7 +25,8 @@ Sucesso:
 
 - **API do Resend sem SDK:** `lib/email.ts` faz um `POST https://api.resend.com/emails` com `Authorization: Bearer RESEND_API_KEY` e o cabeçalho `Idempotency-Key` (`<tipo>/<userId>`, que o Resend guarda por 24 h).
 - **Corpo da chamada:** `from`, `to`, `reply_to`, `subject`, `html` e `text`.
-- **Configuração:** `emailConfig(env)` devolve `{apiKey, from, replyTo}` ou `null`. `EMAIL_FROM` é opcional; o padrão é `GeoAI <contato@geochat.ia.br>`.
+- **Configuração:** `emailConfig(env)` devolve `{apiKey, from, replyTo, somente}` ou `null`. `EMAIL_FROM` é opcional; o padrão é `GeoAI <contato@geochat.ia.br>`.
+- **Trava do teste no ar, `EMAIL_SOMENTE`:** é uma lista de endereços separados por vírgula. Enquanto existir, só eles recebem. Quem fica de fora não é marcado como enviado, então recebe quando a trava sair. É assim que o primeiro envio real é testado com o e-mail do proprietário, porque a Vercel não deixa baixar a chave secreta de produção.
 
 ## Uma vez só
 
